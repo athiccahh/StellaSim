@@ -34,9 +34,7 @@ StellaSim includes a homepage, a main space simulation, live star map, telescope
 
 StellaSim is designed as a full astronomy learning and exploration platform. It combines science, coding, simulation, and real astronomical data into one project.
 
-The app is not just a single simulation. It is a collection of astronomy tools that work together as a space science dashboard. Each page focuses on a different part of astronomy, such as orbital motion, telescope viewing, space weather, exoplanets, moon features, light pollution, stellar evolution, spectra, and astronomy news.
-
-The project uses a space-themed interface with dark backgrounds, NASA-inspired blue colors, glowing panels, rounded UI cards, and astronomy-style layouts.
+The app is a collection of astronomy tools that work together as a space science dashboard. Each page focuses on a different part of astronomy, such as orbital motion, telescope viewing, space weather, exoplanets, moon features, light pollution, stellar evolution, spectra, and astronomy news.
 
 ---
 
@@ -62,7 +60,7 @@ StellaSim currently includes:
 - Object database
 - Astronomy lessons
 
-Some pages use real data from external astronomy APIs. Other pages are interactive educational simulations designed to explain space concepts visually.
+Some pages use real data from external astronomy APIs. 
 
 ---
 
