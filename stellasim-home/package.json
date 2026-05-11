@@ -1,0 +1,17 @@
+{
+  "name": "stellasim-home",
+  "version": "1.0.0",
+  "description": "StellaSim astronomy AI home page and live astronomy tools",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "openai": "^4.104.0"
+  }
+}

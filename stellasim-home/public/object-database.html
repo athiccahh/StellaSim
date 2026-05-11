@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Object Database</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-2: #2c7eff;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --sidebar-width: 240px;
+      --radius-lg: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    button { user-select: none; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 {
+      width: 360px;
+      height: 360px;
+      top: 6%;
+      left: 10%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.2), transparent 72%);
+    }
+
+    .glow-2 {
+      width: 430px;
+      height: 430px;
+      right: 7%;
+      top: 14%;
+      background: radial-gradient(circle, rgba(44, 126, 255, 0.17), transparent 72%);
+      animation-delay: -6s;
+    }
+
+    .glow-3 {
+      width: 380px;
+      height: 380px;
+      left: 48%;
+      bottom: 4%;
+      background: radial-gradient(circle, rgba(44, 126, 255, 0.12), transparent 74%);
+      animation-delay: -11s;
+    }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.96), rgba(244, 248, 255, 0.93) 36%, rgba(44, 126, 255, 0.28) 62%, rgba(11, 61, 145, 0) 76%);
+      box-shadow:
+        0 0 40px rgba(44, 126, 255, 0.18),
+        0 0 95px rgba(11, 61, 145, 0.11);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #02040a;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .page-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .main-inner {
+      width: min(1240px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-lockup img {
+      width: 54px;
+      height: 54px;
+      display: block;
+      object-fit: contain;
+      filter:
+        drop-shadow(0 0 8px rgba(255, 255, 255, 0.12))
+        drop-shadow(0 0 16px rgba(11, 61, 145, 0.2));
+      animation: brandPulse 4.6s ease-in-out infinite;
+    }
+
+    .brand-lockup h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-lockup p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .home-link {
+      border: 1px solid rgba(44, 126, 255, 0.22);
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 999px;
+      padding: 11px 15px;
+      color: var(--field-text);
+      transition: 180ms ease;
+      white-space: nowrap;
+    }
+
+    .panel,
+    .hero-card,
+    .result-card,
+    .browse-card,
+    .tool-card {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(11, 61, 145, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel::after,
+    .hero-card::after,
+    .result-card::after,
+    .browse-card::after,
+    .tool-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0%, transparent 32%, rgba(255, 255, 255, 0.05) 40%, transparent 49%, transparent 100%);
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 28px;
+      display: grid;
+      gap: 22px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 70ms;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 560px;
+      height: 560px;
+      right: -150px;
+      top: -190px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(11, 61, 145, 0.14), transparent 65%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.04), transparent 22%);
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .hero-content,
+    .search-wrap,
+    .result-layout,
+    .browse-content,
+    .panel-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      color: var(--accent-2);
+      font-size: 0.82rem;
+    }
+
+    .hero-title {
+      margin: 14px 0 0;
+      font-size: clamp(2.2rem, 5vw, 4.2rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      font-weight: 800;
+    }
+
+    .hero-title .glow {
+      color: #2c7eff;
+      text-shadow:
+        0 0 24px rgba(11, 61, 145, 0.28),
+        0 0 44px rgba(11, 61, 145, 0.16);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 82ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .badge-row,
+    .chip-row,
+    .action-row,
+    .recent-row,
+    .tool-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .badge-row { margin-top: 18px; }
+
+    .search-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-input {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background:
+        linear-gradient(180deg, rgba(6, 26, 64, 0.94), rgba(3, 12, 30, 0.94));
+      color: var(--field-text);
+      border-radius: 16px;
+      padding: 16px 17px;
+      outline: none;
+      transition: 160ms ease;
+    }
+
+    .search-input:focus {
+      border-color: rgba(11, 61, 145, 0.62);
+      box-shadow:
+        0 0 0 3px rgba(11, 61, 145, 0.08),
+        0 0 22px rgba(11, 61, 145, 0.1);
+    }
+
+    .search-input::placeholder { color: rgba(241, 247, 255, 0.72); }
+
+    .btn,
+    .chip,
+    .tool-link {
+      appearance: none;
+      border: 1px solid rgba(44, 126, 255, 0.22);
+      border-radius: 14px;
+      padding: 11px 16px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.04);
+      transition: 180ms ease;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      border-color: rgba(44, 126, 255, 0.76);
+      color: white;
+    }
+
+    .chip {
+      border-radius: 999px;
+      background: rgba(44, 126, 255, 0.06);
+      animation: chipFloatIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .chip:nth-child(1) { animation-delay: 240ms; }
+    .chip:nth-child(2) { animation-delay: 290ms; }
+    .chip:nth-child(3) { animation-delay: 340ms; }
+    .chip:nth-child(4) { animation-delay: 390ms; }
+    .chip:nth-child(5) { animation-delay: 440ms; }
+    .chip:nth-child(6) { animation-delay: 490ms; }
+
+    .btn:hover,
+    .chip:hover,
+    .home-link:hover,
+    .browse-item:hover,
+    .tool-link:hover {
+      transform: translateY(-2px);
+      border-color: rgba(44, 126, 255, 0.55);
+      background: rgba(11, 61, 145, 0.12);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.28),
+        0 0 18px rgba(11, 61, 145, 0.18);
+    }
+
+    .section-label {
+      color: var(--accent-2);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+      margin: 16px 0 10px;
+    }
+
+    .helper-text,
+    .status,
+    .muted {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
+    .result-card {
+      min-height: 360px;
+      padding: 24px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 170ms;
+    }
+
+    .result-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 20px;
+    }
+
+    .article h2 {
+      margin: 0;
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      letter-spacing: -0.03em;
+    }
+
+    .article .summary {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 12px 0 18px;
+      font-size: 1rem;
+    }
+
+    .article-section {
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(44, 126, 255, 0.13);
+    }
+
+    .article-section h3 {
+      margin: 0 0 8px;
+      color: var(--accent-2);
+      font-size: 1.02rem;
+    }
+
+    .article-section p {
+      margin: 0;
+      color: var(--field-text);
+      line-height: 1.78;
+    }
+
+    .side-panel {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .fact-box,
+    .tool-card {
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02)),
+        rgba(7, 11, 19, 0.34);
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fact-box h3,
+    .tool-card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .fact-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .fact-list li {
+      display: grid;
+      gap: 2px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.1);
+    }
+
+    .fact-list li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .fact-key {
+      color: var(--accent-2);
+      font-size: 0.78rem;
+      letter-spacing: 0.035em;
+      font-weight: 700;
+    }
+
+    .fact-value {
+      color: var(--field-text);
+      line-height: 1.45;
+    }
+
+    .empty-state {
+      min-height: 310px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.65;
+      padding: 30px;
+    }
+
+    .empty-state h2 {
+      margin: 0 0 10px;
+      color: var(--field-text);
+      font-size: 1.6rem;
+    }
+
+    .browse-card {
+      padding: 22px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 250ms;
+    }
+
+    .browse-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .browse-header h2 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .browse-header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .browse-groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .browse-group {
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.025);
+      padding: 16px;
+    }
+
+    .browse-group h3 {
+      margin: 0 0 12px;
+      color: var(--accent-2);
+      font-size: 0.96rem;
+    }
+
+    .browse-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .browse-item {
+      text-align: left;
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--field-text);
+      border-radius: 14px;
+      padding: 12px;
+      cursor: pointer;
+      transition: 180ms ease;
+    }
+
+    .browse-item.active {
+      border-color: rgba(11, 61, 145, 0.65);
+      background: rgba(11, 61, 145, 0.1);
+      box-shadow: 0 0 0 1px rgba(11, 61, 145, 0.08), 0 0 18px rgba(11, 61, 145, 0.12);
+    }
+
+    .browse-name {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .browse-type {
+      display: block;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    @keyframes glowFloat {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(14px, -12px, 0) scale(1.05); }
+      100% { transform: translate3d(0, 0, 0) scale(1); }
+    }
+
+    @keyframes panelSheen {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(140%); }
+    }
+
+    @keyframes brandPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.03); filter: brightness(1.05); }
+    }
+
+    @keyframes panelFloatIn {
+      from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    @keyframes chipFloatIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1080px) {
+      .result-layout { grid-template-columns: 1fr; }
+      .side-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .browse-groups { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .page-shell { padding: 18px 14px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .hero-card, .result-card, .browse-card { padding: 18px; border-radius: 18px; }
+      .search-box { grid-template-columns: 1fr; }
+      .side-panel { grid-template-columns: 1fr; }
+      .browse-grid { grid-template-columns: 1fr; }
+      .moon-wrap { width: 98px; height: 98px; top: 72px; right: 24px; opacity: 0.42; }
+      .moon-wrap::after { width: 78px; height: 78px; top: 9px; left: 31px; }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <div class="page-shell">
+    <div class="main-inner">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div>
+            <h1>StellaSim</h1>
+            <p>Astronomy app ecosystem</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="hero-card">
+        <div class="hero-content">
+          <div class="eyebrow">✦ Astronomy encyclopedia</div>
+          <h2 class="hero-title">Object <span class="glow">Database</span></h2>
+          <p class="hero-subtitle">
+            Search stars, galaxies, nebulae, planets, clusters, black holes, exoplanets, and astronomy concepts. 
+          </p>
+
+          <div class="badge-row">
+            <span class="badge">Demo knowledge base</span>
+          </div>
+        </div>
+
+        <div class="search-wrap">
+          <div class="search-box">
+            <input
+              id="searchInput"
+              class="search-input"
+              type="search"
+              autocomplete="off"
+              placeholder="Search for an object or concept, like Sirius, Orion Nebula, Andromeda Galaxy, M13, neutron star, or exoplanet..."
+            />
+            <button class="btn primary" id="searchBtn" type="button">Search Database</button>
+            <button class="btn" id="clearBtn" type="button">Clear</button>
+          </div>
+
+          <div class="section-label">Suggested searches</div>
+          <div class="chip-row" id="suggestedChips"></div>
+
+          <div class="section-label">Recent searches</div>
+          <div class="recent-row" id="recentSearches">
+            <span class="helper-text">No recent searches yet.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="result-card" id="resultCard">
+        <div class="empty-state">
+          <div>
+            <h2>Search the StellaSim database</h2>
+            <p>
+              Try Sirius, Orion Nebula, Andromeda Galaxy, Black Hole, Exoplanet, or Redshift. Matching entries will render as an essay-style astronomy article with quick facts and related StellaSim tools.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="browse-card">
+        <div class="browse-content">
+          <div class="browse-header">
+            <div>
+              <h2>Browse Built-In Entries</h2>
+              <p>These entries are local demo data. Later, the search can connect to a backend for larger results.</p>
+            </div>
+            <span class="badge" id="entryCount">0 entries</span>
+          </div>
+
+          <div class="browse-groups" id="browseGroups"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "stellasimObjectDatabaseRecent";
+
+    const toolLinks = {
+      liveStarMap: { label: "View in Live Star Map", href: "live-star-map.html" },
+      planner: { label: "Add to Observation Planner", href: "observation-planner.html" },
+      telescope: { label: "Telescope View", href: "telescope.html" },
+      mainSim: { label: "Open in Main Sim", href: "main-sim.html" }
+    };
+
+    // this is the first demo database
+    const database = [
+      {
+        name: "Sirius",
+        aliases: ["Alpha Canis Majoris", "Dog Star", "Sirius A", "Sirius B"],
+        type: "Star",
+        category: "Bright star",
+        group: "Stars",
+        summary: "Sirius is the brightest star in the night sky and one of the easiest stars to identify from Earth.",
+        sections: {
+          Overview: "Sirius is a nearby binary star system in Canis Major. To the naked eye it looks like one brilliant blue-white star, but the system is made of Sirius A, a bright main-sequence star, and Sirius B, a faint white dwarf companion.",
+          "What It Is": "Sirius A is roughly twice the mass of the Sun and shines much more intensely. Sirius B is the collapsed core left behind after a more massive star exhausted its fuel and became a white dwarf.",
+          "Why It Matters": "Sirius connects naked-eye astronomy with stellar evolution. It looks simple in the sky, but its companion shows what stars like the Sun can eventually become after the red giant phase.",
+          "Physical Properties": "Its apparent magnitude is about -1.46 and its distance is about 8.6 light-years. Because it is close and intrinsically bright, it dominates the winter sky from many locations.",
+          "How to Observe It": "Look for Sirius below Orion during winter evenings in the Northern Hemisphere. It is bright enough to see from cities, although atmospheric turbulence near the horizon can make it sparkle strongly.",
+          "StellaSim Connection": "Use Sirius in the Live Star Map as a bright navigation anchor, then compare the system in the Main Sim to understand binary motion and white dwarf evolution."
+        },
+        facts: { Constellation: "Canis Major", Magnitude: "About -1.46", Distance: "About 8.6 light-years", System: "Binary star", Observation: "Easy naked-eye object" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["star", "binary", "white dwarf", "bright star"]
+      },
+      {
+        name: "Betelgeuse",
+        aliases: ["Alpha Orionis", "Betelgeuse Star"],
+        type: "Star",
+        category: "Red supergiant",
+        group: "Stars",
+        summary: "Betelgeuse is a huge red supergiant in Orion and one of the most famous stars in the winter sky.",
+        sections: {
+          Overview: "Betelgeuse is a cool, swollen supergiant star near the end of its life. It marks one shoulder of Orion and appears orange-red to the naked eye.",
+          "What It Is": "A red supergiant is a massive star that has expanded enormously after using up much of the hydrogen fuel in its core. Betelgeuse is unstable, variable, and losing material into space.",
+          "Why It Matters": "Betelgeuse is important because it gives astronomers a nearby example of the final stages of massive-star evolution before a supernova.",
+          "Physical Properties": "Its exact size and distance are difficult to measure, but it is hundreds of times wider than the Sun. Its brightness changes over time because its outer atmosphere expands, cools, and sheds material.",
+          "How to Observe It": "Look for the reddish star at Orion’s shoulder. Its color is visible even without a telescope, especially when compared with blue-white Rigel nearby.",
+          "StellaSim Connection": "Betelgeuse is a good object for comparing star colors, stellar lifetimes, and possible supernova outcomes in StellaSim."
+        },
+        facts: { Constellation: "Orion", Magnitude: "Variable", Distance: "Roughly hundreds of light-years", Color: "Orange-red", Evolution: "Late-stage massive star" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["star", "red supergiant", "supernova", "orion"]
+      },
+      {
+        name: "Vega",
+        aliases: ["Alpha Lyrae"],
+        type: "Star",
+        category: "Bright star",
+        group: "Stars",
+        summary: "Vega is a bright blue-white star in Lyra and one point of the Summer Triangle.",
+        sections: {
+          Overview: "Vega is one of the brightest stars in the northern sky. It is a young, hot star and has been used as an important reference point in astronomy.",
+          "What It Is": "Vega is a main-sequence star more massive and luminous than the Sun. It rotates quickly, which slightly changes its shape and temperature distribution.",
+          "Why It Matters": "Vega helped define brightness scales and remains a useful target for studying stars and dusty disks around them.",
+          "Physical Properties": "It is about 25 light-years away and shines with a blue-white color. A disk of dust around Vega suggests leftover material from planet formation processes.",
+          "How to Observe It": "Vega is easy to find during northern summer. It forms the Summer Triangle with Deneb and Altair.",
+          "StellaSim Connection": "Use Vega as a reference for magnitude, color, and seasonal sky navigation in the Live Star Map."
+        },
+        facts: { Constellation: "Lyra", Distance: "About 25 light-years", Color: "Blue-white", Asterism: "Summer Triangle", Observation: "Bright naked-eye star" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["star", "summer triangle", "lyra"]
+      },
+      {
+        name: "Polaris",
+        aliases: ["North Star", "Alpha Ursae Minoris", "Pole Star"],
+        type: "Star",
+        category: "Cepheid variable",
+        group: "Stars",
+        summary: "Polaris is the current North Star and sits close to the north celestial pole.",
+        sections: {
+          Overview: "Polaris is famous because it appears nearly fixed in the northern sky while other stars circle around it. It is not the brightest star, but it is one of the most useful for navigation.",
+          "What It Is": "Polaris is a multiple-star system whose main visible star is a Cepheid variable. Cepheids pulse in brightness and are important distance markers in astronomy.",
+          "Why It Matters": "Polaris connects sky navigation with cosmic distance measurement. Its position helps observers find north, and its stellar type helps astronomers understand variable stars.",
+          "Physical Properties": "Polaris is much larger and brighter than the Sun. Because it lies close to Earth’s north celestial pole, its altitude above the northern horizon roughly equals the observer’s latitude.",
+          "How to Observe It": "Find the Big Dipper and follow the pointer stars at the end of its bowl toward the Little Dipper. Polaris is the star at the end of the Little Dipper’s handle.",
+          "StellaSim Connection": "Polaris is perfect for demonstrating latitude, celestial poles, and apparent sky rotation in the Live Star Map."
+        },
+        facts: { Constellation: "Ursa Minor", Role: "Current North Star", Type: "Cepheid variable system", Direction: "Near true north", Observation: "Visible all night from many northern latitudes" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["star", "north star", "navigation", "cepheid"]
+      },
+      {
+        name: "Andromeda Galaxy",
+        aliases: ["M31", "Messier 31", "NGC 224"],
+        type: "Galaxy",
+        category: "Spiral galaxy",
+        group: "Deep Sky Objects",
+        summary: "The Andromeda Galaxy is the nearest large spiral galaxy to the Milky Way and the most distant object many people can see with the unaided eye.",
+        sections: {
+          Overview: "Andromeda is a massive spiral galaxy containing hundreds of billions of stars. From Earth, it appears as a soft elongated glow under dark skies.",
+          "What It Is": "A spiral galaxy is a rotating system of stars, gas, dust, and dark matter with a central bulge and spiral arms. Andromeda is similar in broad structure to the Milky Way.",
+          "Why It Matters": "Andromeda lets astronomers study a large galaxy outside our own. It is also moving toward the Milky Way, and both galaxies are expected to merge in the distant future.",
+          "Physical Properties": "Andromeda is about 2.5 million light-years away. Its large angular size means binoculars often show it better than a high-magnification telescope.",
+          "How to Observe It": "Look from a dark site in autumn. Start from the constellation Andromeda or Cassiopeia and search for a faint oval patch.",
+          "StellaSim Connection": "Use Andromeda to connect sky observation with galaxy structure, scale, and long-term gravitational evolution in the Main Sim."
+        },
+        facts: { Catalog: "M31 / NGC 224", Type: "Spiral galaxy", Distance: "About 2.5 million light-years", BestSeason: "Autumn", Observation: "Binocular-friendly under dark skies" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["galaxy", "m31", "andromeda", "deep sky"]
+      },
+      {
+        name: "Orion Nebula",
+        aliases: ["M42", "Messier 42", "NGC 1976"],
+        type: "Emission nebula",
+        category: "Star-forming region",
+        group: "Deep Sky Objects",
+        summary: "The Orion Nebula is a nearby stellar nursery visible as a fuzzy patch in Orion’s sword.",
+        sections: {
+          Overview: "The Orion Nebula is one of the most beautiful and accessible nebulae in the night sky. It is a vast cloud of gas and dust where new stars are forming.",
+          "What It Is": "An emission nebula glows because hot young stars energize nearby gas. In Orion, the young Trapezium stars light up the surrounding hydrogen-rich cloud.",
+          "Why It Matters": "The Orion Nebula is a key laboratory for studying how stars and planetary systems form inside molecular clouds.",
+          "Physical Properties": "It is roughly 1,300 light-years away. Its bright core is easy to see, while longer-exposure images reveal huge arcs, dust lanes, and glowing gas structures.",
+          "How to Observe It": "Look at Orion’s sword below the three belt stars. In binoculars it appears as a misty patch; in telescopes, structure becomes visible around the bright core.",
+          "StellaSim Connection": "Use the Orion Nebula in the Observation Planner as a beginner-friendly deep-sky target and in the database to connect nebulae with star formation."
+        },
+        facts: { Catalog: "M42 / NGC 1976", Constellation: "Orion", Distance: "Around 1,300 light-years", Type: "Emission nebula", Observation: "Visible as a fuzzy patch in Orion’s sword" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["nebula", "m42", "orion", "star formation"]
+      },
+      {
+        name: "Pleiades",
+        aliases: ["M45", "Seven Sisters"],
+        type: "Open cluster",
+        category: "Young star cluster",
+        group: "Deep Sky Objects",
+        summary: "The Pleiades is a bright open cluster of young blue stars in Taurus.",
+        sections: {
+          Overview: "The Pleiades is one of the easiest star clusters to see without a telescope. It looks like a tiny dipper-shaped group of bright stars.",
+          "What It Is": "An open cluster is a loose group of stars born from the same cloud. The Pleiades stars are young, hot, and blue-white.",
+          "Why It Matters": "The cluster helps astronomers study young stars, cluster evolution, and dust reflection around bright stars.",
+          "Physical Properties": "The cluster is roughly 440 light-years away. Long-exposure images show blue reflection nebulosity caused by dust scattering starlight.",
+          "How to Observe It": "Use binoculars for the best view. A telescope at too much magnification can spread the cluster beyond the field of view.",
+          "StellaSim Connection": "The Pleiades is useful for comparing naked-eye, binocular, and telescope fields in StellaSim’s observing tools."
+        },
+        facts: { Catalog: "M45", Constellation: "Taurus", Distance: "About 440 light-years", Type: "Open cluster", Observation: "Excellent binocular target" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["open cluster", "m45", "taurus", "seven sisters"]
+      },
+      {
+        name: "Ring Nebula",
+        aliases: ["M57", "Messier 57", "NGC 6720"],
+        type: "Planetary nebula",
+        category: "Stellar remnant nebula",
+        group: "Deep Sky Objects",
+        summary: "The Ring Nebula is a small planetary nebula in Lyra formed from the outer layers of a dying star.",
+        sections: {
+          Overview: "The Ring Nebula looks like a tiny smoke ring through a telescope. It is not related to planets; the name comes from its round appearance in early telescopes.",
+          "What It Is": "A planetary nebula forms when a Sun-like star sheds its outer layers near the end of its life. The hot exposed core lights the expanding gas shell.",
+          "Why It Matters": "M57 shows one possible future for stars like the Sun and helps explain how dying stars enrich space with processed material.",
+          "Physical Properties": "It lies in Lyra and is often listed at roughly a few thousand light-years away. Its central white dwarf is difficult to see visually.",
+          "How to Observe It": "Find it between the two lower stars of Lyra’s parallelogram. Moderate telescope magnification helps show its ring-like shape.",
+          "StellaSim Connection": "Use the Ring Nebula to connect stellar evolution with white dwarfs and expanding gas shells."
+        },
+        facts: { Catalog: "M57 / NGC 6720", Constellation: "Lyra", Type: "Planetary nebula", Origin: "Dying Sun-like star", Observation: "Small telescope target" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["planetary nebula", "m57", "white dwarf", "lyra"]
+      },
+      {
+        name: "Crab Nebula",
+        aliases: ["M1", "Messier 1", "NGC 1952"],
+        type: "Supernova remnant",
+        category: "Stellar explosion remnant",
+        group: "Deep Sky Objects",
+        summary: "The Crab Nebula is the expanding remnant of a supernova observed in 1054 CE.",
+        sections: {
+          Overview: "The Crab Nebula is a tangled cloud of gas energized by a rapidly spinning neutron star at its center.",
+          "What It Is": "A supernova remnant is debris from an exploded star. In the Crab, the central pulsar injects energy into the surrounding nebula.",
+          "Why It Matters": "It links historical astronomy, stellar death, neutron stars, pulsars, and high-energy astrophysics in one object.",
+          "Physical Properties": "The nebula is in Taurus and is roughly thousands of light-years away. Its gas continues to expand outward from the explosion site.",
+          "How to Observe It": "Under dark skies, small telescopes show it as a faint oval glow near Taurus. It is not visually colorful without long exposure imaging.",
+          "StellaSim Connection": "Use the Crab Nebula as a bridge between supernova explosions, pulsars, and remnant evolution in StellaSim."
+        },
+        facts: { Catalog: "M1 / NGC 1952", Constellation: "Taurus", Origin: "Supernova observed in 1054 CE", Core: "Crab Pulsar", Observation: "Faint telescope object" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["supernova", "pulsar", "m1", "taurus"]
+      },
+      {
+        name: "M13 Hercules Cluster",
+        aliases: ["M13", "Messier 13", "Great Globular Cluster in Hercules", "NGC 6205"],
+        type: "Globular cluster",
+        category: "Ancient star cluster",
+        group: "Deep Sky Objects",
+        summary: "M13 is a dense ball of ancient stars and one of the finest globular clusters in the northern sky.",
+        sections: {
+          Overview: "M13 contains hundreds of thousands of old stars packed into a spherical cluster orbiting the Milky Way.",
+          "What It Is": "A globular cluster is an ancient, gravitationally bound star cluster usually found in a galaxy’s halo.",
+          "Why It Matters": "M13 helps astronomers study old stellar populations, stellar density, and the early history of the Milky Way.",
+          "Physical Properties": "It is located in Hercules and is roughly tens of thousands of light-years away. In larger telescopes, the cluster begins to resolve into individual stars.",
+          "How to Observe It": "Look between the stars that form the Keystone of Hercules. Dark skies and moderate aperture make it much more impressive.",
+          "StellaSim Connection": "M13 is a strong target for the Observation Planner and a useful example of gravitationally bound stellar systems."
+        },
+        facts: { Catalog: "M13 / NGC 6205", Constellation: "Hercules", Type: "Globular cluster", Stars: "Hundreds of thousands", Observation: "Excellent northern telescope target" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["globular cluster", "m13", "hercules"]
+      },
+      {
+        name: "Jupiter",
+        aliases: ["Jove"],
+        type: "Planet",
+        category: "Gas giant",
+        group: "Solar System",
+        summary: "Jupiter is the largest planet in the Solar System and a major target for small telescopes.",
+        sections: {
+          Overview: "Jupiter is a giant world made mostly of hydrogen and helium. Its bright disk, cloud bands, Great Red Spot, and moons make it one of the best planets to observe.",
+          "What It Is": "As a gas giant, Jupiter does not have a solid surface like Earth. Its visible surface is the top of a deep, dynamic atmosphere.",
+          "Why It Matters": "Jupiter strongly shapes the Solar System through its gravity. It influences asteroids, comets, resonances, and moon systems.",
+          "Physical Properties": "Jupiter has more than twice the mass of all other planets combined. Its four Galilean moons are visible in binoculars or small telescopes.",
+          "How to Observe It": "Even a small telescope can show its two main cloud belts and the changing positions of Io, Europa, Ganymede, and Callisto.",
+          "StellaSim Connection": "Use Jupiter in the Main Sim for gravity, moons, and orbital resonance. Use the Observation Planner to track good viewing nights."
+        },
+        facts: { Type: "Gas giant", Moons: "Four bright Galilean moons plus many smaller moons", Feature: "Great Red Spot", Observation: "Excellent small telescope target", Orbit: "Fifth planet from the Sun" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["planet", "gas giant", "solar system"]
+      },
+      {
+        name: "Saturn",
+        aliases: ["Ringed Planet"],
+        type: "Planet",
+        category: "Gas giant",
+        group: "Solar System",
+        summary: "Saturn is a gas giant famous for its bright ring system.",
+        sections: {
+          Overview: "Saturn is one of the most iconic telescope objects because its rings are visible even through modest equipment.",
+          "What It Is": "Saturn is a hydrogen-helium gas giant surrounded by rings made mostly of icy particles and dust.",
+          "Why It Matters": "Its rings and moons reveal how gravity shapes disks, gaps, resonances, and small-body systems.",
+          "Physical Properties": "Saturn is less dense than water on average and has a large moon system, including Titan, which has a thick atmosphere.",
+          "How to Observe It": "Use a telescope and steady air. The ring tilt changes over time, which changes how dramatic the rings look from Earth.",
+          "StellaSim Connection": "Saturn is perfect for explaining rings, Roche limits, orbital gaps, and moon systems in StellaSim."
+        },
+        facts: { Type: "Gas giant", Feature: "Bright icy rings", MajorMoon: "Titan", Observation: "Classic telescope target", Orbit: "Sixth planet from the Sun" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["planet", "rings", "saturn", "solar system"]
+      },
+      {
+        name: "Mars",
+        aliases: ["Red Planet"],
+        type: "Planet",
+        category: "Terrestrial planet",
+        group: "Solar System",
+        summary: "Mars is a rocky planet with iron-rich dust, polar caps, volcanoes, canyons, and a long history of water.",
+        sections: {
+          Overview: "Mars is the fourth planet from the Sun and the most explored planet beyond Earth.",
+          "What It Is": "Mars is a cold terrestrial planet with a thin atmosphere, desert-like surface, polar ice, and evidence that liquid water once shaped its landscape.",
+          "Why It Matters": "Mars is central to questions about planetary habitability, past life, climate change, and future human exploration.",
+          "Physical Properties": "Its red color comes from iron oxide dust. It has Olympus Mons, the largest volcano in the Solar System, and Valles Marineris, a huge canyon system.",
+          "How to Observe It": "Mars is best near opposition when it is closest to Earth. Small telescopes may show a disk and sometimes dark markings or polar caps.",
+          "StellaSim Connection": "Use Mars for orbital timing, opposition, habitability, and mission-style simulation ideas."
+        },
+        facts: { Type: "Terrestrial planet", Color: "Red from iron oxide dust", Moons: "Phobos and Deimos", BestViewing: "Near opposition", Orbit: "Fourth planet from the Sun" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["planet", "mars", "terrestrial", "solar system"]
+      },
+      {
+        name: "Venus",
+        aliases: ["Morning Star", "Evening Star"],
+        type: "Planet",
+        category: "Terrestrial planet",
+        group: "Solar System",
+        summary: "Venus is a bright inner planet covered by thick clouds and extreme greenhouse heating.",
+        sections: {
+          Overview: "Venus is often the brightest planet in the sky. It can appear as the Morning Star before sunrise or the Evening Star after sunset.",
+          "What It Is": "Venus is a rocky planet similar in size to Earth but with a dense carbon dioxide atmosphere and sulfuric acid clouds.",
+          "Why It Matters": "Venus is a warning example of extreme greenhouse warming and a key world for comparing planetary atmospheres.",
+          "Physical Properties": "Its surface is extremely hot and pressurized. Through a telescope, Venus shows phases like the Moon because it orbits inside Earth’s path around the Sun.",
+          "How to Observe It": "Look low in twilight when Venus is well separated from the Sun. Never point optical equipment near the Sun without proper safety.",
+          "StellaSim Connection": "Use Venus to demonstrate phases, inner planet geometry, and atmosphere-driven climate differences."
+        },
+        facts: { Type: "Terrestrial planet", Atmosphere: "Dense carbon dioxide", Feature: "Shows phases", Observation: "Very bright twilight object", Orbit: "Second planet from the Sun" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["planet", "venus", "phases", "solar system"]
+      },
+      {
+        name: "Moon",
+        aliases: ["Luna", "Earth's Moon"],
+        type: "Moon",
+        category: "Natural satellite",
+        group: "Solar System",
+        summary: "The Moon is Earth’s natural satellite and the easiest astronomical object to study in detail.",
+        sections: {
+          Overview: "The Moon dominates the night sky and reveals craters, maria, mountains, and shadows even through small binoculars.",
+          "What It Is": "It is a rocky natural satellite formed early in Solar System history, likely after a giant impact involving the young Earth.",
+          "Why It Matters": "The Moon controls tides, records impact history, stabilizes Earth’s axial tilt, and provides a nearby world for exploration.",
+          "Physical Properties": "The Moon is about 384,400 km from Earth on average. Its phases are caused by changing sunlight geometry as it orbits Earth.",
+          "How to Observe It": "The best detail often appears near the terminator, where sunlight strikes the surface at a low angle and shadows reveal relief.",
+          "StellaSim Connection": "Use the Moon for phases, eclipses, tides, orbital motion, and telescope field-of-view practice."
+        },
+        facts: { Type: "Natural satellite", AverageDistance: "About 384,400 km", BestViewing: "Near the terminator", Feature: "Craters and maria", Observation: "Excellent for all beginners" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["moon", "luna", "satellite", "phases"]
+      },
+      {
+        name: "Sun",
+        aliases: ["Sol"],
+        type: "Star",
+        category: "G-type main-sequence star",
+        group: "Solar System",
+        summary: "The Sun is the star at the center of the Solar System and the main energy source for Earth.",
+        sections: {
+          Overview: "The Sun is a middle-aged star that powers Earth’s climate, weather, and biosphere. It also controls the motion of planets through gravity.",
+          "What It Is": "The Sun is a hot sphere of plasma where nuclear fusion converts hydrogen into helium in the core, releasing energy that eventually reaches space as light and heat.",
+          "Why It Matters": "Understanding the Sun helps explain stellar physics, space weather, planetary habitability, and the structure of the Solar System.",
+          "Physical Properties": "The Sun contains most of the mass in the Solar System. Its activity includes sunspots, flares, prominences, and the solar wind.",
+          "How to Observe It": "Only observe the Sun with certified solar filters or dedicated solar telescopes. Never look at the Sun through regular binoculars or a telescope.",
+          "StellaSim Connection": "The Sun anchors the Main Sim’s gravity, habitable zone, and orbital scale."
+        },
+        facts: { Type: "G-type main-sequence star", Energy: "Hydrogen fusion", Feature: "Sunspots and flares", Safety: "Requires certified solar viewing equipment", Role: "Center of the Solar System" },
+        tools: ["mainSim"],
+        tags: ["sun", "star", "fusion", "solar system"]
+      },
+      {
+        name: "Black Hole",
+        aliases: ["Event Horizon", "Singularity", "Stellar Black Hole", "Supermassive Black Hole"],
+        type: "Concept / object type",
+        category: "Compact object",
+        group: "Concepts",
+        summary: "A black hole is a region where gravity is so strong that nothing inside the event horizon can escape.",
+        sections: {
+          Overview: "A black hole forms when mass is compressed into a small enough region that escape velocity exceeds the speed of light. The boundary of no return is called the event horizon.",
+          "Core Idea": "Black holes do not suck everything in like cosmic vacuums. Objects can orbit them normally from far away, but crossing the event horizon means every future path leads inward.",
+          "Physics Behind It": "General relativity describes black holes as extreme curvature of spacetime. Near them, time dilation, light bending, accretion disks, and tidal forces can become dramatic.",
+          "Why Astronomers Care": "Black holes test gravity under extreme conditions. Supermassive black holes also shape galaxies through accretion, jets, and feedback.",
+          "Examples in the Universe": "Examples include stellar-mass black holes in binary systems and supermassive black holes at galaxy centers, such as the Milky Way’s Sagittarius A*.",
+          "StellaSim Connection": "Use black holes in the Main Sim to explore gravity, orbital motion, accretion-style visuals, and light-bending ideas."
+        },
+        facts: { Boundary: "Event horizon", KeyPhysics: "General relativity", Types: "Stellar, intermediate, supermassive", ObservableBy: "Accretion, orbits, gravitational waves", Safety: "Not a vacuum cleaner from far away" },
+        tools: ["mainSim"],
+        tags: ["black hole", "gravity", "event horizon", "relativity"]
+      },
+      {
+        name: "Neutron Star",
+        aliases: ["Compact Star"],
+        type: "Concept / object type",
+        category: "Compact object",
+        group: "Concepts",
+        summary: "A neutron star is the ultra-dense collapsed core left after some massive stars explode as supernovae.",
+        sections: {
+          Overview: "Neutron stars pack more mass than the Sun into a sphere roughly the size of a city. Their density and gravity are extreme.",
+          "Core Idea": "After a massive star’s core collapses, protons and electrons can combine into neutrons, creating a dense object supported by neutron degeneracy pressure and nuclear forces.",
+          "Physics Behind It": "Neutron stars involve quantum physics, strong gravity, rapid rotation, and intense magnetic fields. Some rotate many times per second.",
+          "Why Astronomers Care": "They reveal physics that cannot be recreated on Earth and are linked to pulsars, gravitational waves, and heavy element formation.",
+          "Examples in the Universe": "The Crab Pulsar is a neutron star inside the Crab Nebula. Neutron star mergers can produce gravitational waves and heavy elements.",
+          "StellaSim Connection": "Use neutron stars to model compact remnants, supernova outcomes, and extreme gravity scenarios."
+        },
+        facts: { Origin: "Core-collapse supernova", Size: "City-scale radius", Density: "Extremely high", RelatedObject: "Pulsar", ToolUse: "Main Sim compact object physics" },
+        tools: ["mainSim"],
+        tags: ["neutron star", "supernova", "compact object"]
+      },
+      {
+        name: "Pulsar",
+        aliases: ["Pulsating Radio Star"],
+        type: "Concept / object type",
+        category: "Rotating neutron star",
+        group: "Concepts",
+        summary: "A pulsar is a rotating neutron star whose beams sweep across Earth like a cosmic lighthouse.",
+        sections: {
+          Overview: "Pulsars are neutron stars that appear to pulse because their radiation beams rotate in and out of our line of sight.",
+          "Core Idea": "The pulse does not mean the whole star is flashing on and off. It means a beam, often from magnetic poles, sweeps past Earth repeatedly.",
+          "Physics Behind It": "Pulsars combine rapid rotation, strong magnetic fields, charged particles, and compact-object gravity. Their timing can be incredibly stable.",
+          "Why Astronomers Care": "Pulsars are used to test relativity, study neutron star interiors, search for gravitational waves, and map the interstellar medium.",
+          "Examples in the Universe": "The Crab Pulsar and Vela Pulsar are famous examples connected to supernova remnants.",
+          "StellaSim Connection": "Use pulsars as compact remnants and timing beacons in future StellaSim education tools."
+        },
+        facts: { ParentObject: "Neutron star", Behavior: "Regular pulses", Cause: "Rotating radiation beams", Example: "Crab Pulsar", Use: "Precision timing and relativity tests" },
+        tools: ["mainSim"],
+        tags: ["pulsar", "neutron star", "radio", "supernova"]
+      },
+      {
+        name: "Quasar",
+        aliases: ["Quasi-stellar object", "QSO", "Active Galactic Nucleus"],
+        type: "Concept / object type",
+        category: "Active galaxy core",
+        group: "Concepts",
+        summary: "A quasar is an extremely luminous active galaxy core powered by material falling into a supermassive black hole.",
+        sections: {
+          Overview: "Quasars can outshine entire galaxies because their central black holes are actively feeding on surrounding gas.",
+          "Core Idea": "The light does not come from inside the black hole. It comes from hot material in the accretion disk before it crosses the event horizon.",
+          "Physics Behind It": "Friction, magnetic fields, and gravitational energy heat infalling material to enormous temperatures. Some quasars launch powerful jets.",
+          "Why Astronomers Care": "Quasars act as beacons across cosmic time and help astronomers study early galaxies, black hole growth, and redshift.",
+          "Examples in the Universe": "Many bright quasars are billions of light-years away, so we see them as they were when the universe was much younger.",
+          "StellaSim Connection": "Use quasars to connect black holes, galaxy evolution, jets, and cosmological distance."
+        },
+        facts: { PowerSource: "Accretion onto supermassive black hole", Scale: "Galaxy core", KeyFeature: "Extreme luminosity", RelatedConcept: "Redshift", ToolUse: "Main Sim black hole and galaxy ideas" },
+        tools: ["mainSim"],
+        tags: ["quasar", "black hole", "galaxy", "redshift"]
+      },
+      {
+        name: "Exoplanet",
+        aliases: ["Extrasolar planet", "Planet outside the Solar System"],
+        type: "Concept / object type",
+        category: "Planetary science",
+        group: "Concepts",
+        summary: "An exoplanet is a planet orbiting a star outside our Solar System.",
+        sections: {
+          Overview: "Exoplanets show that planetary systems are common and diverse. Some are rocky, some are gas giants, and many orbit much closer to their stars than any planet in our Solar System.",
+          "Core Idea": "Most exoplanets are too faint to image directly, so astronomers detect them through indirect methods such as transits and radial velocity.",
+          "Physics Behind It": "A transit slightly dims a star when a planet crosses in front of it. Radial velocity detects the star’s wobble caused by the planet’s gravity.",
+          "Why Astronomers Care": "Exoplanets help answer whether Earth-like worlds are common and whether life might exist elsewhere.",
+          "Examples in the Universe": "Hot Jupiters, super-Earths, mini-Neptunes, and potentially habitable-zone rocky planets are all exoplanet categories.",
+          "StellaSim Connection": "Use exoplanets to connect orbital mechanics, transit geometry, star brightness, and habitability in StellaSim."
+        },
+        facts: { Definition: "Planet outside the Solar System", Methods: "Transit and radial velocity", Questions: "Habitability and planet formation", Examples: "Hot Jupiters, super-Earths, mini-Neptunes", ToolUse: "Main Sim orbital modeling" },
+        tools: ["mainSim"],
+        tags: ["exoplanet", "transit", "habitability", "planet"]
+      },
+      {
+        name: "Dark Matter",
+        aliases: ["Missing mass"],
+        type: "Concept",
+        category: "Cosmology",
+        group: "Concepts",
+        summary: "Dark matter is unseen matter inferred from gravity, especially in galaxies and galaxy clusters.",
+        sections: {
+          Overview: "Dark matter does not emit or reflect light in ordinary ways, but its gravity affects visible matter and light.",
+          "Core Idea": "Astronomers infer dark matter because galaxies rotate, clusters move, and gravitational lenses behave as if more mass exists than we can see.",
+          "Physics Behind It": "The exact particle nature of dark matter is unknown. It appears to interact through gravity and only weakly, if at all, through light.",
+          "Why Astronomers Care": "Dark matter is a major part of the universe’s matter content and is essential for explaining large-scale structure formation.",
+          "Examples in the Universe": "Galaxy rotation curves, the Bullet Cluster, and gravitational lensing maps are major evidence sources.",
+          "StellaSim Connection": "Use dark matter as a future galaxy simulation layer to explain why galaxies need invisible mass halos."
+        },
+        facts: { DetectedBy: "Gravity", EmitsLight: "No known ordinary light emission", Evidence: "Rotation curves and lensing", Unknown: "Particle identity", Field: "Cosmology" },
+        tools: ["mainSim"],
+        tags: ["dark matter", "cosmology", "galaxies", "gravity"]
+      },
+      {
+        name: "Redshift",
+        aliases: ["Cosmological redshift", "Doppler redshift"],
+        type: "Concept",
+        category: "Light and motion",
+        group: "Concepts",
+        summary: "Redshift is the stretching of light toward longer, redder wavelengths.",
+        sections: {
+          Overview: "Redshift happens when light shifts toward longer wavelengths. It can reveal motion, gravity, or the expansion of the universe.",
+          "Core Idea": "If an object is moving away, its light can be stretched. On cosmic scales, expanding space stretches light from distant galaxies.",
+          "Physics Behind It": "Doppler redshift comes from relative motion. Cosmological redshift comes from the expansion of space. Gravitational redshift happens when light climbs out of strong gravity.",
+          "Why Astronomers Care": "Redshift lets astronomers estimate galaxy distances, study expansion, and measure motions in stars and galaxies.",
+          "Examples in the Universe": "Distant galaxies and quasars often have high redshifts because their light has traveled across expanding space for billions of years.",
+          "StellaSim Connection": "Use redshift to connect spectroscopy, galaxy distance, cosmology, and black hole gravity in StellaSim lessons."
+        },
+        facts: { Meaning: "Longer wavelength shift", Types: "Doppler, cosmological, gravitational", UsedFor: "Motion and distance", RelatedTo: "Expansion of the universe", ToolUse: "Astronomy AI and concept lessons" },
+        tools: ["mainSim"],
+        tags: ["redshift", "spectroscopy", "cosmology", "light"]
+      },
+      {
+        name: "Supernova",
+        aliases: ["Stellar explosion"],
+        type: "Concept / event",
+        category: "Stellar death",
+        group: "Concepts",
+        summary: "A supernova is a powerful stellar explosion that can outshine an entire galaxy for a short time.",
+        sections: {
+          Overview: "Supernovae mark explosive endings or disruptions of stars. They release enormous energy and create expanding remnants.",
+          "Core Idea": "Some supernovae happen when massive stars collapse. Others happen when white dwarfs in binary systems ignite runaway fusion.",
+          "Physics Behind It": "Core collapse produces neutron stars or black holes, while thermonuclear supernovae can destroy white dwarfs. Both spread heavy elements into space.",
+          "Why Astronomers Care": "Supernovae build elements, trigger new star formation, reveal stellar evolution, and help measure cosmic distances.",
+          "Examples in the Universe": "The Crab Nebula is a remnant of a supernova seen in 1054 CE. Type Ia supernovae are used as distance indicators.",
+          "StellaSim Connection": "Use supernovae in the Main Sim as dramatic outcomes of massive-star evolution and remnant creation."
+        },
+        facts: { Event: "Stellar explosion", Outcomes: "Neutron star, black hole, or destroyed white dwarf", Creates: "Heavy elements", Example: "Crab Nebula", Field: "Stellar evolution" },
+        tools: ["mainSim"],
+        tags: ["supernova", "stellar evolution", "neutron star", "black hole"]
+      },
+      {
+        name: "Nebula",
+        aliases: ["Interstellar cloud"],
+        type: "Concept / object type",
+        category: "Gas and dust cloud",
+        group: "Concepts",
+        summary: "A nebula is a cloud of gas and dust in space, often connected to star birth or star death.",
+        sections: {
+          Overview: "Nebulae can glow, reflect starlight, block background light, or expand from dying stars. They are some of the most visually famous deep-sky objects.",
+          "Core Idea": "Nebulae are not all the same. Emission nebulae glow, reflection nebulae scatter light, dark nebulae absorb light, and planetary nebulae are shells from dying stars.",
+          "Physics Behind It": "Gas emits light when energized by radiation, while dust can scatter or absorb light. Gravity can also collapse dense regions into new stars.",
+          "Why Astronomers Care": "Nebulae reveal star formation, stellar feedback, chemical enrichment, and the life cycle of matter in galaxies.",
+          "Examples in the Universe": "The Orion Nebula, Ring Nebula, and Crab Nebula are different kinds of nebulae with different origins.",
+          "StellaSim Connection": "Use nebulae to organize observing targets and explain how stars form and die."
+        },
+        facts: { Material: "Gas and dust", Types: "Emission, reflection, dark, planetary, supernova remnant", RelatedTo: "Star birth and star death", Example: "Orion Nebula", ToolUse: "Observation Planner and Telescope" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["nebula", "gas", "dust", "star formation"]
+      },
+      {
+        name: "Galaxy",
+        aliases: ["Star system", "Island universe"],
+        type: "Concept / object type",
+        category: "Large-scale structure",
+        group: "Concepts",
+        summary: "A galaxy is a huge gravitational system of stars, gas, dust, dark matter, and stellar remnants.",
+        sections: {
+          Overview: "Galaxies range from small dwarf systems to enormous ellipticals. The Milky Way is our home galaxy.",
+          "Core Idea": "Gravity holds galaxies together, but visible stars are only part of the mass. Dark matter halos are thought to surround most galaxies.",
+          "Physics Behind It": "Galaxy structure depends on gravity, star formation, gas flows, mergers, rotation, and feedback from stars and black holes.",
+          "Why Astronomers Care": "Galaxies trace the history of the universe and show how matter evolved from early structure into stars and planets.",
+          "Examples in the Universe": "Spiral galaxies like Andromeda, elliptical galaxies, irregular galaxies, and dwarf galaxies all show different evolutionary paths.",
+          "StellaSim Connection": "Use galaxies in StellaSim to connect gravity, dark matter, collisions, and cosmic scale."
+        },
+        facts: { Components: "Stars, gas, dust, dark matter", Types: "Spiral, elliptical, irregular", HomeGalaxy: "Milky Way", Example: "Andromeda Galaxy", Field: "Cosmology and galaxy evolution" },
+        tools: ["mainSim"],
+        tags: ["galaxy", "milky way", "dark matter", "cosmology"]
+      },
+      {
+        name: "Globular Cluster",
+        aliases: ["Spherical star cluster"],
+        type: "Concept / object type",
+        category: "Star cluster",
+        group: "Concepts",
+        summary: "A globular cluster is a dense, spherical group of old stars bound by gravity.",
+        sections: {
+          Overview: "Globular clusters look like fuzzy balls in small telescopes and can resolve into countless stars with larger apertures.",
+          "Core Idea": "Unlike open clusters, globular clusters are ancient and tightly bound. They often orbit in the halos of galaxies.",
+          "Physics Behind It": "Their stars move under mutual gravity in dense environments, producing interactions that are rare in loose star groups.",
+          "Why Astronomers Care": "Globular clusters preserve information about early galaxy formation and old stellar populations.",
+          "Examples in the Universe": "M13 in Hercules and Omega Centauri are famous globular clusters.",
+          "StellaSim Connection": "Use globular clusters to explain gravitational binding, star density, and ancient stellar systems."
+        },
+        facts: { Shape: "Dense and spherical", Stars: "Usually old", Location: "Often galactic halos", Example: "M13", Observation: "Good telescope targets" },
+        tools: ["liveStarMap", "planner", "telescope", "mainSim"],
+        tags: ["globular cluster", "star cluster", "m13"]
+      },
+      {
+        name: "Open Cluster",
+        aliases: ["Galactic cluster"],
+        type: "Concept / object type",
+        category: "Star cluster",
+        group: "Concepts",
+        summary: "An open cluster is a loose group of young stars born from the same molecular cloud.",
+        sections: {
+          Overview: "Open clusters are common in the disks of galaxies. Their stars are usually young compared with globular cluster stars.",
+          "Core Idea": "The stars in an open cluster formed together, so they have similar ages and compositions but different masses.",
+          "Physics Behind It": "Over time, gravitational interactions and galactic tides can spread open cluster stars apart into the galaxy.",
+          "Why Astronomers Care": "Open clusters are useful for testing stellar evolution because their stars share a birth time and chemical starting point.",
+          "Examples in the Universe": "The Pleiades and Hyades are famous open clusters visible to the naked eye.",
+          "StellaSim Connection": "Use open clusters to compare young stars, cluster ages, and observing field of view."
+        },
+        facts: { Shape: "Loose grouping", Stars: "Often young", Location: "Galactic disks", Example: "Pleiades", Observation: "Often great in binoculars" },
+        tools: ["liveStarMap", "planner", "telescope"],
+        tags: ["open cluster", "pleiades", "star cluster"]
+      }
+    ];
+
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const resultCard = document.getElementById("resultCard");
+    const suggestedChips = document.getElementById("suggestedChips");
+    const recentSearches = document.getElementById("recentSearches");
+    const browseGroups = document.getElementById("browseGroups");
+    const entryCount = document.getElementById("entryCount");
+
+    let selectedEntryName = "";
+
+    const suggestions = ["Sirius", "Orion Nebula", "Andromeda Galaxy", "Black Hole", "Exoplanet", "Redshift"];
+
+    // this makes the suggested chips
+    suggestions.forEach((label) => {
+      const chip = document.createElement("button");
+      chip.className = "chip";
+      chip.type = "button";
+      chip.textContent = label;
+      chip.addEventListener("click", () => loadSearch(label));
+      suggestedChips.appendChild(chip);
+    });
+
+    searchBtn.addEventListener("click", () => loadSearch(searchInput.value));
+
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") loadSearch(searchInput.value);
+    });
+
+    clearBtn.addEventListener("click", () => {
+      selectedEntryName = "";
+      searchInput.value = "";
+      resultCard.innerHTML = getWelcomeHTML();
+      updateSelectedBrowseCard();
+    });
+
+    // this searches local entries first
+    function findEntry(query) {
+      const cleanQuery = normalize(query);
+      if (!cleanQuery) return null;
+
+      let exact = database.find((entry) => normalize(entry.name) === cleanQuery);
+      if (exact) return exact;
+
+      exact = database.find((entry) => entry.aliases.some((alias) => normalize(alias) === cleanQuery));
+      if (exact) return exact;
+
+      let partial = database.find((entry) => normalize(entry.name).includes(cleanQuery));
+      if (partial) return partial;
+
+      partial = database.find((entry) => entry.aliases.some((alias) => normalize(alias).includes(cleanQuery)));
+      if (partial) return partial;
+
+      partial = database.find((entry) => entry.tags.some((tag) => normalize(tag).includes(cleanQuery)));
+      return partial || null;
+    }
+
+    // this loads a result
+    async function loadSearch(query) {
+      const clean = query.trim();
+
+      if (!clean) {
+        resultCard.innerHTML = getMessageHTML("Enter a search first", "Search for an astronomy object or concept, then StellaSim will check the built-in demo database.");
+        return;
+      }
+
+      const entry = findEntry(clean);
+      searchInput.value = clean;
+
+      if (entry) {
+        selectedEntryName = entry.name;
+        saveRecent(entry.name);
+        renderEntry(entry);
+        renderRecentSearches();
+        updateSelectedBrowseCard();
+        resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      selectedEntryName = "";
+      updateSelectedBrowseCard();
+      renderNoMatch(clean);
+    }
+
+    // this is ready for a real backend later
+    async function searchBackend(query) {
+      // connect this to /api/object-search later if you want ai or live database results
+      return null;
+    }
+
+    // this renders the object essay
+    function renderEntry(entry) {
+      const sectionsHTML = Object.entries(entry.sections).map(([title, body]) => `
+        <section class="article-section">
+          <h3>${escapeHTML(title)}</h3>
+          <p>${escapeHTML(body)}</p>
+        </section>
+      `).join("");
+
+      const factHTML = Object.entries(entry.facts).map(([key, value]) => `
+        <li>
+          <span class="fact-key">${escapeHTML(splitCamel(key))}</span>
+          <span class="fact-value">${escapeHTML(value)}</span>
+        </li>
+      `).join("");
+
+      const toolsHTML = entry.tools.map((toolKey) => {
+        const tool = toolLinks[toolKey];
+        return `<a class="tool-link" href="${tool.href}" target="_blank" rel="noopener noreferrer">${tool.label}</a>`;
+      }).join("");
+
+      const cleanEssay = buildCleanEssay(entry).replaceAll("\"", "&quot;");
+
+      resultCard.innerHTML = `
+        <div class="result-layout">
+          <article class="article">
+            <div class="badge-row" style="margin: 0 0 14px;">
+              <span class="badge">${escapeHTML(entry.type)}</span>
+              <span class="badge">${escapeHTML(entry.category)}</span>
+              <span class="badge">Built-in demo data</span>
+            </div>
+            <h2>${escapeHTML(entry.name)}</h2>
+            <p class="summary">${escapeHTML(entry.summary)}</p>
+            ${sectionsHTML}
+          </article>
+
+          <aside class="side-panel">
+            <div class="fact-box">
+              <h3>Quick Facts</h3>
+              <ul class="fact-list">${factHTML}</ul>
+            </div>
+
+            <div class="tool-card">
+              <h3>Related StellaSim Tools</h3>
+              <div class="tool-row">${toolsHTML}</div>
+            </div>
+
+            <div class="fact-box">
+              <h3>Actions</h3>
+              <div class="action-row">
+                <button class="btn primary" type="button" data-copy="${cleanEssay}">Copy</button>
+              </div>
+              <p class="helper-text" id="copyStatus" style="margin: 12px 0 0;">Copies clean formatted text.</p>
+            </div>
+          </aside>
+        </div>
+      `;
+
+      const copyButton = resultCard.querySelector("[data-copy]");
+      const copyStatus = resultCard.querySelector("#copyStatus");
+
+      copyButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(buildCleanEssay(entry));
+          copyStatus.textContent = "Copied.";
+        } catch (error) {
+          copyStatus.textContent = "Could not copy.";
+        }
+      });
+    }
+
+    // this shows the backend-needed state instead of faking info
+    function renderNoMatch(query) {
+      resultCard.innerHTML = `
+        <div class="empty-state">
+          <div>
+            <div class="eyebrow" style="margin-bottom: 14px;">✦ Backend needed</div>
+            <h2>No built-in entry for “${escapeHTML(query)}” yet</h2>
+            <p>
+              This first version only returns polished articles from the built-in demo database. To search literally anything, connect <strong>searchBackend(query)</strong> to an AI/database route later instead of faking live results.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    // this renders the browse database
+    function renderBrowseGroups() {
+      const groups = ["Stars", "Deep Sky Objects", "Solar System", "Concepts"];
+      entryCount.textContent = `${database.length} entries`;
+
+      browseGroups.innerHTML = groups.map((group) => {
+        const entries = database.filter((entry) => entry.group === group);
+        const items = entries.map((entry) => `
+          <button class="browse-item" type="button" data-entry="${escapeHTML(entry.name)}">
+            <span class="browse-name">${escapeHTML(entry.name)}</span>
+            <span class="browse-type">${escapeHTML(entry.type)} • ${escapeHTML(entry.category)}</span>
+          </button>
+        `).join("");
+
+        return `
+          <div class="browse-group">
+            <h3>${group}</h3>
+            <div class="browse-grid">${items}</div>
+          </div>
+        `;
+      }).join("");
+
+      browseGroups.querySelectorAll(".browse-item").forEach((button) => {
+        button.addEventListener("click", () => loadSearch(button.dataset.entry));
+      });
+    }
+
+    function updateSelectedBrowseCard() {
+      document.querySelectorAll(".browse-item").forEach((button) => {
+        button.classList.toggle("active", button.dataset.entry === selectedEntryName);
+      });
+    }
+
+    // this saves recent searches
+    function saveRecent(name) {
+      const recent = getRecent().filter((item) => item !== name);
+      recent.unshift(name);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(recent.slice(0, 6)));
+    }
+
+    function getRecent() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function renderRecentSearches() {
+      const recent = getRecent();
+
+      if (!recent.length) {
+        recentSearches.innerHTML = `<span class="helper-text">No recent searches yet.</span>`;
+        return;
+      }
+
+      recentSearches.innerHTML = recent.map((name) => `<button class="chip" type="button" data-recent="${escapeHTML(name)}">${escapeHTML(name)}</button>`).join("");
+
+      recentSearches.querySelectorAll("[data-recent]").forEach((button) => {
+        button.addEventListener("click", () => loadSearch(button.dataset.recent));
+      });
+    }
+
+    function buildCleanEssay(entry) {
+      const facts = Object.entries(entry.facts).map(([key, value]) => `${splitCamel(key)}: ${value}`).join("\n");
+      const sections = Object.entries(entry.sections).map(([title, body]) => `${title}\n${body}`).join("\n\n");
+
+      return `${entry.name}\n${entry.type} • ${entry.category}\n\n${entry.summary}\n\n${sections}\n\nQuick Facts\n${facts}\n\nSource note: Built-in StellaSim demo database.`;
+    }
+
+    function getWelcomeHTML() {
+      return `
+        <div class="empty-state">
+          <div>
+            <h2>Search the StellaSim database</h2>
+            <p>
+              Try Sirius, Orion Nebula, Andromeda Galaxy, Black Hole, Exoplanet, or Redshift. Matching entries will render as an astronomy article with quick facts and related StellaSim tools.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    function getMessageHTML(title, message) {
+      return `
+        <div class="empty-state">
+          <div>
+            <h2>${escapeHTML(title)}</h2>
+            <p>${escapeHTML(message)}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function normalize(value) {
+      return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+
+    function splitCamel(value) {
+      return String(value).replace(/([a-z])([A-Z])/g, "$1 $2");
+    }
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    renderBrowseGroups();
+    renderRecentSearches();
+    initStarfield();
+
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let constellationLines = [];
+      let shootingStars = [];
+
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+      let lastMeteorTime = 0;
+
+      function resizeStarfield() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+        createStars();
+        createConstellations();
+      }
+
+      function createStars() {
+        stars = [];
+        const starCount = Math.min(340, Math.floor((width * height) / 6200));
+
+        for (let i = 0; i < starCount; i++) {
+          const roll = Math.random();
+          let behavior = "static";
+
+          if (roll < 0.34) behavior = "static";
+          else if (roll < 0.58) behavior = "twinkle";
+          else if (roll < 0.8) behavior = "drift";
+          else if (roll < 0.94) behavior = "driftTwinkle";
+          else behavior = "bright";
+
+          const depth = Math.random();
+          const radius = behavior === "bright" ? 1.4 + Math.random() * 1.6 : 0.5 + Math.random() * (depth > 0.7 ? 1.4 : 1.0);
+
+          let color = "255,255,255";
+          const cRoll = Math.random();
+          if (cRoll < 0.62) color = "255,255,255";
+          else if (cRoll < 0.87) color = "44,126,255";
+          else color = "11,61,145";
+
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: radius,
+            behavior,
+            color,
+            baseAlpha: behavior === "bright" ? 0.6 + Math.random() * 0.35 : 0.18 + Math.random() * 0.65,
+            alpha: 0,
+            twinkleSpeed: behavior === "twinkle" || behavior === "driftTwinkle" ? 0.008 + Math.random() * 0.028 : behavior === "bright" ? 0.002 + Math.random() * 0.006 : 0,
+            twinkleOffset: Math.random() * Math.PI * 2,
+            driftX: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            driftY: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            parallax: 0.15 + depth * 0.85
+          });
+        }
+      }
+
+      function createConstellations() {
+        constellationLines = [];
+        const anchors = stars
+          .filter((star) => star.r > 1.25 && star.behavior !== "drift" && star.behavior !== "driftTwinkle")
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 20);
+
+        const usedPairs = new Set();
+
+        for (const a of anchors) {
+          const nearest = anchors
+            .filter((b) => b !== a)
+            .map((b) => ({ star: b, distance: Math.hypot(b.x - a.x, b.y - a.y) }))
+            .filter((item) => item.distance > 60 && item.distance < 190)
+            .sort((p, q) => p.distance - q.distance)
+            .slice(0, 2);
+
+          for (const item of nearest) {
+            const b = item.star;
+            const pairKey = [stars.indexOf(a), stars.indexOf(b)].sort((m, n) => m - n).join("-");
+
+            if (!usedPairs.has(pairKey)) {
+              usedPairs.add(pairKey);
+              constellationLines.push({ a, b, alpha: 0.06 + Math.random() * 0.08 });
+            }
+          }
+        }
+      }
+
+      function maybeSpawnShootingStar(time) {
+        if (time - lastMeteorTime < 2200) return;
+        if (Math.random() > 0.012) return;
+
+        lastMeteorTime = time;
+
+        const startX = Math.random() * width * 0.85;
+        const startY = Math.random() * height * 0.28;
+        const length = 90 + Math.random() * 110;
+        const speed = 11 + Math.random() * 6;
+        const angle = Math.PI / 4 + Math.random() * 0.28;
+
+        shootingStars.push({
+          x: startX,
+          y: startY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          length,
+          life: 0,
+          maxLife: 34 + Math.floor(Math.random() * 16)
+        });
+      }
+
+      function drawSpaceMist() {
+        const g1 = ctx.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 260);
+        g1.addColorStop(0, "rgba(11,61,145,0.07)");
+        g1.addColorStop(1, "rgba(11,61,145,0)");
+
+        const g2 = ctx.createRadialGradient(width * 0.82, height * 0.24, 0, width * 0.82, height * 0.24, 300);
+        g2.addColorStop(0, "rgba(44,126,255,0.06)");
+        g2.addColorStop(1, "rgba(44,126,255,0)");
+
+        const g3 = ctx.createRadialGradient(width * 0.56, height * 0.8, 0, width * 0.56, height * 0.8, 280);
+        g3.addColorStop(0, "rgba(44,126,255,0.05)");
+        g3.addColorStop(1, "rgba(44,126,255,0)");
+
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g3;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      function drawConstellations(time) {
+        for (const line of constellationLines) {
+          const ax = line.a.x + mouseX * line.a.parallax * 0.012;
+          const ay = line.a.y + mouseY * line.a.parallax * 0.012;
+          const bx = line.b.x + mouseX * line.b.parallax * 0.012;
+          const by = line.b.y + mouseY * line.b.parallax * 0.012;
+          const pulse = 0.75 + 0.25 * Math.sin(time * 0.001 + ax * 0.01 + ay * 0.01);
+
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `rgba(44, 126, 255, ${line.alpha * pulse})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      function drawStars(time) {
+        for (const star of stars) {
+          if (star.behavior === "drift" || star.behavior === "driftTwinkle") {
+            star.x += star.driftX;
+            star.y += star.driftY;
+            if (star.x < -4) star.x = width + 4;
+            if (star.x > width + 4) star.x = -4;
+            if (star.y < -4) star.y = height + 4;
+            if (star.y > height + 4) star.y = -4;
+          }
+
+          if (star.behavior === "twinkle" || star.behavior === "driftTwinkle") {
+            const twinkle = 0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * twinkle;
+          } else if (star.behavior === "bright") {
+            const pulse = 0.85 + 0.15 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * pulse;
+          } else {
+            star.alpha = star.baseAlpha;
+          }
+
+          const px = star.x + mouseX * star.parallax * 0.015;
+          const py = star.y + mouseY * star.parallax * 0.015;
+
+          ctx.beginPath();
+          ctx.arc(px, py, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${star.color}, ${star.alpha})`;
+          ctx.shadowBlur = star.r * 6;
+          ctx.shadowColor = `rgba(${star.color}, ${star.alpha * 0.55})`;
+          ctx.fill();
+
+          if (star.r > 1.35) {
+            ctx.beginPath();
+            ctx.arc(px, py, star.r * 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${star.color}, ${star.alpha * 0.08})`;
+            ctx.shadowBlur = 0;
+            ctx.fill();
+          }
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      function drawShootingStars() {
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const meteor = shootingStars[i];
+          const tailX = meteor.x - meteor.vx * (meteor.length / 18);
+          const tailY = meteor.y - meteor.vy * (meteor.length / 18);
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
+
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.15, "rgba(44,126,255,0.8)");
+          gradient.addColorStop(1, "rgba(11,61,145,0)");
+
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(meteor.x, meteor.y, 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fill();
+
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+
+          if (meteor.life > meteor.maxLife || meteor.x > width + 120 || meteor.y > height + 120) {
+            shootingStars.splice(i, 1);
+          }
+        }
+      }
+
+      function animate(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+
+        drawSpaceMist();
+        drawConstellations(time);
+        drawStars(time);
+        maybeSpawnShootingStar(time);
+        drawShootingStars();
+
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+
+      window.addEventListener("resize", resizeStarfield);
+      resizeStarfield();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

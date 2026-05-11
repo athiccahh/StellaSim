@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Spectroscopy Lab</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <!-- all the css for the spectroscopy lab lives here -->
+  <style>
+    /* core theme vars for the whole ui */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0,0,0,0.58);
+      --btn: linear-gradient(180deg, rgba(11, 61, 145, 0.72), rgba(3, 17, 44, 0.9));
+      --btn-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.42), rgba(11, 61, 145, 0.9));
+      --danger: #ffb4b4;
+      --good: #8fbfff;
+      --warn: #ffe2a6;
+    }
+
+    /* base page layout n render layers */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: #000;
+      color: var(--text);
+      font-family: Inter, system-ui, Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    body {
+      background:
+        radial-gradient(circle at 50% -10%, rgba(11, 61, 145, 0.22), transparent 0 34%),
+        radial-gradient(circle at 18% 18%, rgba(44, 126, 255, 0.08), transparent 0 22%),
+        radial-gradient(circle at 82% 78%, rgba(11, 61, 145, 0.10), transparent 0 24%),
+        linear-gradient(180deg, #000000 0%, #02040a 48%, #000000 100%);
+    }
+    #app { min-height: 100vh; position: relative; padding: 18px; overflow: hidden; }
+
+    /* subtle starfield behind the lab */
+    .starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.55;
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,0.8) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 33% 82%, rgba(44,126,255,0.75) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 62% 26%, rgba(255,255,255,0.72) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 78% 70%, rgba(44,126,255,0.65) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 92% 42%, rgba(255,255,255,0.65) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 44% 44%, rgba(255,255,255,0.5) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 4% 58%, rgba(44,126,255,0.7) 0 1px, transparent 1.5px);
+    }
+
+    /* shared glass panel style used by every hud panel */
+    .hud-panel {
+      background:
+        linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.055),
+        inset 0 -1px 0 rgba(44,126,255,0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* top title bar */
+    #topHeader {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 15px;
+      margin: 0 auto 14px;
+      max-width: 1500px;
+    }
+    .header-left, .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .app-title { font-size: 20px; font-weight: 800; letter-spacing: 0.01em; }
+    .app-badge, .readout-badge {
+      color: var(--accent-light);
+      border: 1px solid rgba(44,126,255,0.22);
+      background: rgba(11,61,145,0.08);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .readout-badge { text-transform: none; letter-spacing: 0; color: var(--text); }
+
+    /* main dashboard grid */
+    #dashboard {
+      position: relative;
+      z-index: 2;
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr) 355px;
+      gap: 14px;
+      align-items: start;
+    }
+    .panel { padding: 14px; display: grid; gap: 12px; }
+    .panel-title { font-size: 17px; font-weight: 800; letter-spacing: 0.01em; }
+    .panel-subtitle { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    /* section cards */
+    details.section { border: 1px solid rgba(44,126,255,0.14); border-radius: 14px; padding: 8px 10px 10px; background: rgba(255,255,255,0.02); }
+    details.section[open] { background: rgba(80,120,180,0.05); }
+    details.section > summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      color: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .section-inner { margin-top: 10px; display: grid; gap: 10px; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .toggle-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+
+    /* form controls n buttons styling */
+    label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.96), rgba(3, 12, 30, 0.96));
+      color: var(--field-text);
+      border-radius: 10px;
+      padding: 9px 11px;
+      outline: none;
+      font-size: 13px;
+    }
+    input:focus, select:focus {
+      border-color: rgba(44, 126, 255, 0.72);
+      box-shadow:
+        0 0 0 3px rgba(11, 61, 145, 0.16),
+        0 0 20px rgba(11, 61, 145, 0.16);
+    }
+    input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    input[type="range"] { padding: 0; background: transparent; border: none; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
+    button {
+      border: 1px solid rgba(44,126,255,0.24);
+      background: var(--btn);
+      color: white;
+      border-radius: 11px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.24);
+    }
+    button:hover { background: var(--btn-hover); filter: brightness(1.06); }
+    button:active { transform: translateY(1px); }
+    .small { padding: 7px 9px; font-size: 12px; }
+    .ghost { background: rgba(11,61,145,0.09); }
+    .danger { color: #ffe7e7; border-color: rgba(255,180,180,0.28); }
+
+    /* center spectrum area */
+    #spectrumPanel { min-height: 600px; padding: 14px; display: grid; gap: 12px; }
+    .viewer-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .viewer-title { font-size: 18px; font-weight: 800; }
+    .viewer-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    #spectrumWrap {
+      position: relative;
+      height: 410px;
+      min-height: 330px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.16);
+      background: linear-gradient(180deg, rgba(8, 16, 32, 0.78), rgba(0, 0, 0, 0.58));
+      overflow: hidden;
+    }
+    #spectrumCanvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+    #hoverBox {
+      position: absolute;
+      left: 14px;
+      top: 14px;
+      min-width: 220px;
+      padding: 10px 12px;
+      border-radius: 13px;
+      border: 1px solid rgba(44,126,255,0.20);
+      background: rgba(20, 28, 42, 0.90);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      pointer-events: none;
+      display: none;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .hover-title { color: var(--accent-light); font-weight: 800; margin-bottom: 2px; }
+    #lineDetail {
+      border: 1px solid rgba(44,126,255,0.14);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.025);
+      display: grid;
+      gap: 8px;
+    }
+    .detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .detail-item { display: grid; gap: 2px; font-size: 12px; }
+    .detail-item span:first-child { color: var(--muted); }
+    .value-strong { color: var(--text); font-weight: 800; }
+
+    /* chips and cards */
+    .chip-row { display: flex; gap: 7px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid rgba(44,126,255,0.18);
+      background: rgba(11,61,145,0.08);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .chip.good { color: var(--good); }
+    .chip.warn { color: var(--warn); }
+    .mini-card {
+      border: 1px solid rgba(44,126,255,0.12);
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,0.025);
+      display: grid;
+      gap: 6px;
+    }
+    .mini-title { color: var(--accent-light); font-weight: 800; font-size: 13px; }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); border-bottom: 1px solid rgba(44,126,255,0.08); padding-bottom: 5px; }
+    .kv:last-child { border-bottom: none; padding-bottom: 0; }
+
+    /* object preview */
+    #previewBox { height: 150px; position: relative; overflow: hidden; }
+    #previewCanvas { width: 100%; height: 150px; display: block; border-radius: 12px; background: radial-gradient(circle at 50% 50%, rgba(11,61,145,0.12), rgba(0,0,0,0.36)); }
+
+    /* right analysis panel */
+    #rightPanel { display: grid; gap: 12px; }
+    #lineTable { display: grid; gap: 6px; max-height: 260px; overflow: auto; padding-right: 3px; }
+    .line-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 11px;
+      border: 1px solid rgba(44,126,255,0.10);
+      background: rgba(0,0,0,0.12);
+      cursor: pointer;
+    }
+    .line-row:hover { background: rgba(11,61,145,0.11); }
+    .line-name { font-size: 12px; font-weight: 800; color: #f4f8ff; }
+    .line-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .confidence { color: var(--accent-light); font-size: 11px; }
+    .element-list { display: grid; gap: 7px; }
+    .element-card { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px; border-radius: 12px; border: 1px solid rgba(44,126,255,0.10); background: rgba(255,255,255,0.025); }
+    .element-name { font-weight: 800; font-size: 12px; }
+    .element-detail { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+    /* bottom tools */
+    #bottomPanel {
+      position: relative;
+      z-index: 2;
+      max-width: 1500px;
+      margin: 14px auto 0;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 12px;
+    }
+    .activity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .hint-bar {
+      position: relative;
+      z-index: 2;
+      max-width: 1500px;
+      margin: 14px auto 0;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .hint-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-light); box-shadow: 0 0 16px rgba(11,61,145,0.75); }
+
+    /* molecule toggle grid */
+    .molecule-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+    /* responsive layout */
+    @media (max-width: 1200px) {
+      #dashboard { grid-template-columns: 320px 1fr; }
+      #rightPanel { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #bottomPanel { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 820px) {
+      #app { padding: 10px; }
+      #topHeader { align-items: flex-start; }
+      #dashboard { grid-template-columns: 1fr; }
+      #rightPanel { grid-template-columns: 1fr; }
+      #spectrumWrap { height: 360px; }
+      .detail-grid, .field-grid { grid-template-columns: 1fr 1fr; }
+      .activity-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      #topHeader { display: grid; }
+      .detail-grid, .field-grid, .toggle-row, .molecule-grid { grid-template-columns: 1fr; }
+      #spectrumWrap { height: 330px; }
+    }
+  </style>
+</head>
+<body>
+<!-- main app shell n render layers -->
+<div id="app">
+  <div class="starfield"></div>
+
+  <!-- top center title -->
+  <header id="topHeader" class="hud-panel">
+    <div class="header-left">
+      <div class="app-title">StellaSim Spectroscopy Lab</div>
+      <div class="app-badge">Analyze Light</div>
+      <div class="readout-badge" id="modelBadge">Modeled spectrum</div>
+    </div>
+    <div class="header-right">
+      <select id="topPresetSelect" aria-label="object preset"></select>
+      <select id="topModeSelect" aria-label="observation mode">
+        <option value="classroom">Classroom Mode</option>
+        <option value="research">Research Mode</option>
+        <option value="challenge">Challenge Mode</option>
+        <option value="compare">Compare Mode</option>
+        <option value="redshift">Redshift Hunt</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- main dashboard -->
+  <main id="dashboard">
+    <!-- left controls -->
+    <aside id="leftPanel" class="hud-panel panel">
+      <div>
+        <div class="panel-title">Source Controls</div>
+        <div class="panel-subtitle">Build a spectrum from a modeled source, then change the instrument like a real observation.</div>
+      </div>
+
+      <details class="section" open>
+        <!-- source selection controls -->
+        <summary>Source</summary>
+        <div class="section-inner">
+          <label>Object type
+            <select id="objectTypeSelect"></select>
+          </label>
+          <label>Preset
+            <select id="presetSelect"></select>
+          </label>
+          <div id="previewBox" class="mini-card">
+            <canvas id="previewCanvas"></canvas>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- wavelength range controls -->
+        <summary>Wavelength Range</summary>
+        <div class="section-inner">
+          <label>Range
+            <select id="rangeSelect">
+              <option value="uv">Ultraviolet · 100–400 nm</option>
+              <option value="visible" selected>Visible · 380–750 nm</option>
+              <option value="nir">Near Infrared · 750–2500 nm</option>
+              <option value="full">Full · 100–2500 nm</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <div class="field-grid">
+            <label>Min nm<input id="wMinInput" type="number" min="50" max="2490" value="380" /></label>
+            <label>Max nm<input id="wMaxInput" type="number" min="60" max="2600" value="750" /></label>
+          </div>
+          <div class="row">
+            <button id="resetZoomBtn" class="small">Reset Zoom</button>
+            <button id="visibleBtn" class="small">Visible</button>
+            <button id="fullBtn" class="small">Full</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- physical model controls -->
+        <summary>Physical Controls</summary>
+        <div class="section-inner">
+          <label>Temperature <span id="tempReadout" class="value-strong">5772 K</span>
+            <input id="temperatureSlider" type="range" min="2500" max="50000" step="10" value="5772" />
+          </label>
+          <label>Redshift z <span id="redshiftReadout" class="value-strong">0.000</span>
+            <input id="redshiftSlider" type="range" min="0" max="10" step="0.001" value="0" />
+          </label>
+          <label>Radial velocity <span id="rvReadout" class="value-strong">0 km/s</span>
+            <input id="rvSlider" type="range" min="-500" max="500" step="1" value="0" />
+          </label>
+          <div class="row">
+            <button id="estimateTempBtn" class="small">Estimate Temperature</button>
+            <button id="autoDetectBtn" class="small">Auto Detect Lines</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- instrument simulation controls -->
+        <summary>Instrument</summary>
+        <div class="section-inner">
+          <label>Resolution R <span id="resolutionReadout" class="value-strong">1000</span>
+            <input id="resolutionSlider" type="range" min="100" max="10000" step="10" value="1000" />
+          </label>
+          <label>Noise <span id="noiseReadout" class="value-strong">0.020</span>
+            <input id="noiseSlider" type="range" min="0" max="0.18" step="0.002" value="0.02" />
+          </label>
+          <label>Exposure time <span id="exposureReadout" class="value-strong">60 s</span>
+            <input id="exposureSlider" type="range" min="5" max="1800" step="5" value="60" />
+          </label>
+          <label>Telescope aperture <span id="apertureReadout" class="value-strong">102 mm</span>
+            <input id="apertureSlider" type="range" min="50" max="10000" step="1" value="102" />
+          </label>
+          <label>Sky background <span id="skyReadout" class="value-strong">0.02</span>
+            <input id="skySlider" type="range" min="0" max="0.25" step="0.005" value="0.02" />
+          </label>
+          <label>Instrument mode
+            <select id="instrumentSelect">
+              <option value="low">Low-res survey spectrograph</option>
+              <option value="medium" selected>Medium-res slit spectrograph</option>
+              <option value="high">High-res echelle-style mode</option>
+              <option value="transit">Transit spectroscopy mode</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- display toggles -->
+        <summary>Display</summary>
+        <div class="section-inner">
+          <div class="toggle-row">
+            <label class="check"><input id="labelsToggle" type="checkbox" checked />Line labels</label>
+            <label class="check"><input id="continuumToggle" type="checkbox" checked />Continuum</label>
+            <label class="check"><input id="cursorToggle" type="checkbox" checked />Measurement cursor</label>
+            <label class="check"><input id="compareToggle" type="checkbox" />Compare overlay</label>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" id="moleculeSection">
+        <!-- exoplanet molecule controls -->
+        <summary>Atmosphere Molecules</summary>
+        <div class="section-inner molecule-grid" id="moleculeGrid"></div>
+      </details>
+    </aside>
+
+    <!-- center spectrum viewer -->
+    <section id="spectrumPanel" class="hud-panel">
+      <div class="viewer-top">
+        <div>
+          <div class="viewer-title" id="viewerTitle">G-type Star / Sun</div>
+          <div class="viewer-meta" id="viewerMeta">Blackbody continuum, absorption lines, and instrument effects are modeled for learning.</div>
+        </div>
+        <div class="chip-row" id="quickChips"></div>
+      </div>
+
+      <!-- canvas spectrum analyzer -->
+      <div id="spectrumWrap">
+        <canvas id="spectrumCanvas"></canvas>
+        <div id="hoverBox"></div>
+      </div>
+
+      <!-- selected line detail -->
+      <div id="lineDetail">
+        <div class="mini-title">Selected Measurement</div>
+        <div class="detail-grid">
+          <div class="detail-item"><span>Wavelength</span><span id="selectedWavelength" class="value-strong">click a line</span></div>
+          <div class="detail-item"><span>Intensity</span><span id="selectedIntensity" class="value-strong">—</span></div>
+          <div class="detail-item"><span>Likely ID</span><span id="selectedId" class="value-strong">—</span></div>
+          <div class="detail-item"><span>Confidence</span><span id="selectedConfidence" class="value-strong">—</span></div>
+        </div>
+        <div class="row">
+          <button id="identifyBtn" class="small">Identify Selected Line</button>
+          <button id="zoomSelectedBtn" class="small">Zoom To Line</button>
+          <button id="compareSunBtn" class="small ghost">Compare Sun</button>
+          <button id="compareRedDwarfBtn" class="small ghost">Compare Red Dwarf</button>
+        </div>
+        <div class="muted" id="selectedExplanation">Drag the spectrum to pan. Use the wheel to zoom. Click an absorption dip or emission peak to inspect it.</div>
+      </div>
+    </section>
+
+    <!-- right analysis column -->
+    <aside id="rightPanel">
+      <section class="hud-panel panel">
+        <!-- classification result card -->
+        <div class="panel-title">Classification</div>
+        <div class="mini-card">
+          <div class="mini-title" id="classTitle">G-type star</div>
+          <div class="muted" id="classEvidence">Solar-like continuum with metal absorption features and moderate hydrogen Balmer lines.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-title">Measured Properties</div>
+          <div id="propertiesList"></div>
+        </div>
+      </section>
+
+      <section class="hud-panel panel">
+        <!-- detected composition cards -->
+        <div class="panel-title">Detected Composition</div>
+        <div class="element-list" id="elementList"></div>
+      </section>
+
+      <section class="hud-panel panel">
+        <!-- line table list -->
+        <div class="panel-title">Line List</div>
+        <div class="panel-subtitle">Click a line to center it. Observed wavelength includes redshift and radial velocity.</div>
+        <div id="lineTable"></div>
+      </section>
+
+      <section class="hud-panel panel">
+        <!-- science explanation card -->
+        <div class="panel-title">What You’re Seeing</div>
+        <div class="muted" id="explanationText"></div>
+        <details class="section">
+          <summary>Equations</summary>
+          <div class="section-inner muted">
+            <div><b>Wien’s law:</b> λmax = 2.897e6 nm K / T</div>
+            <div><b>Redshift:</b> z = (λobs − λrest) / λrest</div>
+            <div><b>Small velocity:</b> v ≈ zc</div>
+            <div><b>Resolution:</b> R = λ / Δλ</div>
+            <div><b>Planck curve:</b> modeled as a normalized blackbody continuum.</div>
+          </div>
+        </details>
+      </section>
+    </aside>
+  </main>
+
+  <!-- bottom activities n compare tools -->
+  <section id="bottomPanel" class="hud-panel">
+    <div class="mini-card">
+      <div class="mini-title">Mini Activities</div>
+      <div class="activity-grid">
+        <button class="small" data-activity="star">Identify the star type</button>
+        <button class="small" data-activity="halpha">Find H-alpha</button>
+        <button class="small" data-activity="redshift">Measure galaxy redshift</button>
+        <button class="small" data-activity="water">Detect water in an exoplanet</button>
+        <button class="small" data-activity="emission">Emission vs absorption</button>
+        <button class="small" data-activity="nebula">Classify a nebula</button>
+      </div>
+      <div class="muted" id="activityResult">Choose an activity and use the spectrum tools to complete it.</div>
+    </div>
+
+    <div class="mini-card">
+      <div class="mini-title">Compare Tools</div>
+      <label>Comparison preset
+        <select id="comparePresetSelect"></select>
+      </label>
+      <div class="row">
+        <button id="loadCompareBtn" class="small">Load Overlay</button>
+        <button id="clearCompareBtn" class="small danger">Clear Overlay</button>
+      </div>
+      <div class="muted">Compare mode overlays a second modeled spectrum so users can see temperature, line, and redshift differences.</div>
+    </div>
+
+    <div class="mini-card">
+      <div class="mini-title">Accuracy Note</div>
+      <div class="muted">Spectra are generated from simplified physical models for learning. Real spectroscopy requires wavelength calibration, flux calibration, instrument response correction, sky subtraction, and detailed atmosphere models.</div>
+    </div>
+  </section>
+
+  <!-- bottom hint bar -->
+  <div class="hint-bar hud-panel">
+    <span class="hint-dot"></span>
+    <span>drag: pan spectrum</span>
+    <span>wheel: zoom</span>
+    <span>click a line to inspect</span>
+    <span>use presets to compare objects</span>
+  </div>
+</div>
+
+<!-- main app logic starts here -->
+<script>
+// wrap the whole app so nothing leaks into global scope
+(() => {
+  'use strict';
+
+  // base constants n quick helpers
+  const C_KMS = 299792.458;
+  const WIEN_NM_K = 2.897e6;
+  const SAMPLE_COUNT = 1600;
+  const ui = Object.fromEntries(Array.from(document.querySelectorAll('[id]')).map(el => [el.id, el]));
+  const canvas = ui.spectrumCanvas;
+  const ctx = canvas.getContext('2d');
+  const previewCtx = ui.previewCanvas.getContext('2d');
+
+  // central live state for the lab
+  const state = {
+    objectType: 'stars',
+    preset: 'sun',
+    temperature: 5772,
+    redshift: 0,
+    radialVelocity: 0,
+    wavelengthMin: 380,
+    wavelengthMax: 750,
+    baseMin: 380,
+    baseMax: 750,
+    resolution: 1000,
+    noise: 0.02,
+    exposure: 60,
+    aperture: 102,
+    skyBackground: 0.02,
+    instrumentMode: 'medium',
+    compareEnabled: false,
+    comparePreset: 'm-dwarf',
+    selectedLine: null,
+    selectedWavelength: null,
+    labelsEnabled: true,
+    continuumEnabled: true,
+    cursorEnabled: true,
+    mode: 'classroom',
+    range: 'visible',
+    molecules: { H2O:true, CH4:false, CO2:true, CO:false, O2:false, O3:false, Na:true, K:true, NH3:false },
+    panStart: null,
+    hover: null,
+    spectrum: [],
+    compareSpectrum: [],
+    modelLines: [],
+    detectedLines: [],
+    activity: null,
+    lastUpdate: 0
+  };
+
+  // object presets for every source type
+  const PRESETS = {
+    stars: [
+      { id:'o-star', label:'O-type Star', temp:40000, z:0, rv:0, className:'O-type star', note:'Very hot blue star with helium absorption and weak-to-moderate hydrogen.' },
+      { id:'b-star', label:'B-type Star', temp:18000, z:0, rv:0, className:'B-type star', note:'Blue-white star with helium and hydrogen absorption.' },
+      { id:'a-star', label:'A-type Star', temp:9000, z:0, rv:0, className:'A-type star', note:'Strong Balmer absorption lines with a blue-white continuum.' },
+      { id:'f-star', label:'F-type Star', temp:7000, z:0, rv:0, className:'F-type star', note:'Moderate hydrogen and stronger metal absorption lines.' },
+      { id:'sun', label:'G-type Star / Sun', temp:5772, z:0, rv:0, className:'G-type star', note:'Solar-like continuum with metal absorption and moderate Balmer lines.' },
+      { id:'k-star', label:'K-type Star', temp:4400, z:0, rv:0, className:'K-type star', note:'Orange continuum with strong metal absorption.' },
+      { id:'m-dwarf', label:'M-type Star / Red Dwarf', temp:3200, z:0, rv:0, className:'M-type red dwarf', note:'Red continuum with TiO molecular bands.' },
+      { id:'white-dwarf', label:'White Dwarf', temp:12000, z:0, rv:0, className:'White dwarf', note:'Hot compact remnant with broad hydrogen absorption.' },
+      { id:'red-giant', label:'Red Giant', temp:3600, z:0, rv:0, className:'Red giant', note:'Cool luminous star with molecular bands and red continuum.' },
+      { id:'brown-dwarf', label:'Brown Dwarf', temp:2500, z:0, rv:0, className:'Brown dwarf', note:'Very cool source peaking strongly into infrared with molecular absorption.' }
+    ],
+    nebulae: [
+      { id:'orion-hii', label:'Orion Nebula style H II region', temp:9000, z:0, rv:22, className:'Emission nebula / H II region', note:'Bright hydrogen emission with oxygen lines on a weak continuum.' },
+      { id:'planetary-nebula', label:'Planetary Nebula', temp:10000, z:0, rv:35, className:'Planetary nebula', note:'Very strong O III and hydrogen emission, sometimes He II.' },
+      { id:'snr', label:'Supernova Remnant', temp:8000, z:0, rv:120, className:'Supernova remnant', note:'Broad complex lines with strong sulfur relative to H-alpha.' },
+      { id:'reflection-nebula', label:'Reflection Nebula', temp:12000, z:0, rv:0, className:'Reflection nebula', note:'Blue scattered continuum with weak emission.' },
+      { id:'dark-nebula', label:'Dark Nebula with Absorption', temp:4200, z:0, rv:0, className:'Dark nebula / absorbing cloud', note:'Dust reddening and absorption bands suppress parts of the spectrum.' }
+    ],
+    galaxies: [
+      { id:'nearby-spiral', label:'Nearby Spiral Galaxy', temp:5600, z:0.005, rv:0, className:'Nearby spiral galaxy', note:'Mixed stellar continuum with redshifted H II region emission.' },
+      { id:'elliptical', label:'Elliptical Galaxy', temp:4300, z:0.03, rv:0, className:'Elliptical galaxy', note:'Older red stellar population with absorption features.' },
+      { id:'starburst', label:'Starburst Galaxy', temp:9000, z:0.06, rv:0, className:'Starburst galaxy', note:'Strong emission lines from rapid star formation.' },
+      { id:'active-galaxy', label:'Active Galaxy', temp:9000, z:0.12, rv:0, className:'Active galaxy', note:'Emission line spectrum with stronger, broader nuclear lines.' },
+      { id:'high-z-galaxy', label:'High Redshift Galaxy', temp:11000, z:3.1, rv:0, className:'High-redshift galaxy', note:'Rest-frame ultraviolet features shifted toward visible/infrared wavelengths.' }
+    ],
+    quasars: [
+      { id:'quasar', label:'Quasar with Broad Emission Lines', temp:18000, z:2.2, rv:0, className:'Quasar', note:'Broad high-redshift emission lines from gas around an active supermassive black hole.' }
+    ],
+    exoplanets: [
+      { id:'hot-jupiter', label:'Hot Jupiter Atmosphere', temp:1500, z:0, rv:0, className:'Hot Jupiter transmission spectrum', note:'Transit spectrum with sodium, potassium, water, carbon monoxide, and haze effects.' },
+      { id:'warm-neptune', label:'Warm Neptune Atmosphere', temp:850, z:0, rv:0, className:'Warm Neptune transmission spectrum', note:'Water and methane bands with moderate clouds.' },
+      { id:'super-earth', label:'Super-Earth Atmosphere', temp:650, z:0, rv:0, className:'Super-Earth atmosphere', note:'Small molecular features that are harder to detect.' },
+      { id:'earth-like', label:'Earth-like Atmosphere', temp:288, z:0, rv:0, className:'Earth-like transmission spectrum', note:'Oxygen, ozone, water vapor, and carbon dioxide features.' },
+      { id:'hazy', label:'Hazy Atmosphere', temp:900, z:0, rv:0, className:'Hazy exoplanet atmosphere', note:'Clouds and haze flatten molecular bands.' },
+      { id:'water-rich', label:'Water-rich Atmosphere', temp:700, z:0, rv:0, className:'Water-rich atmosphere', note:'Water vapor bands dominate the transmission spectrum.' },
+      { id:'methane-rich', label:'Methane-rich Atmosphere', temp:500, z:0, rv:0, className:'Methane-rich atmosphere', note:'Methane bands are strong in red/near-infrared regions.' }
+    ],
+    blackbody: [
+      { id:'blackbody', label:'Custom Blackbody Source', temp:5772, z:0, rv:0, className:'Blackbody source', note:'A smooth continuum showing how temperature controls color and peak wavelength.' }
+    ],
+    custom: [
+      { id:'custom', label:'Custom Spectrum', temp:5772, z:0, rv:0, className:'Custom modeled spectrum', note:'A user-adjustable spectrum with continuum, redshift, and instrument controls.' }
+    ]
+  };
+
+  // known line list for stars nebulae galaxies n quasars
+  const LINES = [
+    { key:'h_alpha', label:'H-alpha', element:'Hydrogen', symbol:'H', rest:656.28, kind:'both', family:'balmer' },
+    { key:'h_beta', label:'H-beta', element:'Hydrogen', symbol:'H', rest:486.13, kind:'both', family:'balmer' },
+    { key:'h_gamma', label:'H-gamma', element:'Hydrogen', symbol:'H', rest:434.05, kind:'absorption', family:'balmer' },
+    { key:'h_delta', label:'H-delta', element:'Hydrogen', symbol:'H', rest:410.17, kind:'absorption', family:'balmer' },
+    { key:'ca_k', label:'Ca K', element:'Calcium', symbol:'Ca', rest:393.37, kind:'absorption', family:'metal' },
+    { key:'ca_h', label:'Ca H', element:'Calcium', symbol:'Ca', rest:396.85, kind:'absorption', family:'metal' },
+    { key:'na_d2', label:'Na D2', element:'Sodium', symbol:'Na', rest:588.99, kind:'absorption', family:'metal' },
+    { key:'na_d1', label:'Na D1', element:'Sodium', symbol:'Na', rest:589.59, kind:'absorption', family:'metal' },
+    { key:'mg_b1', label:'Mg b', element:'Magnesium', symbol:'Mg', rest:516.73, kind:'absorption', family:'metal' },
+    { key:'mg_b2', label:'Mg b', element:'Magnesium', symbol:'Mg', rest:517.27, kind:'absorption', family:'metal' },
+    { key:'mg_b3', label:'Mg b', element:'Magnesium', symbol:'Mg', rest:518.36, kind:'absorption', family:'metal' },
+    { key:'fe_1', label:'Fe cluster', element:'Iron', symbol:'Fe', rest:527.0, kind:'absorption', family:'metal' },
+    { key:'fe_2', label:'Fe cluster', element:'Iron', symbol:'Fe', rest:438.3, kind:'absorption', family:'metal' },
+    { key:'he_447', label:'He I', element:'Helium', symbol:'He', rest:447.1, kind:'absorption', family:'helium' },
+    { key:'he_587', label:'He I', element:'Helium', symbol:'He', rest:587.6, kind:'absorption', family:'helium' },
+    { key:'he_ii', label:'He II', element:'Helium', symbol:'He II', rest:468.6, kind:'emission', family:'helium' },
+    { key:'o3_496', label:'O III', element:'Oxygen', symbol:'O III', rest:495.9, kind:'emission', family:'nebula' },
+    { key:'o3_501', label:'O III', element:'Oxygen', symbol:'O III', rest:500.7, kind:'emission', family:'nebula' },
+    { key:'n2_655', label:'N II', element:'Nitrogen', symbol:'N II', rest:654.8, kind:'emission', family:'nebula' },
+    { key:'n2_658', label:'N II', element:'Nitrogen', symbol:'N II', rest:658.3, kind:'emission', family:'nebula' },
+    { key:'s2_672', label:'S II', element:'Sulfur', symbol:'S II', rest:671.6, kind:'emission', family:'nebula' },
+    { key:'s2_673', label:'S II', element:'Sulfur', symbol:'S II', rest:673.1, kind:'emission', family:'nebula' },
+    { key:'o2_373', label:'O II', element:'Oxygen', symbol:'O II', rest:372.7, kind:'emission', family:'nebula' },
+    { key:'lya', label:'Lyman-alpha', element:'Hydrogen', symbol:'H I', rest:121.57, kind:'emission', family:'quasar' },
+    { key:'civ', label:'C IV', element:'Carbon', symbol:'C IV', rest:154.9, kind:'emission', family:'quasar' },
+    { key:'mgii', label:'Mg II', element:'Magnesium', symbol:'Mg II', rest:279.8, kind:'emission', family:'quasar' }
+  ];
+
+  // molecule bands for transit spectroscopy
+  const MOLECULES = [
+    { key:'H2O', name:'Water vapor', bands:[720, 820, 940, 1130, 1400, 1900], strength:0.035 },
+    { key:'CH4', name:'Methane', bands:[620, 730, 890, 1000, 1650, 2300], strength:0.028 },
+    { key:'CO2', name:'Carbon dioxide', bands:[760, 1430, 1600, 2000], strength:0.025 },
+    { key:'CO', name:'Carbon monoxide', bands:[1560, 2300], strength:0.020 },
+    { key:'O2', name:'Oxygen', bands:[687, 760], strength:0.018 },
+    { key:'O3', name:'Ozone', bands:[255, 600, 970], strength:0.018 },
+    { key:'Na', name:'Sodium', bands:[589.0], strength:0.016 },
+    { key:'K', name:'Potassium', bands:[766.5, 769.9], strength:0.014 },
+    { key:'NH3', name:'Ammonia', bands:[930, 1050, 1500, 2000], strength:0.020 }
+  ];
+
+  // simple utility functions
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function fmt(v, digits = 2) { return Number.isFinite(v) ? v.toFixed(digits) : '—'; }
+  function nowPreset() { return PRESETS[state.objectType].find(p => p.id === state.preset) || PRESETS.stars[4]; }
+  function isEmissionSource() { return ['nebulae', 'galaxies', 'quasars'].includes(state.objectType); }
+  function isExoplanet() { return state.objectType === 'exoplanets'; }
+
+  // save small settings so the lab remembers the last setup
+  function saveSettings() {
+    const keep = {
+      objectType: state.objectType, preset: state.preset, mode: state.mode,
+      labelsEnabled: state.labelsEnabled, range: state.range, resolution: state.resolution,
+      noise: state.noise, compareEnabled: state.compareEnabled
+    };
+    localStorage.setItem('stellasim-spectroscopy-lab', JSON.stringify(keep));
+  }
+
+  // load saved settings safely
+  function loadSettings() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('stellasim-spectroscopy-lab') || '{}');
+      if (raw.objectType && PRESETS[raw.objectType]) state.objectType = raw.objectType;
+      if (raw.preset) state.preset = raw.preset;
+      if (raw.mode) state.mode = raw.mode;
+      if (typeof raw.labelsEnabled === 'boolean') state.labelsEnabled = raw.labelsEnabled;
+      if (raw.range) state.range = raw.range;
+      if (raw.resolution) state.resolution = raw.resolution;
+      if (raw.noise !== undefined) state.noise = raw.noise;
+      if (typeof raw.compareEnabled === 'boolean') state.compareEnabled = raw.compareEnabled;
+    } catch {}
+  }
+
+  // convert wavelength to approximate visible rgb
+  function wavelengthToRgb(w) {
+    let r=0, g=0, b=0;
+    if (w >= 380 && w < 440) { r = -(w - 440) / 60; b = 1; }
+    else if (w < 490) { g = (w - 440) / 50; b = 1; }
+    else if (w < 510) { g = 1; b = -(w - 510) / 20; }
+    else if (w < 580) { r = (w - 510) / 70; g = 1; }
+    else if (w < 645) { r = 1; g = -(w - 645) / 65; }
+    else if (w <= 750) { r = 1; }
+    let factor = 1;
+    if (w >= 380 && w < 420) factor = 0.3 + 0.7 * (w - 380) / 40;
+    if (w > 700 && w <= 750) factor = 0.3 + 0.7 * (750 - w) / 50;
+    if (w < 380 || w > 750) return [80, 105, 140];
+    return [Math.round(255 * r * factor), Math.round(255 * g * factor), Math.round(255 * b * factor)];
+  }
+
+  // approximate star display color from temperature
+  function tempToColor(temp) {
+    const t = clamp(temp / 100, 10, 400);
+    let r, g, b;
+    if (t <= 66) r = 255; else r = clamp(329.698727446 * Math.pow(t - 60, -0.1332047592), 0, 255);
+    if (t <= 66) g = clamp(99.4708025861 * Math.log(t) - 161.1195681661, 0, 255); else g = clamp(288.1221695283 * Math.pow(t - 60, -0.0755148492), 0, 255);
+    if (t >= 66) b = 255; else if (t <= 19) b = 0; else b = clamp(138.5177312231 * Math.log(t - 10) - 305.0447927307, 0, 255);
+    return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+  }
+
+  // normalized blackbody curve using planck shape
+  function blackbodyFlux(wavelengthNm, temperature) {
+    const lambda = wavelengthNm * 1e-9;
+    const c2 = 1.438776877e-2;
+    const x = c2 / (lambda * temperature);
+    if (x > 700) return 0;
+    return 1 / (Math.pow(lambda, 5) * (Math.exp(x) - 1));
+  }
+
+  // choose spectral class from temperature
+  function spectralClass(temp) {
+    if (temp >= 30000) return 'O';
+    if (temp >= 10000) return 'B';
+    if (temp >= 7500) return 'A';
+    if (temp >= 6000) return 'F';
+    if (temp >= 5200) return 'G';
+    if (temp >= 3700) return 'K';
+    return 'M';
+  }
+
+  // redshift from cosmology slider plus radial velocity
+  function totalObservedShift() {
+    return (1 + state.redshift) * (1 + state.radialVelocity / C_KMS) - 1;
+  }
+
+  // line strength model by source and spectral type
+  function lineStrength(line) {
+    const p = nowPreset();
+    const id = p.id;
+    const cls = spectralClass(state.temperature);
+    let s = 0;
+    if (isExoplanet()) return 0;
+    if (state.objectType === 'blackbody') return 0;
+
+    if (state.objectType === 'stars' || state.objectType === 'custom') {
+      if (line.family === 'balmer') s = ({O:0.18,B:0.36,A:0.72,F:0.44,G:0.24,K:0.12,M:0.05}[cls] || 0.2);
+      if (line.family === 'metal') s = ({O:0.02,B:0.04,A:0.08,F:0.22,G:0.34,K:0.42,M:0.30}[cls] || 0.2);
+      if (line.family === 'helium') s = ({O:0.40,B:0.28,A:0.04,F:0.00,G:0.00,K:0.00,M:0.00}[cls] || 0);
+      if (id === 'white-dwarf' && line.family === 'balmer') s *= 1.35;
+      if (id === 'red-giant' && line.family === 'metal') s *= 1.25;
+      return line.kind === 'emission' ? 0 : s;
+    }
+
+    if (state.objectType === 'nebulae') {
+      const base = { h_alpha:0.9, h_beta:0.42, o3_496:0.5, o3_501:0.75, n2_655:0.28, n2_658:0.34, s2_672:0.24, s2_673:0.22, o2_373:0.30, he_ii:0.16 }[line.key] || 0;
+      if (id === 'planetary-nebula') return base * (line.key.includes('o3') ? 1.7 : line.key === 'he_ii' ? 1.8 : 0.85);
+      if (id === 'snr') return base * (line.key.includes('s2') ? 2.1 : line.key === 'h_alpha' ? 0.75 : 0.9);
+      if (id === 'reflection-nebula') return base * 0.12;
+      if (id === 'dark-nebula') return 0;
+      return base;
+    }
+
+    if (state.objectType === 'galaxies') {
+      const base = { h_alpha:0.45, h_beta:0.22, o3_496:0.26, o3_501:0.34, n2_655:0.18, n2_658:0.22, s2_672:0.14, s2_673:0.14, o2_373:0.30 }[line.key] || 0;
+      if (id === 'elliptical') return line.family === 'metal' ? 0.22 : base * 0.05;
+      if (id === 'starburst') return base * 1.8;
+      if (id === 'active-galaxy') return base * 1.55;
+      if (id === 'high-z-galaxy') return (line.key === 'o2_373' || line.key === 'lya') ? 0.7 : base * 0.45;
+      return base;
+    }
+
+    if (state.objectType === 'quasars') {
+      return ({ lya:1.1, civ:0.75, mgii:0.60, h_beta:0.28, o3_501:0.22 }[line.key] || 0);
+    }
+    return s;
+  }
+
+  // create the line list after redshift is applied
+  function buildModelLines() {
+    const z = totalObservedShift();
+    const lines = [];
+    for (const line of LINES) {
+      const strength = lineStrength(line);
+      if (strength <= 0.005) continue;
+      const observed = line.rest * (1 + z);
+      const type = (state.objectType === 'stars' || state.objectType === 'custom') ? 'absorption' : (line.kind === 'absorption' && state.objectType === 'galaxies' ? 'absorption' : 'emission');
+      const width = line.family === 'quasar' || nowPreset().id === 'snr' || nowPreset().id === 'white-dwarf' ? 8 : (type === 'emission' ? 2.6 : 1.6);
+      lines.push({ ...line, observed, strength, type, width, confidence: clamp(0.5 + strength * 0.48 - state.noise * 1.5, 0.12, 0.98) });
+    }
+    if (state.objectType === 'stars' && ['m-dwarf','red-giant','brown-dwarf'].includes(state.preset)) {
+      for (const rest of [476, 495, 516, 544, 584, 615, 665, 705, 760, 845, 890]) {
+        lines.push({ key:`tio_${rest}`, label:'TiO band', element:'Titanium Oxide', symbol:'TiO', rest, observed:rest*(1+z), strength:0.18, type:'absorption', width:12, confidence:0.80, family:'molecule' });
+      }
+    }
+    return lines;
+  }
+
+  // make the actual modeled spectrum array
+  function generateSpectrum(customPreset = null) {
+    const original = { ...state };
+    if (customPreset) {
+      const source = Object.values(PRESETS).flat().find(p => p.id === customPreset);
+      if (source) {
+        state.temperature = source.temp;
+        state.redshift = source.z;
+        state.radialVelocity = source.rv;
+        state.preset = source.id;
+        state.objectType = Object.keys(PRESETS).find(k => PRESETS[k].some(p => p.id === source.id)) || state.objectType;
+      }
+    }
+
+    const min = state.wavelengthMin;
+    const max = state.wavelengthMax;
+    const spectrum = [];
+    let maxFlux = 0;
+    const raw = [];
+
+    for (let i = 0; i < SAMPLE_COUNT; i++) {
+      const w = min + (max - min) * i / (SAMPLE_COUNT - 1);
+      let f = blackbodyFlux(w, Math.max(100, state.temperature));
+      raw.push(f);
+      if (f > maxFlux) maxFlux = f;
+    }
+
+    const lines = buildModelLines();
+    for (let i = 0; i < SAMPLE_COUNT; i++) {
+      const w = min + (max - min) * i / (SAMPLE_COUNT - 1);
+      let f = maxFlux > 0 ? raw[i] / maxFlux : 0.5;
+
+      if (state.objectType === 'nebulae' && state.preset !== 'reflection-nebula' && state.preset !== 'dark-nebula') f = 0.08 + f * 0.12;
+      if (state.objectType === 'galaxies') f = 0.28 + f * 0.45;
+      if (state.objectType === 'quasars') f = 0.20 + Math.pow(w / Math.max(min, 1), -0.35) * 0.15;
+      if (state.objectType === 'exoplanets') f = 0.92;
+
+      for (const line of lines) {
+        const sigma = Math.max(line.width, line.observed / state.resolution) / 2.355;
+        const g = Math.exp(-0.5 * Math.pow((w - line.observed) / sigma, 2));
+        if (line.type === 'absorption') f *= (1 - line.strength * g);
+        else f += line.strength * g;
+      }
+
+      if (state.objectType === 'exoplanets') f = applyMolecularBands(w, f);
+      if (state.preset === 'dark-nebula') f *= 0.42 + 0.35 * Math.exp(-Math.pow((w - 760) / 450, 2));
+      if (state.skyBackground > 0) f += state.skyBackground * 0.35;
+      spectrum.push({ w, flux: f });
+    }
+
+    let processed = applyInstrumentResolution(spectrum);
+    processed = applyNoise(processed);
+
+    const maxP = Math.max(...processed.map(p => p.flux), 0.001);
+    const minP = Math.min(...processed.map(p => p.flux));
+    processed = processed.map(p => ({ ...p, flux: clamp((p.flux - minP * 0.15) / (maxP - minP * 0.15 || 1), 0, 1.25) }));
+
+    const result = { spectrum: processed, lines };
+    if (customPreset) Object.assign(state, original);
+    return result;
+  }
+
+  // apply molecule dips for exoplanet transit mode
+  function applyMolecularBands(w, f) {
+    const p = nowPreset().id;
+    const haze = p === 'hazy' ? 0.35 : p === 'hot-jupiter' ? 0.82 : 1;
+    const planetScale = p === 'super-earth' || p === 'earth-like' ? 0.45 : p === 'warm-neptune' ? 0.75 : 1.0;
+    let out = f;
+    for (const mol of MOLECULES) {
+      if (!state.molecules[mol.key]) continue;
+      let strength = mol.strength * haze * planetScale;
+      if (p === 'water-rich' && mol.key === 'H2O') strength *= 2.2;
+      if (p === 'methane-rich' && mol.key === 'CH4') strength *= 2.3;
+      if (p === 'earth-like' && ['O2','O3','H2O','CO2'].includes(mol.key)) strength *= 1.7;
+      for (const band of mol.bands) {
+        const sigma = band > 900 ? 22 : 7;
+        const g = Math.exp(-0.5 * Math.pow((w - band) / sigma, 2));
+        out *= (1 - strength * g);
+      }
+    }
+    return out;
+  }
+
+  // smooth the spectrum based on resolution
+  function applyInstrumentResolution(spectrum) {
+    const mid = (state.wavelengthMin + state.wavelengthMax) / 2;
+    const delta = Math.max(0.08, mid / Math.max(100, state.resolution));
+    const step = (state.wavelengthMax - state.wavelengthMin) / Math.max(1, SAMPLE_COUNT - 1);
+    const radius = clamp(Math.ceil((delta / step) * 1.5), 1, 35);
+    const out = [];
+    for (let i = 0; i < spectrum.length; i++) {
+      let sum = 0, wt = 0;
+      for (let j = -radius; j <= radius; j++) {
+        const k = i + j;
+        if (k < 0 || k >= spectrum.length) continue;
+        const g = Math.exp(-0.5 * Math.pow(j / Math.max(radius / 2, 1), 2));
+        sum += spectrum[k].flux * g;
+        wt += g;
+      }
+      out.push({ w: spectrum[i].w, flux: sum / wt });
+    }
+    return out;
+  }
+
+  // deterministic noise so redraws stay stable
+  function seededNoise(x) {
+    const s = Math.sin(x * 127.1 + 311.7) * 43758.5453123;
+    return (s - Math.floor(s)) * 2 - 1;
+  }
+
+  // add observation noise based on exposure aperture n sky background
+  function applyNoise(spectrum) {
+    const exposureFactor = Math.sqrt(Math.max(5, state.exposure) / 60);
+    const apertureFactor = Math.max(0.25, state.aperture / 102);
+    const noiseAmp = state.noise / Math.max(0.25, exposureFactor * apertureFactor) + state.skyBackground * 0.05;
+    return spectrum.map((p, i) => ({ ...p, flux: clamp(p.flux + seededNoise(i + Math.round(p.w * 10)) * noiseAmp, 0, 1.4) }));
+  }
+
+  // detect major peaks and dips from the synthetic spectrum
+  function detectLines(spectrum) {
+    const found = [];
+    const step = Math.max(1, Math.floor(spectrum.length / 260));
+    for (let i = step; i < spectrum.length - step; i += step) {
+      const p = spectrum[i];
+      const left = spectrum[i - step].flux;
+      const right = spectrum[i + step].flux;
+      const local = (left + right) / 2;
+      const diff = p.flux - local;
+      if (Math.abs(diff) > 0.035) {
+        const id = identifyLine(p.w);
+        if (id && !found.some(x => Math.abs(x.observed - p.w) < 3)) {
+          found.push({ ...id, observed: p.w, type: diff > 0 ? 'emission' : 'absorption', measuredStrength: Math.abs(diff) });
+        }
+      }
+    }
+    for (const line of state.modelLines) {
+      if (line.observed >= state.wavelengthMin && line.observed <= state.wavelengthMax && line.confidence > 0.18) {
+        if (!found.some(x => Math.abs(x.observed - line.observed) < 2)) found.push({ ...line, measuredStrength: line.strength });
+      }
+    }
+    return found.sort((a,b) => b.confidence - a.confidence).slice(0, 28);
+  }
+
+  // identify a clicked wavelength against known shifted lines n molecule bands
+  function identifyLine(wavelength) {
+    const candidates = [];
+    for (const line of state.modelLines) {
+      const diff = Math.abs(wavelength - line.observed);
+      const tolerance = Math.max(1.2, line.observed / state.resolution * 2.5, line.width * 0.9);
+      if (diff <= tolerance) {
+        candidates.push({ ...line, diff, confidence: clamp(1 - diff / tolerance, 0, 1) * line.confidence });
+      }
+    }
+    if (isExoplanet()) {
+      for (const mol of MOLECULES) {
+        if (!state.molecules[mol.key]) continue;
+        for (const band of mol.bands) {
+          const diff = Math.abs(wavelength - band);
+          const tol = band > 900 ? 30 : 8;
+          if (diff <= tol) candidates.push({ label: mol.key, element: mol.name, symbol: mol.key, rest: band, observed: band, type:'molecular absorption', diff, strength: mol.strength, confidence: clamp(1 - diff / tol, 0, 1) * 0.86 });
+        }
+      }
+    }
+    candidates.sort((a,b) => b.confidence - a.confidence);
+    return candidates[0] || null;
+  }
+
+  // estimate temperature from the continuum peak
+  function estimateTemperature() {
+    const smooth = applyInstrumentResolution(state.spectrum);
+    let peak = smooth[0];
+    for (const p of smooth) if (p.flux > peak.flux) peak = p;
+    const temp = WIEN_NM_K / Math.max(1, peak.w);
+    return { temp, peak: peak.w, cls: spectralClass(temp) };
+  }
+
+  // classify current spectrum in plain language
+  function classifySpectrum() {
+    const p = nowPreset();
+    const peak = WIEN_NM_K / Math.max(1, state.temperature);
+    const cls = spectralClass(state.temperature);
+    let title = p.className || 'Modeled source';
+    let evidence = p.note || 'This spectrum is modeled from the selected physical controls.';
+    if (state.mode === 'challenge') {
+      title = 'Hidden object challenge';
+      evidence = 'Object identity is hidden. Use the continuum shape, line type, and redshift to classify it.';
+    }
+    if (isExoplanet()) evidence += ' During a transit, some starlight passes through the planet atmosphere and molecules leave tiny wavelength-dependent dips.';
+    if (state.redshift > 1) evidence += ' High redshift should be interpreted cosmologically, not with the simple v = zc approximation.';
+    return { title, evidence, peak, cls };
+  }
+
+  // calculate instrument readouts
+  function measuredProperties() {
+    const peak = WIEN_NM_K / Math.max(1, state.temperature);
+    const shift = totalObservedShift();
+    const snr = Math.round(60 * Math.sqrt(state.exposure / 60) * (state.aperture / 102) / (1 + state.noise * 28 + state.skyBackground * 8));
+    const conf = clamp((snr / 80) * (state.resolution / 1000) ** 0.18, 0.05, 0.98);
+    return [
+      ['Peak wavelength', `${fmt(peak, 1)} nm`],
+      ['Spectral class', spectralClass(state.temperature)],
+      ['Total shift', `z = ${fmt(shift, 4)}`],
+      ['Small-z velocity', `${fmt(shift * C_KMS, 0)} km/s`],
+      ['Signal-to-noise', `${Math.max(1, snr)} : 1`],
+      ['Detection confidence', `${Math.round(conf * 100)}%`],
+      ['Resolving power', `R = ${state.resolution}`],
+      ['Resolution element', `Δλ ≈ ${fmt(((state.wavelengthMin + state.wavelengthMax) / 2) / state.resolution, 2)} nm`]
+    ];
+  }
+
+  // draw everything on the spectrum canvas
+  function drawSpectrum() {
+    resizeCanvases();
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    const pad = { l: 58, r: 18, t: 26, b: 72 };
+    const gw = w - pad.l - pad.r;
+    const gh = h - pad.t - pad.b;
+
+    ctx.clearRect(0, 0, w, h);
+    drawGrid(ctx, pad, gw, gh);
+    drawColorStrip(ctx, pad, gw, h);
+    if (state.continuumEnabled) drawContinuum(ctx, pad, gw, gh);
+    if (state.compareEnabled && state.compareSpectrum.length) drawGraphLine(state.compareSpectrum, 'rgba(255,255,255,0.42)', 1.2, pad, gw, gh, true);
+    drawGraphLine(state.spectrum, 'rgba(44,126,255,0.95)', 2.0, pad, gw, gh, false);
+    drawLineMarkers(ctx, pad, gw, gh);
+    drawAxes(ctx, pad, gw, gh);
+    if (state.hover && state.cursorEnabled) drawCursor(ctx, state.hover.x, pad, gh);
+  }
+
+  // resize spectrum n preview canvases
+  function resizeCanvases() {
+    for (const c of [canvas, ui.previewCanvas]) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = c.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width * dpr));
+      const height = Math.max(1, Math.round(rect.height * dpr));
+      if (c.width !== width || c.height !== height) {
+        c.width = width;
+        c.height = height;
+        c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+    }
+  }
+
+  // map wavelength n flux to canvas coordinates
+  function xForWave(wave, pad, gw) { return pad.l + (wave - state.wavelengthMin) / (state.wavelengthMax - state.wavelengthMin) * gw; }
+  function yForFlux(flux, pad, gh) { return pad.t + (1 - clamp(flux, 0, 1.15) / 1.15) * gh; }
+  function waveForX(x, pad, gw) { return state.wavelengthMin + (x - pad.l) / gw * (state.wavelengthMax - state.wavelengthMin); }
+
+  // draw graph grid background
+  function drawGrid(c, pad, gw, gh) {
+    const gradient = c.createLinearGradient(0, pad.t, 0, pad.t + gh);
+    gradient.addColorStop(0, 'rgba(24, 44, 75, 0.60)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.30)');
+    c.fillStyle = gradient;
+    c.fillRect(pad.l, pad.t, gw, gh);
+    c.strokeStyle = 'rgba(44,126,255,0.10)';
+    c.lineWidth = 1;
+    for (let i = 0; i <= 8; i++) {
+      const x = pad.l + gw * i / 8;
+      c.beginPath(); c.moveTo(x, pad.t); c.lineTo(x, pad.t + gh); c.stroke();
+    }
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + gh * i / 5;
+      c.beginPath(); c.moveTo(pad.l, y); c.lineTo(pad.l + gw, y); c.stroke();
+    }
+  }
+
+  // draw visible color strip under graph
+  function drawColorStrip(c, pad, gw, h) {
+    const y = h - 42;
+    const sh = 16;
+    for (let i = 0; i < gw; i++) {
+      const wave = state.wavelengthMin + (state.wavelengthMax - state.wavelengthMin) * i / gw;
+      const [r,g,b] = wavelengthToRgb(wave);
+      c.fillStyle = `rgb(${r},${g},${b})`;
+      c.fillRect(pad.l + i, y, 1.2, sh);
+    }
+    c.strokeStyle = 'rgba(44,126,255,0.28)';
+    c.strokeRect(pad.l, y, gw, sh);
+    c.fillStyle = 'rgba(244,248,255,0.70)';
+    c.font = '11px Inter, system-ui, sans-serif';
+    c.fillText('ultraviolet', pad.l + 5, y + sh + 14);
+    c.fillText('visible color strip', pad.l + gw * 0.43, y + sh + 14);
+    c.fillText('near infrared', pad.l + gw - 78, y + sh + 14);
+  }
+
+  // draw estimated continuum as a soft curve
+  function drawContinuum(c, pad, gw, gh) {
+    const temp = state.temperature;
+    const values = [];
+    let max = 0;
+    for (let i = 0; i < 400; i++) {
+      const wave = state.wavelengthMin + (state.wavelengthMax - state.wavelengthMin) * i / 399;
+      const f = blackbodyFlux(wave, Math.max(100, temp));
+      values.push({ wave, f });
+      max = Math.max(max, f);
+    }
+    c.save();
+    c.strokeStyle = 'rgba(44,126,255,0.30)';
+    c.lineWidth = 1.3;
+    c.setLineDash([5, 5]);
+    c.beginPath();
+    values.forEach((p, i) => {
+      const x = xForWave(p.wave, pad, gw);
+      const y = yForFlux((p.f / max) * 0.95, pad, gh);
+      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    });
+    c.stroke();
+    c.restore();
+  }
+
+  // draw main or comparison flux line
+  function drawGraphLine(data, color, width, pad, gw, gh, dashed) {
+    if (!data.length) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.shadowBlur = dashed ? 0 : 12;
+    ctx.shadowColor = 'rgba(44,126,255,0.55)';
+    if (dashed) ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    data.forEach((p, i) => {
+      const x = xForWave(p.w, pad, gw);
+      const y = yForFlux(p.flux, pad, gh);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // draw line markers n labels
+  function drawLineMarkers(c, pad, gw, gh) {
+    const selected = state.selectedLine;
+    c.save();
+    for (const line of state.modelLines) {
+      if (line.observed < state.wavelengthMin || line.observed > state.wavelengthMax) continue;
+      const x = xForWave(line.observed, pad, gw);
+      const isSelected = selected && Math.abs(selected.observed - line.observed) < 0.6;
+      c.strokeStyle = isSelected ? 'rgba(44,126,255,0.95)' : (line.type === 'emission' ? 'rgba(44,126,255,0.42)' : 'rgba(255,220,220,0.34)');
+      c.lineWidth = isSelected ? 2 : 1;
+      c.setLineDash(line.type === 'absorption' ? [3, 4] : []);
+      c.beginPath(); c.moveTo(x, pad.t); c.lineTo(x, pad.t + gh); c.stroke();
+      c.setLineDash([]);
+      if (state.labelsEnabled && (isSelected || line.strength > 0.18 || state.mode === 'research')) {
+        c.fillStyle = isSelected ? '#dceaff' : 'rgba(244,248,255,0.72)';
+        c.font = isSelected ? 'bold 11px Inter, system-ui' : '10px Inter, system-ui';
+        c.save();
+        c.translate(x + 4, pad.t + 12);
+        c.rotate(-Math.PI / 2);
+        c.fillText(line.label, 0, 0);
+        c.restore();
+      }
+    }
+    const peak = WIEN_NM_K / Math.max(1, state.temperature);
+    if (peak >= state.wavelengthMin && peak <= state.wavelengthMax) {
+      const x = xForWave(peak, pad, gw);
+      c.strokeStyle = 'rgba(255,226,166,0.75)';
+      c.setLineDash([6, 5]);
+      c.beginPath(); c.moveTo(x, pad.t); c.lineTo(x, pad.t + gh); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = 'rgba(255,226,166,0.88)';
+      c.font = '11px Inter, system-ui';
+      c.fillText('Wien peak', x + 6, pad.t + gh - 10);
+    }
+    c.restore();
+  }
+
+  // draw axes labels and ticks
+  function drawAxes(c, pad, gw, gh) {
+    c.save();
+    c.strokeStyle = 'rgba(44,126,255,0.34)';
+    c.lineWidth = 1;
+    c.strokeRect(pad.l, pad.t, gw, gh);
+    c.fillStyle = 'rgba(244,248,255,0.86)';
+    c.font = '11px Inter, system-ui';
+    for (let i = 0; i <= 8; i++) {
+      const wave = state.wavelengthMin + (state.wavelengthMax - state.wavelengthMin) * i / 8;
+      const x = pad.l + gw * i / 8;
+      c.fillText(`${Math.round(wave)}`, x - 13, pad.t + gh + 20);
+    }
+    for (let i = 0; i <= 5; i++) {
+      const fl = 1.15 - 1.15 * i / 5;
+      const y = pad.t + gh * i / 5;
+      c.fillText(fmt(fl, 1), 18, y + 4);
+    }
+    c.fillText('wavelength (nm)', pad.l + gw / 2 - 42, pad.t + gh + 38);
+    c.save();
+    c.translate(14, pad.t + gh / 2 + 38);
+    c.rotate(-Math.PI / 2);
+    c.fillText('relative intensity / flux', 0, 0);
+    c.restore();
+    c.restore();
+  }
+
+  // draw measurement cursor
+  function drawCursor(c, x, pad, gh) {
+    c.save();
+    c.strokeStyle = 'rgba(255,255,255,0.55)';
+    c.setLineDash([4, 4]);
+    c.beginPath(); c.moveTo(x, pad.t); c.lineTo(x, pad.t + gh); c.stroke();
+    c.restore();
+  }
+
+  // draw the mini object preview card
+  function drawPreview() {
+    resizeCanvases();
+    const rect = ui.previewCanvas.getBoundingClientRect();
+    const c = previewCtx;
+    const w = rect.width, h = rect.height;
+    c.clearRect(0,0,w,h);
+    const grd = c.createRadialGradient(w/2,h/2,0,w/2,h/2,Math.max(w,h)*0.65);
+    grd.addColorStop(0,'rgba(11,61,145,0.16)'); grd.addColorStop(1,'rgba(0,0,0,0.20)');
+    c.fillStyle = grd; c.fillRect(0,0,w,h);
+
+    if (state.objectType === 'stars' || state.objectType === 'blackbody' || state.objectType === 'custom') {
+      const color = tempToColor(state.temperature);
+      const g = c.createRadialGradient(w/2,h/2,0,w/2,h/2,55);
+      g.addColorStop(0, color); g.addColorStop(0.35, color.replace('rgb','rgba').replace(')', ',0.65)')); g.addColorStop(1,'rgba(0,0,0,0)');
+      c.fillStyle = g; c.beginPath(); c.arc(w/2,h/2,58,0,Math.PI*2); c.fill();
+    } else if (state.objectType === 'nebulae') {
+      for (let i=0;i<9;i++) {
+        c.fillStyle = `rgba(${90+i*10}, ${140+i*8}, 220, 0.08)`;
+        c.beginPath(); c.ellipse(w/2 + Math.sin(i)*38, h/2 + Math.cos(i*1.7)*24, 55-i*3, 20+i, i, 0, Math.PI*2); c.fill();
+      }
+    } else if (state.objectType === 'galaxies' || state.objectType === 'quasars') {
+      c.save(); c.translate(w/2,h/2); c.rotate(-0.35);
+      for (let i=0;i<7;i++) { c.strokeStyle = `rgba(44,126,255,${0.16-i*0.016})`; c.lineWidth = 10-i; c.beginPath(); c.ellipse(0,0,26+i*10,8+i*5,0,0,Math.PI*2); c.stroke(); }
+      c.fillStyle = state.objectType === 'quasars' ? 'rgba(230,245,255,0.95)' : 'rgba(44,126,255,0.65)'; c.beginPath(); c.arc(0,0,5,0,Math.PI*2); c.fill(); c.restore();
+    } else if (state.objectType === 'exoplanets') {
+      c.fillStyle = 'rgba(240,248,255,0.85)'; c.beginPath(); c.arc(w/2,h/2,42,0,Math.PI*2); c.fill();
+      c.fillStyle = 'rgba(0,0,0,0.75)'; c.beginPath(); c.arc(w/2-8,h/2,12,0,Math.PI*2); c.fill();
+      c.strokeStyle = 'rgba(44,126,255,0.55)'; c.lineWidth = 2; c.beginPath(); c.arc(w/2-8,h/2,17,0,Math.PI*2); c.stroke();
+    }
+
+    c.fillStyle = 'rgba(244,248,255,0.90)'; c.font = 'bold 12px Inter, system-ui';
+    c.fillText(nowPreset().label, 12, 22);
+    c.fillStyle = 'rgba(184,199,230,0.85)'; c.font = '11px Inter, system-ui';
+    c.fillText(`${state.temperature} K · z ${fmt(state.redshift, 3)}`, 12, h - 14);
+  }
+
+  // update all right-side cards and tables
+  function updateAnalysisCards() {
+    const cls = classifySpectrum();
+    ui.classTitle.textContent = cls.title;
+    ui.classEvidence.textContent = cls.evidence;
+    ui.viewerTitle.textContent = state.mode === 'challenge' ? 'Unknown Spectrum Challenge' : nowPreset().label;
+    ui.viewerMeta.textContent = state.mode === 'research' ? 'Research controls enabled. Line table, redshift, resolution, noise, and instrument effects are visible.' : nowPreset().note;
+    ui.modelBadge.textContent = state.mode === 'challenge' ? 'Blind simulated observation' : 'Modeled spectrum';
+
+    ui.propertiesList.innerHTML = measuredProperties().map(([k,v]) => `<div class="kv"><span>${k}</span><span class="value-strong">${v}</span></div>`).join('');
+    ui.quickChips.innerHTML = `
+      <span class="chip good">${spectralClass(state.temperature)} class</span>
+      <span class="chip">λpeak ${fmt(WIEN_NM_K / state.temperature, 1)} nm</span>
+      <span class="chip">R ${state.resolution}</span>
+      <span class="chip ${state.redshift > 1 ? 'warn' : ''}">z ${fmt(state.redshift, 3)}</span>
+    `;
+    updateElements();
+    updateLineTable();
+    updateExplanation();
+  }
+
+  // update detected element cards
+  function updateElements() {
+    const map = new Map();
+    for (const line of state.detectedLines) {
+      const key = line.symbol || line.element;
+      if (!map.has(key)) map.set(key, { name: line.element, symbol:key, strongest: line.label, confidence:0, where:[] });
+      const item = map.get(key);
+      item.confidence = Math.max(item.confidence, line.confidence || 0.5);
+      item.where.push(`${line.label} ${fmt(line.observed,1)} nm`);
+    }
+    if (isExoplanet()) {
+      for (const mol of MOLECULES) {
+        if (!state.molecules[mol.key]) continue;
+        map.set(mol.key, { name: mol.name, symbol: mol.key, strongest: `${mol.bands[0]} nm band`, confidence:0.55 + mol.strength * 7, where: mol.bands.filter(b => b >= state.wavelengthMin && b <= state.wavelengthMax).map(b => `${b} nm`) });
+      }
+    }
+    ui.elementList.innerHTML = Array.from(map.values()).slice(0, 10).map(item => `
+      <div class="element-card">
+        <div><div class="element-name">${item.name}</div><div class="element-detail">${item.symbol} · ${item.strongest}</div></div>
+        <div class="confidence">${Math.round(clamp(item.confidence,0,1)*100)}%</div>
+      </div>
+    `).join('') || '<div class="muted">No strong composition detections in this view. Try increasing exposure or changing wavelength range.</div>';
+  }
+
+  // update line table list
+  function updateLineTable() {
+    const rows = state.modelLines
+      .filter(line => line.observed >= state.wavelengthMin && line.observed <= state.wavelengthMax)
+      .sort((a,b) => a.observed - b.observed);
+    ui.lineTable.innerHTML = rows.map((line, i) => `
+      <div class="line-row" data-line-index="${i}" data-wave="${line.observed}">
+        <div><div class="line-name">${line.label} · ${line.element}</div><div class="line-sub">rest ${fmt(line.rest,2)} nm → observed ${fmt(line.observed,2)} nm · ${line.type}</div></div>
+        <div class="confidence">${Math.round(line.confidence*100)}%</div>
+      </div>
+    `).join('') || '<div class="muted">No modeled lines are inside the current wavelength window.</div>';
+    ui.lineTable.querySelectorAll('.line-row').forEach(row => {
+      row.addEventListener('click', () => selectWavelength(parseFloat(row.dataset.wave), true));
+    });
+  }
+
+  // update explanation text by mode/source
+  function updateExplanation() {
+    let text = '';
+    if (isExoplanet()) {
+      text = 'This is a transmission spectrum. During a transit, some starlight passes through the planet’s atmosphere. Molecules absorb specific wavelengths, leaving small dips in the spectrum. The features here are intentionally tiny because real exoplanet atmosphere signals are very small.';
+    } else if (state.objectType === 'stars') {
+      text = 'A star spectrum is mostly a blackbody-like continuum with absorption lines. The continuum shape estimates temperature, while line strengths reveal temperature class and composition. A-type stars show especially strong Balmer lines, while cooler M stars show molecular bands like TiO.';
+    } else if (state.objectType === 'nebulae') {
+      text = 'A nebula spectrum is dominated by bright emission lines. Hydrogen, oxygen, nitrogen, sulfur, and helium lines reveal ionized gas. Supernova remnants often show strong sulfur lines compared with H-alpha.';
+    } else if (state.objectType === 'galaxies') {
+      text = 'Galaxy spectra combine stellar continua with emission or absorption lines. Redshift moves the whole line pattern toward longer wavelengths. Matching rest lines to observed lines is how astronomers estimate galaxy redshift.';
+    } else if (state.objectType === 'quasars') {
+      text = 'Quasar spectra can show broad emission lines shifted far from their rest wavelengths. At high redshift, v ≈ zc is not a real recession speed; the shift is cosmological expansion.';
+    } else {
+      text = 'A blackbody source demonstrates how temperature controls color. Cooler objects peak in the red or infrared; hotter objects peak in blue or ultraviolet. Wien’s law estimates the peak wavelength.';
+    }
+    ui.explanationText.textContent = text;
+  }
+
+  // select a wavelength and update detail card
+  function selectWavelength(wavelength, zoomAfter = false) {
+    const nearest = nearestPoint(wavelength);
+    const id = identifyLine(wavelength);
+    state.selectedWavelength = wavelength;
+    state.selectedLine = id ? { ...id, observed: id.observed || wavelength } : null;
+    ui.selectedWavelength.textContent = `${fmt(wavelength, 2)} nm`;
+    ui.selectedIntensity.textContent = nearest ? fmt(nearest.flux, 3) : '—';
+    ui.selectedId.textContent = id ? `${id.label} · ${id.element}` : 'unknown feature';
+    ui.selectedConfidence.textContent = id ? `${Math.round((id.confidence || 0.4)*100)}%` : 'low';
+    if (id) {
+      const zEst = (wavelength - id.rest) / id.rest;
+      ui.selectedExplanation.textContent = `${id.label} has rest wavelength ${fmt(id.rest,2)} nm. At this observed wavelength, estimated z ≈ ${fmt(zEst,4)} and small-z velocity ≈ ${fmt(zEst*C_KMS,0)} km/s.`;
+    } else {
+      ui.selectedExplanation.textContent = 'No strong known line matches this wavelength. Noise, blending, low resolution, or a molecular band may be affecting the feature.';
+    }
+    if (zoomAfter) zoomToWavelength(wavelength);
+    drawSpectrum();
+    checkActivity();
+  }
+
+  // find nearest spectrum sample
+  function nearestPoint(wavelength) {
+    if (!state.spectrum.length) return null;
+    let best = state.spectrum[0], bestD = Infinity;
+    for (const p of state.spectrum) {
+      const d = Math.abs(p.w - wavelength);
+      if (d < bestD) { best = p; bestD = d; }
+    }
+    return best;
+  }
+
+  // zoom around selected wavelength
+  function zoomToWavelength(wavelength) {
+    const span = Math.max(18, (state.wavelengthMax - state.wavelengthMin) * 0.22);
+    state.wavelengthMin = clamp(wavelength - span/2, 100, 2500 - span);
+    state.wavelengthMax = clamp(wavelength + span/2, state.wavelengthMin + 5, 2500);
+    ui.rangeSelect.value = 'custom';
+    state.range = 'custom';
+    syncRangeInputs();
+    updateAll();
+  }
+
+  // set wavelength range by named preset
+  function setRange(range) {
+    const ranges = { uv:[100,400], visible:[380,750], nir:[750,2500], full:[100,2500] };
+    if (!ranges[range]) return;
+    [state.wavelengthMin, state.wavelengthMax] = ranges[range];
+    state.baseMin = state.wavelengthMin;
+    state.baseMax = state.wavelengthMax;
+    state.range = range;
+    ui.rangeSelect.value = range;
+    syncRangeInputs();
+    updateAll();
+  }
+
+  // sync range inputs with state
+  function syncRangeInputs() {
+    ui.wMinInput.value = Math.round(state.wavelengthMin);
+    ui.wMaxInput.value = Math.round(state.wavelengthMax);
+  }
+
+  // refresh modeled spectrum and ui
+  function updateAll() {
+    const result = generateSpectrum();
+    state.spectrum = result.spectrum;
+    state.modelLines = result.lines;
+    state.detectedLines = detectLines(state.spectrum);
+    if (state.compareEnabled) state.compareSpectrum = generateSpectrum(state.comparePreset).spectrum;
+    updateReadouts();
+    updateAnalysisCards();
+    drawSpectrum();
+    drawPreview();
+    saveSettings();
+  }
+
+  // update readout text next to sliders
+  function updateReadouts() {
+    ui.tempReadout.textContent = `${Math.round(state.temperature)} K`;
+    ui.redshiftReadout.textContent = fmt(state.redshift, 3);
+    ui.rvReadout.textContent = `${Math.round(state.radialVelocity)} km/s`;
+    ui.resolutionReadout.textContent = Math.round(state.resolution);
+    ui.noiseReadout.textContent = fmt(state.noise, 3);
+    ui.exposureReadout.textContent = `${Math.round(state.exposure)} s`;
+    ui.apertureReadout.textContent = `${Math.round(state.aperture)} mm`;
+    ui.skyReadout.textContent = fmt(state.skyBackground, 2);
+  }
+
+  // fill selects from preset database
+  function populateSelects() {
+    const objectLabels = {
+      stars:'Stars', nebulae:'Emission Nebulae', galaxies:'Galaxies', quasars:'Quasars', exoplanets:'Exoplanet Atmospheres', blackbody:'Blackbody Source', custom:'Custom Spectrum'
+    };
+    ui.objectTypeSelect.innerHTML = Object.keys(PRESETS).map(k => `<option value="${k}">${objectLabels[k]}</option>`).join('');
+    ui.objectTypeSelect.value = state.objectType;
+    repopulatePresetSelects();
+    const all = Object.values(PRESETS).flat();
+    ui.comparePresetSelect.innerHTML = all.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+    ui.comparePresetSelect.value = state.comparePreset;
+    ui.topModeSelect.value = state.mode;
+  }
+
+  // update preset dropdowns for current object type
+  function repopulatePresetSelects() {
+    const opts = PRESETS[state.objectType].map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+    ui.presetSelect.innerHTML = opts;
+    ui.topPresetSelect.innerHTML = Object.values(PRESETS).flat().map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+    if (!PRESETS[state.objectType].some(p => p.id === state.preset)) state.preset = PRESETS[state.objectType][0].id;
+    ui.presetSelect.value = state.preset;
+    ui.topPresetSelect.value = state.preset;
+  }
+
+  // apply preset defaults to controls
+  function applyPreset(id) {
+    const all = Object.entries(PRESETS).flatMap(([type, list]) => list.map(p => ({...p, type})));
+    const p = all.find(x => x.id === id);
+    if (!p) return;
+    state.objectType = p.type;
+    state.preset = p.id;
+    state.temperature = p.temp;
+    state.redshift = p.z;
+    state.radialVelocity = p.rv;
+    if (p.type === 'quasars' || (p.type === 'galaxies' && p.z > 0.5)) setRange('full');
+    if (p.type === 'exoplanets') setRange('nir');
+    ui.objectTypeSelect.value = state.objectType;
+    repopulatePresetSelects();
+    syncControlsFromState();
+    updateAll();
+  }
+
+  // sync sliders n toggles with state
+  function syncControlsFromState() {
+    ui.temperatureSlider.value = state.temperature;
+    ui.redshiftSlider.value = state.redshift;
+    ui.rvSlider.value = state.radialVelocity;
+    ui.resolutionSlider.value = state.resolution;
+    ui.noiseSlider.value = state.noise;
+    ui.exposureSlider.value = state.exposure;
+    ui.apertureSlider.value = state.aperture;
+    ui.skySlider.value = state.skyBackground;
+    ui.instrumentSelect.value = state.instrumentMode;
+    ui.labelsToggle.checked = state.labelsEnabled;
+    ui.continuumToggle.checked = state.continuumEnabled;
+    ui.cursorToggle.checked = state.cursorEnabled;
+    ui.compareToggle.checked = state.compareEnabled;
+    ui.rangeSelect.value = state.range;
+    syncRangeInputs();
+    updateReadouts();
+  }
+
+  // build molecule toggles dynamically
+  function buildMoleculeControls() {
+    ui.moleculeGrid.innerHTML = MOLECULES.map(m => `
+      <label class="check"><input type="checkbox" data-molecule="${m.key}" ${state.molecules[m.key] ? 'checked' : ''} />${m.key} · ${m.name}</label>
+    `).join('');
+    ui.moleculeGrid.querySelectorAll('input').forEach(input => {
+      input.addEventListener('change', () => {
+        state.molecules[input.dataset.molecule] = input.checked;
+        updateAll();
+      });
+    });
+  }
+
+  // apply instrument presets when user changes mode
+  function applyInstrumentMode(mode) {
+    state.instrumentMode = mode;
+    if (mode === 'low') { state.resolution = 120; state.noise = 0.035; }
+    if (mode === 'medium') { state.resolution = 1000; state.noise = 0.02; }
+    if (mode === 'high') { state.resolution = 8000; state.noise = 0.03; }
+    if (mode === 'transit') { state.resolution = 600; state.noise = 0.015; state.objectType = 'exoplanets'; state.preset = 'hot-jupiter'; setRange('nir'); }
+    syncControlsFromState();
+    repopulatePresetSelects();
+    updateAll();
+  }
+
+  // begin an activity challenge
+  function startActivity(type) {
+    state.activity = type;
+    const prompts = {
+      star:'Activity: choose an unknown-looking star spectrum and estimate its spectral type from temperature and line strength.',
+      halpha:'Activity: find H-alpha near 656.28 nm at rest. If redshift is active, click the shifted H-alpha line.',
+      redshift:'Activity: load a galaxy, click an observed emission line, and compare its rest wavelength to measure z.',
+      water:'Activity: load an exoplanet atmosphere and detect H2O molecular absorption bands in red/near-infrared light.',
+      emission:'Activity: compare whether the spectrum has bright peaks or dark dips, then classify emission vs absorption.',
+      nebula:'Activity: load a nebula and use H-alpha, O III, and S II lines to classify it.'
+    };
+    ui.activityResult.textContent = prompts[type] || 'Activity started.';
+  }
+
+  // simple completion feedback for activities
+  function checkActivity() {
+    if (!state.activity || !state.selectedLine) return;
+    const l = state.selectedLine;
+    let ok = false;
+    if (state.activity === 'halpha') ok = l.key === 'h_alpha';
+    if (state.activity === 'redshift') ok = state.objectType === 'galaxies' && state.redshift > 0.002;
+    if (state.activity === 'water') ok = isExoplanet() && (l.symbol === 'H2O' || l.element === 'Water vapor');
+    if (state.activity === 'emission') ok = l.type === 'emission' || l.type === 'absorption';
+    if (state.activity === 'nebula') ok = state.objectType === 'nebulae' && ['o3_501','h_alpha','s2_672','s2_673'].includes(l.key);
+    if (state.activity === 'star') ok = state.objectType === 'stars';
+    if (ok) ui.activityResult.textContent = `Nice. ${l.label || l.symbol} supports the classification. Score: complete.`;
+  }
+
+  // handle pointer hover and clicks on canvas
+  function setupCanvasEvents() {
+    let dragging = false;
+    let dragStart = null;
+    canvas.addEventListener('pointerdown', e => {
+      dragging = true;
+      const rect = canvas.getBoundingClientRect();
+      dragStart = { x:e.clientX, min:state.wavelengthMin, max:state.wavelengthMax, rect };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const pad = { l:58, r:18, t:26, b:72 };
+      const gw = rect.width - pad.l - pad.r;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (dragging && dragStart && Math.abs(e.clientX - dragStart.x) > 2) {
+        const span = dragStart.max - dragStart.min;
+        const dxWave = -(e.clientX - dragStart.x) / gw * span;
+        state.wavelengthMin = clamp(dragStart.min + dxWave, 100, 2490);
+        state.wavelengthMax = clamp(dragStart.max + dxWave, state.wavelengthMin + 5, 2500);
+        ui.rangeSelect.value = 'custom';
+        state.range = 'custom';
+        syncRangeInputs();
+        updateAll();
+        return;
+      }
+      if (x >= pad.l && x <= pad.l + gw && y >= pad.t && y <= rect.height - pad.b + pad.t) {
+        const wave = waveForX(x, pad, gw);
+        const p = nearestPoint(wave);
+        const id = identifyLine(wave);
+        state.hover = { x, y, wave };
+        ui.hoverBox.style.display = 'block';
+        ui.hoverBox.style.left = `${clamp(x + 14, 8, rect.width - 250)}px`;
+        ui.hoverBox.style.top = `${clamp(y + 14, 8, rect.height - 120)}px`;
+        ui.hoverBox.innerHTML = `<div class="hover-title">${fmt(wave,2)} nm</div>
+          <div>intensity: <b>${p ? fmt(p.flux,3) : '—'}</b></div>
+          <div>likely line: <b>${id ? id.label : 'none nearby'}</b></div>
+          <div>element: <b>${id ? id.element : '—'}</b></div>
+          <div>rest: <b>${id ? fmt(id.rest,2)+' nm' : '—'}</b></div>`;
+      } else {
+        state.hover = null;
+        ui.hoverBox.style.display = 'none';
+      }
+      drawSpectrum();
+    });
+    canvas.addEventListener('pointerup', e => {
+      const moved = dragStart && Math.abs(e.clientX - dragStart.x) > 4;
+      dragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch {}
+      if (!moved) {
+        const rect = canvas.getBoundingClientRect();
+        const pad = { l:58, r:18, t:26, b:72 };
+        const gw = rect.width - pad.l - pad.r;
+        const x = e.clientX - rect.left;
+        if (x >= pad.l && x <= pad.l + gw) selectWavelength(waveForX(x, pad, gw));
+      }
+      dragStart = null;
+    });
+    canvas.addEventListener('pointerleave', () => { state.hover = null; ui.hoverBox.style.display = 'none'; drawSpectrum(); });
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const pad = { l:58, r:18, t:26, b:72 };
+      const gw = rect.width - pad.l - pad.r;
+      const x = clamp(e.clientX - rect.left, pad.l, pad.l + gw);
+      const center = waveForX(x, pad, gw);
+      const span = state.wavelengthMax - state.wavelengthMin;
+      const factor = e.deltaY < 0 ? 0.82 : 1.22;
+      const nextSpan = clamp(span * factor, 8, 2400);
+      const t = (center - state.wavelengthMin) / span;
+      state.wavelengthMin = clamp(center - nextSpan * t, 100, 2500 - nextSpan);
+      state.wavelengthMax = state.wavelengthMin + nextSpan;
+      ui.rangeSelect.value = 'custom';
+      state.range = 'custom';
+      syncRangeInputs();
+      updateAll();
+    }, { passive:false });
+  }
+
+  // wire up all ui controls
+  function setupControls() {
+    ui.objectTypeSelect.addEventListener('change', () => { state.objectType = ui.objectTypeSelect.value; state.preset = PRESETS[state.objectType][0].id; repopulatePresetSelects(); applyPreset(state.preset); });
+    ui.presetSelect.addEventListener('change', () => applyPreset(ui.presetSelect.value));
+    ui.topPresetSelect.addEventListener('change', () => applyPreset(ui.topPresetSelect.value));
+    ui.topModeSelect.addEventListener('change', () => { state.mode = ui.topModeSelect.value; state.compareEnabled = state.mode === 'compare' ? true : state.compareEnabled; ui.compareToggle.checked = state.compareEnabled; updateAll(); });
+    ui.rangeSelect.addEventListener('change', () => {
+      if (ui.rangeSelect.value !== 'custom') setRange(ui.rangeSelect.value);
+      else { state.range = 'custom'; updateAll(); }
+    });
+    ui.wMinInput.addEventListener('change', () => { state.wavelengthMin = clamp(parseFloat(ui.wMinInput.value) || 380, 100, state.wavelengthMax - 5); state.range = 'custom'; ui.rangeSelect.value = 'custom'; updateAll(); });
+    ui.wMaxInput.addEventListener('change', () => { state.wavelengthMax = clamp(parseFloat(ui.wMaxInput.value) || 750, state.wavelengthMin + 5, 2500); state.range = 'custom'; ui.rangeSelect.value = 'custom'; updateAll(); });
+    ui.resetZoomBtn.addEventListener('click', () => setRange(state.range === 'custom' ? 'visible' : state.range));
+    ui.visibleBtn.addEventListener('click', () => setRange('visible'));
+    ui.fullBtn.addEventListener('click', () => setRange('full'));
+
+    ui.temperatureSlider.addEventListener('input', () => { state.temperature = parseFloat(ui.temperatureSlider.value); updateAllDebounced(); });
+    ui.redshiftSlider.addEventListener('input', () => { state.redshift = parseFloat(ui.redshiftSlider.value); updateAllDebounced(); });
+    ui.rvSlider.addEventListener('input', () => { state.radialVelocity = parseFloat(ui.rvSlider.value); updateAllDebounced(); });
+    ui.resolutionSlider.addEventListener('input', () => { state.resolution = parseFloat(ui.resolutionSlider.value); updateAllDebounced(); });
+    ui.noiseSlider.addEventListener('input', () => { state.noise = parseFloat(ui.noiseSlider.value); updateAllDebounced(); });
+    ui.exposureSlider.addEventListener('input', () => { state.exposure = parseFloat(ui.exposureSlider.value); updateAllDebounced(); });
+    ui.apertureSlider.addEventListener('input', () => { state.aperture = parseFloat(ui.apertureSlider.value); updateAllDebounced(); });
+    ui.skySlider.addEventListener('input', () => { state.skyBackground = parseFloat(ui.skySlider.value); updateAllDebounced(); });
+    ui.instrumentSelect.addEventListener('change', () => applyInstrumentMode(ui.instrumentSelect.value));
+
+    ui.labelsToggle.addEventListener('change', () => { state.labelsEnabled = ui.labelsToggle.checked; updateAll(); });
+    ui.continuumToggle.addEventListener('change', () => { state.continuumEnabled = ui.continuumToggle.checked; drawSpectrum(); saveSettings(); });
+    ui.cursorToggle.addEventListener('change', () => { state.cursorEnabled = ui.cursorToggle.checked; drawSpectrum(); saveSettings(); });
+    ui.compareToggle.addEventListener('change', () => { state.compareEnabled = ui.compareToggle.checked; updateAll(); });
+    ui.comparePresetSelect.addEventListener('change', () => { state.comparePreset = ui.comparePresetSelect.value; updateAll(); });
+    ui.loadCompareBtn.addEventListener('click', () => { state.compareEnabled = true; ui.compareToggle.checked = true; state.comparePreset = ui.comparePresetSelect.value; updateAll(); });
+    ui.clearCompareBtn.addEventListener('click', () => { state.compareEnabled = false; ui.compareToggle.checked = false; state.compareSpectrum = []; updateAll(); });
+    ui.compareSunBtn.addEventListener('click', () => { state.comparePreset = 'sun'; ui.comparePresetSelect.value = 'sun'; state.compareEnabled = true; ui.compareToggle.checked = true; updateAll(); });
+    ui.compareRedDwarfBtn.addEventListener('click', () => { state.comparePreset = 'm-dwarf'; ui.comparePresetSelect.value = 'm-dwarf'; state.compareEnabled = true; ui.compareToggle.checked = true; updateAll(); });
+
+    ui.estimateTempBtn.addEventListener('click', () => {
+      const est = estimateTemperature();
+      ui.selectedExplanation.textContent = `Estimated temperature from the continuum peak: about ${fmt(est.temp,0)} K. Peak wavelength: ${fmt(est.peak,1)} nm. Approximate spectral class: ${est.cls}. Noise, reddening, absorption, and limited wavelength range can affect this estimate.`;
+    });
+    ui.autoDetectBtn.addEventListener('click', () => { state.detectedLines = detectLines(state.spectrum); updateElements(); ui.selectedExplanation.textContent = `Auto detection found ${state.detectedLines.length} likely features in the current wavelength window.`; });
+    ui.identifyBtn.addEventListener('click', () => { if (state.selectedWavelength) selectWavelength(state.selectedWavelength); });
+    ui.zoomSelectedBtn.addEventListener('click', () => { if (state.selectedWavelength) zoomToWavelength(state.selectedWavelength); });
+
+    document.querySelectorAll('[data-activity]').forEach(btn => btn.addEventListener('click', () => startActivity(btn.dataset.activity)));
+    window.addEventListener('resize', () => { drawSpectrum(); drawPreview(); });
+  }
+
+  // debounce slider updates so the canvas stays smooth
+  function updateAllDebounced() {
+    updateReadouts();
+    clearTimeout(updateAllDebounced._t);
+    updateAllDebounced._t = setTimeout(updateAll, 35);
+  }
+
+  // boot the app
+  function init() {
+    loadSettings();
+    buildMoleculeControls();
+    populateSelects();
+    const p = nowPreset();
+    state.temperature = p.temp;
+    state.redshift = p.z;
+    state.radialVelocity = p.rv;
+    syncControlsFromState();
+    setupControls();
+    setupCanvasEvents();
+    setRange(state.range || 'visible');
+    updateAll();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

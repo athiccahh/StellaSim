@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>StellaSim ★ Observation Planner</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    /* nasa blue + black theme */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-2: #2c7eff;
+      --nasa-blue: #0b3d91;
+      --dark-navy: #02040a;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.62);
+      --radius-lg: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font: inherit; }
+    button { user-select: none; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 { width: 360px; height: 360px; top: 6%; left: 10%; background: radial-gradient(circle, rgba(11, 61, 145, 0.20), transparent 72%); }
+    .glow-2 { width: 430px; height: 430px; right: 7%; top: 14%; background: radial-gradient(circle, rgba(11, 61, 145, 0.17), transparent 72%); animation-delay: -6s; }
+    .glow-3 { width: 380px; height: 380px; left: 48%; bottom: 4%; background: radial-gradient(circle, rgba(44, 126, 255, 0.12), transparent 74%); animation-delay: -11s; }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle at 35% 35%,
+          rgba(255, 255, 255, 0.96),
+          rgba(211, 228, 255, 0.93) 36%,
+          rgba(44, 126, 255, 0.20) 62%,
+          rgba(11, 61, 145, 0) 76%
+        );
+      box-shadow:
+        0 0 40px rgba(44, 126, 255, 0.18),
+        0 0 95px rgba(11, 61, 145, 0.12);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #02040a;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    .main {
+      padding: 28px;
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .main-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }
+
+    .hero-card,
+    .planner-panel,
+    .target-card,
+    .conditions-card,
+    .event-calendar-card,
+    .notes-card,
+    .plan-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(11, 61, 145, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-card::after,
+    .planner-panel::after,
+    .target-card::after,
+    .conditions-card::after,
+    .event-calendar-card::after,
+    .notes-card::after,
+    .plan-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0%, transparent 32%, rgba(255, 255, 255, 0.05) 40%, transparent 49%, transparent 100%);
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 28px 28px 24px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 90ms;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -150px;
+      top: -160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.14), transparent 65%);
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      position: relative;
+      z-index: 1;
+      font-weight: 800;
+    }
+
+    .hero-title .glow {
+      color: #2c7eff;
+      text-shadow:
+        0 0 24px rgba(11, 61, 145, 0.28),
+        0 0 44px rgba(11, 61, 145, 0.16);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 78ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-actions,
+    .btn-row,
+    .badge-row,
+    .target-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-actions { margin-top: 18px; }
+    .btn-row { margin-top: 14px; }
+
+    .planner-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.25fr) minmax(320px, 0.9fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .planner-panel,
+    .conditions-card,
+    .event-calendar-card,
+    .notes-card,
+    .plan-card {
+      padding: 20px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .planner-panel { animation-delay: 180ms; }
+    .results-column { animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: 250ms; }
+    .session-column { animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: 320ms; }
+
+    .panel-content,
+    .target-content,
+    .plan-content { position: relative; z-index: 1; }
+
+    .section-title-wrap h2 { margin: 0; font-size: 1.28rem; font-weight: 700; }
+    .section-title-wrap p { margin: 6px 0 0; color: var(--muted); line-height: 1.55; max-width: 68ch; }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field { display: grid; gap: 7px; }
+    .field.full { grid-column: 1 / -1; }
+
+    .field label,
+    .slider-top,
+    .toggle-title {
+      color: var(--accent-2);
+      font-size: 0.79rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .input,
+    .select,
+    .notes-area,
+    .plan-time,
+    .plan-note {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.96), rgba(3, 12, 30, 0.96));
+      color: var(--field-text);
+      border-radius: 15px;
+      padding: 12px 13px;
+      outline: none;
+      transition: 160ms ease;
+      color-scheme: dark;
+    }
+
+    .input:focus,
+    .select:focus,
+    .notes-area:focus,
+    .plan-time:focus,
+    .plan-note:focus {
+      border-color: rgba(44, 126, 255, 0.62);
+      box-shadow:
+        0 0 0 3px rgba(11, 61, 145, 0.08),
+        0 0 22px rgba(11, 61, 145, 0.1);
+    }
+
+    .input::placeholder,
+    .notes-area::placeholder,
+    .plan-note::placeholder { color: rgba(244, 248, 255, 0.7); }
+
+    .chip-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .chip-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(44, 126, 255, 0.2);
+      background: rgba(44, 126, 255, 0.06);
+      color: var(--field-text);
+      border-radius: 999px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: 180ms ease;
+      animation: chipFloatIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      font-size: 0.88rem;
+    }
+
+    .chip-check input { display: none; }
+
+    .chip-check:has(input:checked) {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.22), rgba(11, 61, 145, 0.1));
+      border-color: rgba(44, 126, 255, 0.58);
+      box-shadow: 0 0 18px rgba(11, 61, 145, 0.11);
+    }
+
+    .chip-check:hover,
+    .btn:hover,
+    .target-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(44, 126, 255, 0.55);
+      background: rgba(11, 61, 145, 0.12);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.28),
+        0 0 18px rgba(11, 61, 145, 0.18);
+    }
+
+    .slider-card,
+    .data-pill,
+    .condition-item,
+    .plan-item,
+    .event-item {
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      background: rgba(3, 8, 20, 0.46);
+    }
+
+    .slider-card { display: grid; gap: 10px; padding: 13px; border-radius: 17px; }
+    .slider-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .range { width: 100%; accent-color: var(--accent-2); }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(44, 126, 255, 0.22);
+      border-radius: 14px;
+      padding: 11px 16px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.04);
+      transition: 180ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      border-color: rgba(44, 126, 255, 0.76);
+      color: white;
+    }
+
+    .btn.small { padding: 9px 11px; border-radius: 12px; font-size: 0.84rem; }
+    .btn.danger { border-color: rgba(255, 157, 157, 0.25); color: #ffd8d8; background: rgba(255, 120, 120, 0.055); }
+
+    .results-column,
+    .session-column { display: grid; gap: 18px; min-width: 0; }
+    .results-header,
+    .plan-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; position: relative; z-index: 1; }
+    .target-grid { display: grid; gap: 14px; }
+
+    .target-card { padding: 17px; transition: 180ms ease; animation: chipFloatIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .target-card.selected {
+      border-color: rgba(44, 126, 255, 0.72);
+      box-shadow:
+        0 14px 28px rgba(0, 0, 0, 0.22),
+        0 0 0 1px rgba(11, 61, 145, 0.18),
+        0 0 26px rgba(11, 61, 145, 0.18);
+    }
+
+    .target-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .target-name { margin: 0; font-size: 1.1rem; line-height: 1.2; font-weight: 760; }
+    .target-subline { margin: 5px 0 0; color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
+    .target-data { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+    .data-pill { padding: 10px; border-radius: 14px; min-width: 0; }
+    .data-pill span,
+    .condition-item span { display: block; color: var(--muted); font-size: 0.72rem; margin-bottom: 4px; }
+    .data-pill strong,
+    .condition-item strong { display: block; color: var(--field-text); font-size: 0.88rem; overflow-wrap: anywhere; }
+
+    .badge-row { gap: 8px; margin-top: 10px; }
+    .badge {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      color: var(--accent-2);
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      white-space: nowrap;
+    }
+
+    .badge.soft { color: var(--muted); background: rgba(255, 255, 255, 0.025); }
+    .target-tip { margin: 0; color: var(--muted); line-height: 1.58; font-size: 0.92rem; }
+    .target-actions { gap: 9px; margin-top: 14px; }
+
+    .empty-state {
+      border: 1px dashed rgba(44, 126, 255, 0.22);
+      background: rgba(255, 255, 255, 0.028);
+      border-radius: 18px;
+      padding: 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .conditions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .condition-item { padding: 12px; border-radius: 15px; }
+
+    .plan-list { display: grid; gap: 12px; margin-top: 14px; }
+    .plan-item { display: grid; gap: 10px; padding: 14px; border-radius: 17px; }
+    .plan-item-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .plan-item h3 { margin: 0; font-size: 1rem; }
+    .plan-item p { margin: 4px 0 0; color: var(--muted); font-size: 0.84rem; line-height: 1.45; }
+    .plan-fields { display: grid; grid-template-columns: 118px 1fr; gap: 9px; }
+    .plan-note { min-height: 42px; resize: vertical; }
+    .notes-area { min-height: 150px; resize: vertical; line-height: 1.6; }
+    .helper-text, .status-text { color: var(--muted); font-size: 0.84rem; line-height: 1.5; }
+    .status-text { margin-top: 10px; }
+
+    .event-calendar-card { padding: 20px; animation-delay: 360ms; }
+    .calendar-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; position: relative; z-index: 1; }
+    .calendar-month-title { margin: 0; font-size: 1rem; font-weight: 750; color: var(--field-text); }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; margin-top: 14px; position: relative; z-index: 1; }
+    .calendar-weekday { color: var(--accent-2); font-size: 0.72rem; font-weight: 700; text-align: center; padding: 4px 0; opacity: 0.9; }
+
+    .calendar-day {
+      min-height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(44, 126, 255, 0.12);
+      background: rgba(255, 255, 255, 0.028);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      font-size: 0.84rem;
+      position: relative;
+      transition: 180ms ease;
+    }
+
+    .calendar-day.muted-day { opacity: 0.35; }
+    .calendar-day.has-event {
+      color: var(--field-text);
+      border-color: rgba(44, 126, 255, 0.45);
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.18), rgba(11, 61, 145, 0.08));
+      box-shadow: 0 0 16px rgba(11, 61, 145, 0.09);
+      cursor: pointer;
+    }
+
+    .calendar-day.has-event::after {
+      content: "";
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      bottom: 6px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 10px rgba(11, 61, 145, 0.65);
+    }
+
+    .calendar-day.has-event:hover,
+    .calendar-day.active-day {
+      transform: translateY(-2px);
+      border-color: rgba(44, 126, 255, 0.78);
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.28), rgba(11, 61, 145, 0.12));
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), 0 0 18px rgba(11, 61, 145, 0.16);
+    }
+
+    .event-list { display: grid; gap: 10px; margin-top: 14px; position: relative; z-index: 1; }
+    .event-item { display: grid; gap: 6px; padding: 13px; border-radius: 15px; transition: 180ms ease; }
+    .event-item:hover, .event-item.active-event { transform: translateY(-2px); border-color: rgba(44, 126, 255, 0.46); background: rgba(11, 61, 145, 0.07); box-shadow: 0 0 18px rgba(11, 61, 145, 0.12); }
+    .event-item-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .event-item h3 { margin: 0; font-size: 0.96rem; line-height: 1.25; }
+    .event-date { color: var(--accent-2); font-size: 0.76rem; font-weight: 700; white-space: nowrap; }
+    .event-item p { margin: 0; color: var(--muted); font-size: 0.84rem; line-height: 1.5; }
+    .calendar-note { margin: 12px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.5; position: relative; z-index: 1; }
+
+    @keyframes glowFloat { 0% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(14px, -12px, 0) scale(1.05); } 100% { transform: translate3d(0, 0, 0) scale(1); } }
+    @keyframes panelSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(140%); } }
+    @keyframes panelFloatIn { from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+    @keyframes chipFloatIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 1280px) {
+      .planner-layout { grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr); }
+      .session-column { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .plan-card { grid-row: span 2; }
+    }
+
+    @media (max-width: 980px) {
+      .planner-layout, .session-column { grid-template-columns: 1fr; }
+      .session-column, .plan-card { grid-column: auto; grid-row: auto; }
+      .target-data { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 920px) {
+      .main { padding: 18px 16px 24px; }
+      .moon-wrap { width: 98px; height: 98px; top: 72px; right: 24px; opacity: 0.42; }
+      .moon-wrap::after { width: 78px; height: 78px; top: 9px; left: 31px; }
+    }
+
+    @media (max-width: 720px) {
+      .hero-card, .planner-panel, .target-card, .conditions-card, .event-calendar-card, .notes-card, .plan-card { border-radius: 18px; padding-left: 16px; padding-right: 16px; }
+      .control-grid, .conditions-grid, .plan-fields { grid-template-columns: 1fr; }
+      .hero-title { max-width: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="starfield"></canvas>
+
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <div class="app-shell">
+    <main class="main">
+      <div class="main-inner">
+        <section class="hero-card">
+          <div>
+            <div class="eyebrow">✦ Demo planning data</div>
+            <h1 class="hero-title">Observation <span class="glow">Planner</span></h1>
+            <p class="hero-subtitle">
+              Build a practical observing plan for tonight based on your location, time window, equipment, and target preferences.
+              Visibility values in this first version are planner estimates, not live sky-engine calculations yet.
+            </p>
+            <div class="hero-actions">
+              <button class="btn primary" id="buildPlanBtn" type="button">Build Plan</button>
+              <button class="btn" id="copyPlanHeroBtn" type="button">Copy Plan</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="planner-layout">
+          <aside class="planner-panel">
+            <div class="panel-content">
+              <div class="section-title-wrap">
+                <h2>Planner Controls</h2>
+                <p>Choose your observing window, equipment, sky quality, and target types.</p>
+              </div>
+
+              <div class="control-grid" style="margin-top: 16px;">
+                <div class="field"><label for="dateInput">Date</label><input class="input" id="dateInput" type="date" /></div>
+                <div class="field"><label for="timeInput">Time</label><input class="input" id="timeInput" type="time" /></div>
+                <div class="field full"><label for="locationInput">Location name</label><input class="input" id="locationInput" type="text" value="Los Angeles, CA" placeholder="Example: Los Angeles, CA" /></div>
+                <div class="field"><label for="latInput">Latitude</label><input class="input" id="latInput" type="number" step="0.01" value="34.05" /></div>
+                <div class="field"><label for="lonInput">Longitude</label><input class="input" id="lonInput" type="number" step="0.01" value="-118.24" /></div>
+                <div class="field"><label for="windowStart">Window start</label><input class="input" id="windowStart" type="time" value="20:30" /></div>
+                <div class="field"><label for="windowEnd">Window end</label><input class="input" id="windowEnd" type="time" value="23:45" /></div>
+
+                <div class="field full">
+                  <label for="equipmentSelect">Equipment</label>
+                  <select class="select" id="equipmentSelect">
+                    <option value="naked-eye">Naked eye</option>
+                    <option value="binoculars">Binoculars</option>
+                    <option value="small-telescope" selected>Small telescope</option>
+                    <option value="medium-telescope">Medium telescope</option>
+                    <option value="astrophotography">Astrophotography</option>
+                  </select>
+                </div>
+
+                <div class="field full">
+                  <label for="difficultySelect">Difficulty</label>
+                  <select class="select" id="difficultySelect">
+                    <option value="all">All levels</option>
+                    <option value="beginner" selected>Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+
+                <div class="field full">
+                  <label for="skyQualitySelect">Light pollution</label>
+                  <select class="select" id="skyQualitySelect">
+                    <option value="city">City</option>
+                    <option value="suburban" selected>Suburban</option>
+                    <option value="dark-sky">Dark sky</option>
+                  </select>
+                </div>
+
+                <div class="field full">
+                  <div class="slider-card">
+                    <div class="slider-top"><span>Minimum altitude</span><strong id="altitudeValue">25°</strong></div>
+                    <input class="range" id="altitudeRange" type="range" min="10" max="60" step="5" value="25" />
+                  </div>
+                </div>
+
+                <div class="field full">
+                  <div class="toggle-title">Target type filters</div>
+                  <div class="chip-wrap" id="typeFilters">
+                    <label class="chip-check"><input type="checkbox" value="planet" checked />Planets</label>
+                    <label class="chip-check"><input type="checkbox" value="moon" checked />Moon</label>
+                    <label class="chip-check"><input type="checkbox" value="bright-star" checked />Bright stars</label>
+                    <label class="chip-check"><input type="checkbox" value="constellation" checked />Constellations</label>
+                    <label class="chip-check"><input type="checkbox" value="nebula" checked />Nebulae</label>
+                    <label class="chip-check"><input type="checkbox" value="galaxy" checked />Galaxies</label>
+                    <label class="chip-check"><input type="checkbox" value="star-cluster" checked />Star clusters</label>
+                    <label class="chip-check"><input type="checkbox" value="double-star" checked />Double stars</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn primary" id="applyFiltersBtn" type="button">Build Plan</button>
+                <button class="btn" id="resetFiltersBtn" type="button">Reset Filters</button>
+              </div>
+
+              <div class="status-text" id="filterStatus">Showing planner estimates for your current filters.</div>
+            </div>
+          </aside>
+
+          <section class="results-column">
+            <div class="planner-panel">
+              <div class="panel-content">
+                <div class="results-header">
+                  <div class="section-title-wrap">
+                    <h2>Recommended Targets</h2>
+                    <p id="resultSummary">Targets update when your filters change.</p>
+                  </div>
+                  <span class="badge">Planner estimate</span>
+                </div>
+              </div>
+            </div>
+            <div class="target-grid" id="targetGrid"></div>
+          </section>
+
+          <aside class="session-column">
+            <section class="conditions-card">
+              <div class="panel-content">
+                <div class="section-title-wrap">
+                  <h2>Sky Conditions</h2>
+                  <p>Mock conditions for layout and planning flow. Weather and moon APIs can connect later.</p>
+                </div>
+                <div class="conditions-grid">
+                  <div class="condition-item"><span>Moon phase</span><strong id="moonPhaseText">Waxing crescent</strong></div>
+                  <div class="condition-item"><span>Moon illumination</span><strong id="moonIlluminationText">31%</strong></div>
+                  <div class="condition-item"><span>Best dark window</span><strong id="darkWindowText">10:15 PM - 12:20 AM</strong></div>
+                  <div class="condition-item"><span>Transparency</span><strong id="transparencyText">Demo: fair</strong></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="plan-card">
+              <div class="plan-content">
+                <div class="plan-header">
+                  <div class="section-title-wrap">
+                    <h2>Tonight’s Plan</h2>
+                    <p>Add targets, set planned times, and write notes for your session.</p>
+                  </div>
+                </div>
+                <div class="plan-list" id="planList"></div>
+                <div class="btn-row">
+                  <button class="btn primary" id="copyPlanBtn" type="button">Copy Plan</button>
+                  <button class="btn danger" id="clearPlanBtn" type="button">Clear Plan</button>
+                </div>
+                <div class="status-text" id="planStatus">Your plan is saved in this browser.</div>
+              </div>
+            </section>
+
+            <section class="event-calendar-card">
+              <div class="panel-content">
+                <div class="section-title-wrap">
+                  <h2>Astronomy Calendar</h2>
+                  <p>Track major sky events and add interesting nights to your observing plan.</p>
+                </div>
+                <div class="calendar-controls">
+                  <button class="btn small" id="prevMonthBtn" type="button" aria-label="Previous month">‹</button>
+                  <h3 class="calendar-month-title" id="calendarMonthTitle">Month</h3>
+                  <button class="btn small" id="nextMonthBtn" type="button" aria-label="Next month">›</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid" aria-label="Astronomy event calendar"></div>
+                <div class="event-list" id="eventList"></div>
+                <p class="calendar-note">Event dates are built-in for planning. Visibility still depends on your location, weather, horizon, and moonlight.</p>
+              </div>
+            </section>
+
+            <section class="notes-card">
+              <div class="panel-content">
+                <div class="section-title-wrap">
+                  <h2>Observing Notes</h2>
+                  <p>Keep track of equipment, location notes, and what to try next.</p>
+                </div>
+                <textarea class="notes-area" id="sessionNotes" placeholder="Example: Bring red flashlight, start with low magnification, check finder alignment..."></textarea>
+              </div>
+            </section>
+          </aside>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // this is the mock target database for the first planner version
+    const TARGETS = [
+      { id: "moon", name: "Moon", type: "moon", typeLabel: "Moon", bestTime: "8:30 PM - 10:45 PM", altitude: 42, direction: "Southwest", magnitude: "-10.8", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["city", "suburban", "dark-sky"], tip: "Trace the terminator line first. Shadows near that edge make craters and mountain ridges easier to see." },
+      { id: "jupiter", name: "Jupiter", type: "planet", typeLabel: "Planet", bestTime: "9:15 PM - 11:30 PM", altitude: 38, direction: "South", magnitude: "-2.1", difficulty: "beginner", equipment: ["binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["city", "suburban", "dark-sky"], tip: "Use medium magnification and look for the four Galilean moons lined up near the planet." },
+      { id: "saturn", name: "Saturn", type: "planet", typeLabel: "Planet", bestTime: "10:00 PM - 12:15 AM", altitude: 31, direction: "Southeast", magnitude: "0.7", difficulty: "beginner", equipment: ["small-telescope", "medium-telescope", "astrophotography"], sky: ["city", "suburban", "dark-sky"], tip: "Let your telescope cool down first. The rings look sharper when the air and optics settle." },
+      { id: "mars", name: "Mars", type: "planet", typeLabel: "Planet", bestTime: "9:45 PM - 11:45 PM", altitude: 29, direction: "West", magnitude: "1.2", difficulty: "intermediate", equipment: ["small-telescope", "medium-telescope", "astrophotography"], sky: ["city", "suburban", "dark-sky"], tip: "Mars is small outside opposition. Use higher magnification only if the image stays steady." },
+      { id: "venus", name: "Venus", type: "planet", typeLabel: "Planet", bestTime: "After sunset", altitude: 24, direction: "West", magnitude: "-4.0", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope", "medium-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Observe before it gets too low. Through a telescope, look for the phase instead of surface detail." },
+      { id: "orion-nebula", name: "Orion Nebula", type: "nebula", typeLabel: "Nebula", bestTime: "9:30 PM - 11:30 PM", altitude: 35, direction: "South", magnitude: "4.0", difficulty: "beginner", equipment: ["binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["suburban", "dark-sky"], tip: "Use low magnification first to see the wider nebula structure around the Trapezium." },
+      { id: "andromeda-galaxy", name: "Andromeda Galaxy", type: "galaxy", typeLabel: "Galaxy", bestTime: "8:45 PM - 10:30 PM", altitude: 33, direction: "Northwest", magnitude: "3.4", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["suburban", "dark-sky"], tip: "Use binoculars or a low-power eyepiece. It appears as a soft elongated glow, not a photo-like spiral." },
+      { id: "pleiades", name: "Pleiades", type: "star-cluster", typeLabel: "Star cluster", bestTime: "8:15 PM - 11:00 PM", altitude: 52, direction: "Southwest", magnitude: "1.6", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["city", "suburban", "dark-sky"], tip: "This cluster often looks best in binoculars because the wide field keeps the whole group together." },
+      { id: "beehive-cluster", name: "Beehive Cluster", type: "star-cluster", typeLabel: "Star cluster", bestTime: "10:00 PM - 12:30 AM", altitude: 46, direction: "East", magnitude: "3.7", difficulty: "beginner", equipment: ["binoculars", "small-telescope", "medium-telescope"], sky: ["suburban", "dark-sky"], tip: "Sweep slowly through Cancer with binoculars. The cluster can look like a faint mist before it resolves." },
+      { id: "albireo", name: "Albireo", type: "double-star", typeLabel: "Double star", bestTime: "10:45 PM - 12:30 AM", altitude: 28, direction: "Northeast", magnitude: "3.1 / 5.1", difficulty: "beginner", equipment: ["small-telescope", "medium-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Use moderate magnification to split the pair and compare the gold-blue color contrast." },
+      { id: "m13", name: "M13 Hercules Cluster", type: "star-cluster", typeLabel: "Globular cluster", bestTime: "11:00 PM - 1:00 AM", altitude: 44, direction: "East", magnitude: "5.8", difficulty: "intermediate", equipment: ["small-telescope", "medium-telescope", "astrophotography"], sky: ["suburban", "dark-sky"], tip: "Start low, then increase magnification. Larger apertures begin to resolve the outer stars." },
+      { id: "ring-nebula", name: "Ring Nebula", type: "nebula", typeLabel: "Planetary nebula", bestTime: "11:30 PM - 1:30 AM", altitude: 36, direction: "East", magnitude: "8.8", difficulty: "intermediate", equipment: ["small-telescope", "medium-telescope", "astrophotography"], sky: ["suburban", "dark-sky"], tip: "Use averted vision and moderate magnification. It may first appear as a tiny smoke ring." },
+      { id: "lagoon-nebula", name: "Lagoon Nebula", type: "nebula", typeLabel: "Nebula", bestTime: "12:00 AM - 2:00 AM", altitude: 25, direction: "South", magnitude: "6.0", difficulty: "intermediate", equipment: ["binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["dark-sky"], tip: "Best under dark skies. Try a wide field first, then look for the embedded star cluster." },
+      { id: "double-cluster", name: "Double Cluster", type: "star-cluster", typeLabel: "Star cluster", bestTime: "8:30 PM - 10:45 PM", altitude: 41, direction: "Northwest", magnitude: "4.3", difficulty: "beginner", equipment: ["binoculars", "small-telescope", "medium-telescope", "astrophotography"], sky: ["suburban", "dark-sky"], tip: "Use low power. The two clusters look best when both fit in the same field of view." },
+      { id: "sirius", name: "Sirius", type: "bright-star", typeLabel: "Bright star", bestTime: "8:00 PM - 10:00 PM", altitude: 27, direction: "Southwest", magnitude: "-1.46", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope", "medium-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Watch the color flicker when it is low. That sparkle comes from atmospheric turbulence." },
+      { id: "vega", name: "Vega", type: "bright-star", typeLabel: "Bright star", bestTime: "11:15 PM - 1:30 AM", altitude: 39, direction: "Northeast", magnitude: "0.03", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Use Vega as a clean reference star for focusing binoculars or a telescope." },
+      { id: "betelgeuse", name: "Betelgeuse", type: "bright-star", typeLabel: "Red supergiant", bestTime: "8:30 PM - 10:45 PM", altitude: 48, direction: "Southwest", magnitude: "0.4", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Compare its warm color with blue-white Rigel or Sirius nearby." },
+      { id: "polaris", name: "Polaris", type: "bright-star", typeLabel: "Bright star", bestTime: "All night", altitude: 34, direction: "North", magnitude: "1.98", difficulty: "beginner", equipment: ["naked-eye", "binoculars", "small-telescope"], sky: ["city", "suburban", "dark-sky"], tip: "Use Polaris to orient north and compare its altitude to your latitude." },
+      { id: "orion", name: "Orion", type: "constellation", typeLabel: "Constellation", bestTime: "8:30 PM - 11:00 PM", altitude: 43, direction: "South", magnitude: "Varies", difficulty: "beginner", equipment: ["naked-eye", "binoculars"], sky: ["city", "suburban", "dark-sky"], tip: "Start with the three belt stars, then move down to the sword region to find the Orion Nebula." }
+    ];
+
+    // this keeps major astronomy events for the calendar
+    const ASTRO_EVENTS = [
+      { id: "quadrantids-2026", date: "2026-01-03", title: "Quadrantids Meteor Shower", type: "Meteor shower", note: "Peak night for a short, sharp meteor shower. Best with dark skies before dawn." },
+      { id: "wolf-supermoon-2026", date: "2026-01-03", title: "Supermoon", type: "Moon", note: "A bright full Moon night. Great for lunar observing, weaker for faint deep-sky objects." },
+      { id: "jupiter-opposition-2026", date: "2026-01-10", title: "Jupiter at Opposition", type: "Planet", note: "Jupiter is opposite the Sun in the sky, making it a strong telescope target." },
+      { id: "annular-solar-eclipse-2026", date: "2026-02-17", title: "Annular Solar Eclipse", type: "Eclipse", note: "Visible from Antarctica. Solar viewing requires proper certified eye protection." },
+      { id: "march-equinox-2026", date: "2026-03-20", title: "March Equinox", type: "Season marker", note: "The Sun crosses the celestial equator. A good night to compare seasonal constellations." },
+      { id: "lyrids-2026", date: "2026-04-22", title: "Lyrids Meteor Shower", type: "Meteor shower", note: "A spring meteor shower with fast meteors. Best viewed from a dark, open sky." },
+      { id: "eta-aquariids-2026", date: "2026-05-06", title: "Eta Aquariids Meteor Shower", type: "Meteor shower", note: "Best before dawn. This shower favors the Southern Hemisphere but can still be visible farther north." },
+      { id: "june-solstice-2026", date: "2026-06-21", title: "June Solstice", type: "Season marker", note: "Longest day in the Northern Hemisphere and shortest day in the Southern Hemisphere." },
+      { id: "delta-aquariids-2026", date: "2026-07-31", title: "Southern Delta Aquariids", type: "Meteor shower", note: "A steady meteor shower that benefits from dark skies and patient watching." },
+      { id: "alpha-capricornids-2026", date: "2026-07-31", title: "Alpha Capricornids", type: "Meteor shower", note: "Known for occasional bright fireballs during its peak window." },
+      { id: "total-solar-eclipse-2026", date: "2026-08-12", title: "Total Solar Eclipse", type: "Eclipse", note: "Visible along a path that includes Greenland, Iceland, and Spain. Use proper solar protection outside totality." },
+      { id: "perseids-2026", date: "2026-08-13", title: "Perseids Meteor Shower", type: "Meteor shower", note: "A favorite Northern Hemisphere meteor shower. 2026 has favorable moon conditions near the peak." },
+      { id: "partial-lunar-eclipse-2026", date: "2026-08-28", title: "Partial Lunar Eclipse", type: "Eclipse", note: "A deep partial lunar eclipse visible from many regions. Check local timing before observing." },
+      { id: "september-equinox-2026", date: "2026-09-23", title: "September Equinox", type: "Season marker", note: "The Sun crosses the celestial equator again as seasonal sky patterns shift." },
+      { id: "orionids-2026", date: "2026-10-21", title: "Orionids Meteor Shower", type: "Meteor shower", note: "Fast meteors from Halley’s Comet debris. Best after midnight under dark skies." },
+      { id: "leonids-2026", date: "2026-11-17", title: "Leonids Meteor Shower", type: "Meteor shower", note: "Usually modest, but historically famous for storms. Best after midnight." },
+      { id: "geminids-2026", date: "2026-12-13", title: "Geminids Meteor Shower", type: "Meteor shower", note: "One of the strongest annual meteor showers. Great naked-eye target from dark skies." },
+      { id: "december-solstice-2026", date: "2026-12-21", title: "December Solstice", type: "Season marker", note: "Longest night in the Northern Hemisphere, great for long winter observing sessions." },
+      { id: "december-supermoon-2026", date: "2026-12-23", title: "Supermoon", type: "Moon", note: "A bright lunar night. Better for Moon observing than faint galaxies and nebulae." }
+    ];
+
+    const STORAGE_KEY = "stellasimObservationPlan";
+    const NOTES_KEY = "stellasimObservationNotes";
+
+    const dateInput = document.getElementById("dateInput");
+    const timeInput = document.getElementById("timeInput");
+    const locationInput = document.getElementById("locationInput");
+    const latInput = document.getElementById("latInput");
+    const lonInput = document.getElementById("lonInput");
+    const windowStart = document.getElementById("windowStart");
+    const windowEnd = document.getElementById("windowEnd");
+    const equipmentSelect = document.getElementById("equipmentSelect");
+    const difficultySelect = document.getElementById("difficultySelect");
+    const skyQualitySelect = document.getElementById("skyQualitySelect");
+    const altitudeRange = document.getElementById("altitudeRange");
+    const altitudeValue = document.getElementById("altitudeValue");
+    const typeFilters = document.getElementById("typeFilters");
+    const targetGrid = document.getElementById("targetGrid");
+    const resultSummary = document.getElementById("resultSummary");
+    const filterStatus = document.getElementById("filterStatus");
+    const planList = document.getElementById("planList");
+    const planStatus = document.getElementById("planStatus");
+    const sessionNotes = document.getElementById("sessionNotes");
+    const calendarGrid = document.getElementById("calendarGrid");
+    const calendarMonthTitle = document.getElementById("calendarMonthTitle");
+    const eventList = document.getElementById("eventList");
+    const prevMonthBtn = document.getElementById("prevMonthBtn");
+    const nextMonthBtn = document.getElementById("nextMonthBtn");
+
+    const applyFiltersBtn = document.getElementById("applyFiltersBtn");
+    const buildPlanBtn = document.getElementById("buildPlanBtn");
+    const resetFiltersBtn = document.getElementById("resetFiltersBtn");
+    const copyPlanBtn = document.getElementById("copyPlanBtn");
+    const copyPlanHeroBtn = document.getElementById("copyPlanHeroBtn");
+    const clearPlanBtn = document.getElementById("clearPlanBtn");
+
+    let currentTargets = [];
+    let observingPlan = loadPlan();
+    let calendarDate = new Date(2026, 4, 1);
+    let activeEventId = null;
+
+    // this sets the default date and time to today
+    const now = new Date();
+    dateInput.value = now.toISOString().slice(0, 10);
+    timeInput.value = now.toTimeString().slice(0, 5);
+    calendarDate = new Date(dateInput.value + "T00:00:00");
+    sessionNotes.value = localStorage.getItem(NOTES_KEY) || "";
+
+    applyFiltersBtn.addEventListener("click", renderTargets);
+    buildPlanBtn.addEventListener("click", buildSuggestedPlan);
+    resetFiltersBtn.addEventListener("click", resetFilters);
+    copyPlanBtn.addEventListener("click", copyPlan);
+    copyPlanHeroBtn.addEventListener("click", copyPlan);
+    clearPlanBtn.addEventListener("click", clearPlan);
+    prevMonthBtn.addEventListener("click", () => changeCalendarMonth(-1));
+    nextMonthBtn.addEventListener("click", () => changeCalendarMonth(1));
+
+    [dateInput, timeInput, locationInput, latInput, lonInput, windowStart, windowEnd, equipmentSelect, difficultySelect, skyQualitySelect].forEach((element) => {
+      element.addEventListener("input", renderTargets);
+      element.addEventListener("change", renderTargets);
+    });
+
+    dateInput.addEventListener("change", () => {
+      calendarDate = new Date(dateInput.value + "T00:00:00");
+      renderEventCalendar();
+    });
+
+    altitudeRange.addEventListener("input", () => {
+      altitudeValue.textContent = `${altitudeRange.value}°`;
+      renderTargets();
+    });
+
+    typeFilters.addEventListener("change", renderTargets);
+    sessionNotes.addEventListener("input", () => localStorage.setItem(NOTES_KEY, sessionNotes.value));
+
+    renderTargets();
+    renderPlan();
+    renderEventCalendar();
+    updateMockConditions();
+    initStarfield();
+
+    function changeCalendarMonth(offset) {
+      calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + offset, 1);
+      activeEventId = null;
+      renderEventCalendar();
+    }
+
+    function renderEventCalendar() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      const monthName = calendarDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+      const firstDay = new Date(year, month, 1);
+      const startOffset = firstDay.getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevMonthDays = new Date(year, month, 0).getDate();
+      const monthEvents = ASTRO_EVENTS.filter((event) => {
+        const eventDate = new Date(event.date + "T00:00:00");
+        return eventDate.getFullYear() === year && eventDate.getMonth() === month;
+      });
+
+      calendarMonthTitle.textContent = monthName;
+      calendarGrid.innerHTML = "";
+
+      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((day) => {
+        const label = document.createElement("div");
+        label.className = "calendar-weekday";
+        label.textContent = day;
+        calendarGrid.appendChild(label);
+      });
+
+      for (let cell = 0; cell < 42; cell++) {
+        const dayNumber = cell - startOffset + 1;
+        const day = document.createElement("button");
+        day.className = "calendar-day";
+        day.type = "button";
+
+        let visibleDay = dayNumber;
+        let isMuted = false;
+        let cellDate = new Date(year, month, dayNumber);
+
+        if (dayNumber < 1) {
+          visibleDay = prevMonthDays + dayNumber;
+          isMuted = true;
+          cellDate = new Date(year, month - 1, visibleDay);
+        } else if (dayNumber > daysInMonth) {
+          visibleDay = dayNumber - daysInMonth;
+          isMuted = true;
+          cellDate = new Date(year, month + 1, visibleDay);
+        }
+
+        const dateKey = toDateKey(cellDate);
+        const eventsForDay = ASTRO_EVENTS.filter((event) => event.date === dateKey);
+        day.textContent = visibleDay;
+        day.classList.toggle("muted-day", isMuted);
+        day.classList.toggle("has-event", eventsForDay.length > 0);
+        day.classList.toggle("active-day", eventsForDay.some((event) => event.id === activeEventId));
+
+        if (eventsForDay.length) {
+          day.title = eventsForDay.map((event) => event.title).join(", ");
+          day.addEventListener("click", () => {
+            activeEventId = eventsForDay[0].id;
+            renderEventCalendar();
+          });
+        }
+
+        calendarGrid.appendChild(day);
+      }
+
+      renderEventList(monthEvents);
+    }
+
+    function renderEventList(monthEvents) {
+      eventList.innerHTML = "";
+
+      if (!monthEvents.length) {
+        eventList.innerHTML = `<div class="empty-state">No built-in astronomy events are listed for this month yet. Use the planner normally or move to another month.</div>`;
+        return;
+      }
+
+      monthEvents.forEach((event) => {
+        const eventDate = new Date(event.date + "T00:00:00");
+        const item = document.createElement("article");
+        item.className = `event-item${event.id === activeEventId ? " active-event" : ""}`;
+        item.innerHTML = `
+          <div class="event-item-top">
+            <h3>${event.title}</h3>
+            <span class="event-date">${eventDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+          </div>
+          <p>${event.type} • ${event.note}</p>
+          <div class="target-actions">
+            <button class="btn primary small" type="button" data-action="use-event-date" data-date="${event.date}">Use Date</button>
+            <button class="btn small" type="button" data-action="copy-event" data-id="${event.id}">Copy Event</button>
+          </div>
+        `;
+
+        item.addEventListener("click", () => {
+          activeEventId = event.id;
+          renderEventCalendar();
+        });
+
+        item.querySelector('[data-action="use-event-date"]').addEventListener("click", (clickEvent) => {
+          clickEvent.stopPropagation();
+          dateInput.value = event.date;
+          calendarDate = new Date(event.date + "T00:00:00");
+          activeEventId = event.id;
+          renderTargets();
+          renderEventCalendar();
+          planStatus.textContent = `${event.title} selected as the observing date.`;
+        });
+
+        item.querySelector('[data-action="copy-event"]').addEventListener("click", async (clickEvent) => {
+          clickEvent.stopPropagation();
+          const text = `${event.title} — ${eventDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}\n${event.type}\n${event.note}`;
+          try {
+            await navigator.clipboard.writeText(text);
+            planStatus.textContent = "Calendar event copied.";
+          } catch (error) {
+            planStatus.textContent = "Could not copy the event automatically.";
+          }
+        });
+
+        eventList.appendChild(item);
+      });
+    }
+
+    function toDateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function getSelectedTypes() {
+      return Array.from(typeFilters.querySelectorAll("input:checked")).map((input) => input.value);
+    }
+
+    function getEquipmentRank(value) {
+      const ranks = { "naked-eye": 1, binoculars: 2, "small-telescope": 3, "medium-telescope": 4, astrophotography: 5 };
+      return ranks[value] || 1;
+    }
+
+    function getDifficultyRank(value) {
+      const ranks = { beginner: 1, intermediate: 2, advanced: 3 };
+      return ranks[value] || 1;
+    }
+
+    function renderTargets() {
+      const selectedTypes = getSelectedTypes();
+      const selectedEquipment = equipmentSelect.value;
+      const selectedDifficulty = difficultySelect.value;
+      const selectedSky = skyQualitySelect.value;
+      const minAltitude = Number(altitudeRange.value);
+      const equipmentRank = getEquipmentRank(selectedEquipment);
+
+      currentTargets = TARGETS.filter((target) => {
+        const typeMatch = selectedTypes.includes(target.type);
+        const altitudeMatch = target.altitude >= minAltitude;
+        const difficultyMatch = selectedDifficulty === "all" || target.difficulty === selectedDifficulty;
+        const equipmentMatch = target.equipment.some((item) => getEquipmentRank(item) <= equipmentRank || item === selectedEquipment);
+        const skyMatch = target.sky.includes(selectedSky) || selectedSky === "dark-sky";
+        return typeMatch && altitudeMatch && difficultyMatch && equipmentMatch && skyMatch;
+      }).sort((a, b) => scoreTarget(b) - scoreTarget(a));
+
+      targetGrid.innerHTML = "";
+
+      if (!currentTargets.length) {
+        targetGrid.innerHTML = `<div class="empty-state">No targets match those filters yet. Try lowering the minimum altitude, selecting more target types, or choosing a darker sky quality.</div>`;
+      } else {
+        currentTargets.forEach((target, index) => {
+          const isSelected = observingPlan.some((item) => item.id === target.id);
+          targetGrid.appendChild(createTargetCard(target, isSelected, index));
+        });
+      }
+
+      resultSummary.textContent = `${currentTargets.length} recommended target${currentTargets.length === 1 ? "" : "s"} for ${locationInput.value || "your location"}.`;
+      filterStatus.textContent = `Using ${formatEquipment(selectedEquipment)}, ${formatSky(selectedSky)}, and minimum altitude ${minAltitude}°.`;
+      updateMockConditions();
+    }
+
+    function scoreTarget(target) {
+      const difficultyScore = 4 - getDifficultyRank(target.difficulty);
+      const altitudeScore = target.altitude / 20;
+      const brightScore = Number.parseFloat(target.magnitude) < 2 ? 1.2 : 0.4;
+      return difficultyScore + altitudeScore + brightScore;
+    }
+
+    function createTargetCard(target, isSelected, index) {
+      const card = document.createElement("article");
+      card.className = `target-card${isSelected ? " selected" : ""}`;
+      card.style.animationDelay = `${120 + index * 45}ms`;
+      card.innerHTML = `
+        <div class="target-content">
+          <div class="target-top">
+            <div>
+              <h3 class="target-name">${target.name}</h3>
+              <p class="target-subline">${target.typeLabel} • ${target.direction} • Demo altitude ${target.altitude}°</p>
+            </div>
+            <span class="badge">${toTitle(target.difficulty)}</span>
+          </div>
+          <div class="target-data">
+            <div class="data-pill"><span>Best time</span><strong>${target.bestTime}</strong></div>
+            <div class="data-pill"><span>Magnitude</span><strong>${target.magnitude}</strong></div>
+            <div class="data-pill"><span>Equipment</span><strong>${bestEquipmentLabel(target)}</strong></div>
+          </div>
+          <p class="target-tip">${target.tip}</p>
+          <div class="badge-row">
+            <span class="badge soft">${target.typeLabel}</span>
+            <span class="badge soft">${target.direction}</span>
+            <span class="badge soft">Planner estimate</span>
+          </div>
+          <div class="target-actions">
+            <button class="btn primary small" type="button" data-action="add" data-id="${target.id}">${isSelected ? "Added" : "Add to Plan"}</button>
+            <a class="btn small" href="live-star-map.html?target=${encodeURIComponent(target.name)}" target="_blank" rel="noopener noreferrer">View in Star Map</a>
+            <a class="btn small" href="telescope.html?target=${encodeURIComponent(target.name)}" target="_blank" rel="noopener noreferrer">Telescope View</a>
+          </div>
+        </div>`;
+      card.querySelector('[data-action="add"]').addEventListener("click", () => addToPlan(target.id));
+      return card;
+    }
+
+    function addToPlan(targetId) {
+      const target = TARGETS.find((item) => item.id === targetId);
+      if (!target) return;
+      if (observingPlan.some((item) => item.id === targetId)) {
+        planStatus.textContent = `${target.name} is already in tonight’s plan.`;
+        return;
+      }
+      observingPlan.push({ id: target.id, plannedTime: suggestPlanTime(observingPlan.length), notes: "" });
+      savePlan();
+      renderPlan();
+      renderTargets();
+      planStatus.textContent = `${target.name} added to tonight’s plan.`;
+    }
+
+    function buildSuggestedPlan() {
+      const suggestions = currentTargets.slice(0, 4);
+      if (!suggestions.length) {
+        planStatus.textContent = "No matching targets to build from yet.";
+        return;
+      }
+      observingPlan = suggestions.map((target, index) => ({ id: target.id, plannedTime: suggestPlanTime(index), notes: "" }));
+      savePlan();
+      renderPlan();
+      renderTargets();
+      planStatus.textContent = "Built a starter observing plan from your current filters.";
+    }
+
+    function suggestPlanTime(index) {
+      const [hourText, minuteText] = windowStart.value.split(":");
+      const base = new Date();
+      base.setHours(Number(hourText || 20), Number(minuteText || 30), 0, 0);
+      base.setMinutes(base.getMinutes() + index * 35);
+      return base.toTimeString().slice(0, 5);
+    }
+
+    function renderPlan() {
+      planList.innerHTML = "";
+      if (!observingPlan.length) {
+        planList.innerHTML = `<div class="empty-state">No targets added yet. Pick from the recommended list or press Build Plan to create a starter session.</div>`;
+        return;
+      }
+      observingPlan.forEach((item) => {
+        const target = TARGETS.find((targetItem) => targetItem.id === item.id);
+        if (!target) return;
+        const element = document.createElement("div");
+        element.className = "plan-item";
+        element.innerHTML = `
+          <div class="plan-item-top">
+            <div><h3>${target.name}</h3><p>${target.typeLabel} • ${target.direction} • ${target.bestTime}</p></div>
+            <button class="btn danger small" type="button" data-action="remove" data-id="${target.id}">Remove</button>
+          </div>
+          <div class="plan-fields">
+            <input class="plan-time" type="time" value="${item.plannedTime}" aria-label="Planned time for ${target.name}" />
+            <textarea class="plan-note" placeholder="Notes for ${target.name}...">${item.notes || ""}</textarea>
+          </div>`;
+        element.querySelector('[data-action="remove"]').addEventListener("click", () => removeFromPlan(target.id));
+        element.querySelector(".plan-time").addEventListener("input", (event) => updatePlanItem(target.id, "plannedTime", event.target.value));
+        element.querySelector(".plan-note").addEventListener("input", (event) => updatePlanItem(target.id, "notes", event.target.value));
+        planList.appendChild(element);
+      });
+    }
+
+    function removeFromPlan(targetId) {
+      const target = TARGETS.find((item) => item.id === targetId);
+      observingPlan = observingPlan.filter((item) => item.id !== targetId);
+      savePlan();
+      renderPlan();
+      renderTargets();
+      planStatus.textContent = `${target ? target.name : "Target"} removed from tonight’s plan.`;
+    }
+
+    function updatePlanItem(targetId, field, value) {
+      const item = observingPlan.find((planItem) => planItem.id === targetId);
+      if (!item) return;
+      item[field] = value;
+      savePlan();
+      planStatus.textContent = "Plan updated.";
+    }
+
+    function clearPlan() {
+      observingPlan = [];
+      savePlan();
+      renderPlan();
+      renderTargets();
+      planStatus.textContent = "Tonight’s plan cleared.";
+    }
+
+    async function copyPlan() {
+      const text = formatPlanText();
+      try {
+        await navigator.clipboard.writeText(text);
+        planStatus.textContent = "Observing plan copied.";
+      } catch (error) {
+        planStatus.textContent = "Could not copy automatically. Select the plan text manually if needed.";
+      }
+    }
+
+    function formatPlanText() {
+      const lines = [];
+      lines.push("StellaSim Observation Plan");
+      lines.push(`Date: ${dateInput.value || "Not set"}`);
+      lines.push(`Location: ${locationInput.value || "Not set"}`);
+      lines.push(`Coordinates: ${latInput.value || "?"}, ${lonInput.value || "?"}`);
+      lines.push(`Window: ${windowStart.value || "?"} - ${windowEnd.value || "?"}`);
+      lines.push(`Equipment: ${formatEquipment(equipmentSelect.value)}`);
+      lines.push(`Sky quality: ${formatSky(skyQualitySelect.value)}`);
+      lines.push("Data note: Planner estimates only. Real sky calculations are not connected yet.");
+      lines.push("");
+      lines.push("Targets:");
+      if (!observingPlan.length) {
+        lines.push("- No targets added yet.");
+      } else {
+        observingPlan.forEach((item, index) => {
+          const target = TARGETS.find((targetItem) => targetItem.id === item.id);
+          if (!target) return;
+          lines.push(`${index + 1}. ${item.plannedTime || "Time not set"} — ${target.name}`);
+          lines.push(`   Type: ${target.typeLabel}`);
+          lines.push(`   Best time: ${target.bestTime}`);
+          lines.push(`   Demo altitude/direction: ${target.altitude}° ${target.direction}`);
+          lines.push(`   Tip: ${target.tip}`);
+          if (item.notes) lines.push(`   Notes: ${item.notes}`);
+        });
+      }
+      if (sessionNotes.value.trim()) {
+        lines.push("");
+        lines.push("Session notes:");
+        lines.push(sessionNotes.value.trim());
+      }
+      return lines.join("\n");
+    }
+
+    function resetFilters() {
+      locationInput.value = "Los Angeles, CA";
+      latInput.value = "34.05";
+      lonInput.value = "-118.24";
+      windowStart.value = "20:30";
+      windowEnd.value = "23:45";
+      equipmentSelect.value = "small-telescope";
+      difficultySelect.value = "beginner";
+      skyQualitySelect.value = "suburban";
+      altitudeRange.value = "25";
+      altitudeValue.textContent = "25°";
+      typeFilters.querySelectorAll("input").forEach((input) => { input.checked = true; });
+      renderTargets();
+      filterStatus.textContent = "Filters reset to a beginner small-telescope session.";
+    }
+
+    function updateMockConditions() {
+      const sky = skyQualitySelect.value;
+      const minAltitude = Number(altitudeRange.value);
+      document.getElementById("moonPhaseText").textContent = sky === "dark-sky" ? "Thin crescent" : "Waxing crescent";
+      document.getElementById("moonIlluminationText").textContent = sky === "dark-sky" ? "18%" : "31%";
+      document.getElementById("darkWindowText").textContent = minAltitude > 35 ? "10:45 PM - 12:20 AM" : "10:15 PM - 12:20 AM";
+      document.getElementById("transparencyText").textContent = sky === "city" ? "Demo: fair" : sky === "suburban" ? "Demo: good" : "Demo: very good";
+    }
+
+    function savePlan() { localStorage.setItem(STORAGE_KEY, JSON.stringify(observingPlan)); }
+    function loadPlan() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (error) { return []; } }
+
+    function bestEquipmentLabel(target) {
+      const selected = equipmentSelect.value;
+      if (target.equipment.includes(selected)) return formatEquipment(selected);
+      return formatEquipment(target.equipment[0]);
+    }
+
+    function formatEquipment(value) {
+      const labels = { "naked-eye": "Naked eye", binoculars: "Binoculars", "small-telescope": "Small telescope", "medium-telescope": "Medium telescope", astrophotography: "Astrophotography" };
+      return labels[value] || value;
+    }
+
+    function formatSky(value) {
+      const labels = { city: "City", suburban: "Suburban", "dark-sky": "Dark sky" };
+      return labels[value] || value;
+    }
+
+    function toTitle(value) { return value.slice(0, 1).toUpperCase() + value.slice(1); }
+
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let constellationLines = [];
+      let shootingStars = [];
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+      let lastMeteorTime = 0;
+
+      function resizeStarfield() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+        createStars();
+        createConstellations();
+      }
+
+      function createStars() {
+        stars = [];
+        const starCount = Math.min(320, Math.floor((width * height) / 6500));
+        for (let i = 0; i < starCount; i++) {
+          const roll = Math.random();
+          let behavior = "static";
+          if (roll < 0.34) behavior = "static";
+          else if (roll < 0.58) behavior = "twinkle";
+          else if (roll < 0.8) behavior = "drift";
+          else if (roll < 0.94) behavior = "driftTwinkle";
+          else behavior = "bright";
+          const depth = Math.random();
+          const radius = behavior === "bright" ? 1.4 + Math.random() * 1.6 : 0.5 + Math.random() * (depth > 0.7 ? 1.4 : 1.0);
+          const cRoll = Math.random();
+          const color = cRoll < 0.62 ? "255,255,255" : cRoll < 0.87 ? "44,126,255" : "11,61,145";
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: radius,
+            behavior,
+            color,
+            baseAlpha: behavior === "bright" ? 0.6 + Math.random() * 0.35 : 0.18 + Math.random() * 0.65,
+            alpha: 0,
+            twinkleSpeed: behavior === "twinkle" || behavior === "driftTwinkle" ? 0.008 + Math.random() * 0.028 : behavior === "bright" ? 0.002 + Math.random() * 0.006 : 0,
+            twinkleOffset: Math.random() * Math.PI * 2,
+            driftX: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            driftY: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            parallax: 0.15 + depth * 0.85
+          });
+        }
+      }
+
+      function createConstellations() {
+        constellationLines = [];
+        const anchors = stars.filter((star) => star.r > 1.25 && star.behavior !== "drift" && star.behavior !== "driftTwinkle").sort(() => 0.5 - Math.random()).slice(0, 18);
+        const usedPairs = new Set();
+        for (const a of anchors) {
+          const nearest = anchors.filter((b) => b !== a).map((b) => ({ star: b, distance: Math.hypot(b.x - a.x, b.y - a.y) })).filter((item) => item.distance > 60 && item.distance < 180).sort((p, q) => p.distance - q.distance).slice(0, 2);
+          for (const item of nearest) {
+            const b = item.star;
+            const pairKey = [stars.indexOf(a), stars.indexOf(b)].sort((m, n) => m - n).join("-");
+            if (!usedPairs.has(pairKey)) {
+              usedPairs.add(pairKey);
+              constellationLines.push({ a, b, alpha: 0.06 + Math.random() * 0.08 });
+            }
+          }
+        }
+      }
+
+      function maybeSpawnShootingStar(time) {
+        if (time - lastMeteorTime < 2200) return;
+        if (Math.random() > 0.012) return;
+        lastMeteorTime = time;
+        const startX = Math.random() * width * 0.85;
+        const startY = Math.random() * height * 0.28;
+        const length = 90 + Math.random() * 110;
+        const speed = 11 + Math.random() * 6;
+        const angle = Math.PI / 4 + Math.random() * 0.28;
+        shootingStars.push({ x: startX, y: startY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, length, life: 0, maxLife: 34 + Math.floor(Math.random() * 16) });
+      }
+
+      function drawSpaceMist() {
+        const g1 = ctx.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 260);
+        g1.addColorStop(0, "rgba(11,61,145,0.08)");
+        g1.addColorStop(1, "rgba(11,61,145,0)");
+        const g2 = ctx.createRadialGradient(width * 0.82, height * 0.24, 0, width * 0.82, height * 0.24, 300);
+        g2.addColorStop(0, "rgba(44,126,255,0.06)");
+        g2.addColorStop(1, "rgba(44,126,255,0)");
+        const g3 = ctx.createRadialGradient(width * 0.56, height * 0.8, 0, width * 0.56, height * 0.8, 280);
+        g3.addColorStop(0, "rgba(44,126,255,0.05)");
+        g3.addColorStop(1, "rgba(44,126,255,0)");
+        ctx.fillStyle = g1; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g2; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g3; ctx.fillRect(0, 0, width, height);
+      }
+
+      function drawConstellations(time) {
+        for (const line of constellationLines) {
+          const ax = line.a.x + mouseX * line.a.parallax * 0.012;
+          const ay = line.a.y + mouseY * line.a.parallax * 0.012;
+          const bx = line.b.x + mouseX * line.b.parallax * 0.012;
+          const by = line.b.y + mouseY * line.b.parallax * 0.012;
+          const pulse = 0.75 + 0.25 * Math.sin(time * 0.001 + ax * 0.01 + ay * 0.01);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `rgba(44, 126, 255, ${line.alpha * pulse})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      function drawStars(time) {
+        for (const star of stars) {
+          if (star.behavior === "drift" || star.behavior === "driftTwinkle") {
+            star.x += star.driftX;
+            star.y += star.driftY;
+            if (star.x < -4) star.x = width + 4;
+            if (star.x > width + 4) star.x = -4;
+            if (star.y < -4) star.y = height + 4;
+            if (star.y > height + 4) star.y = -4;
+          }
+          if (star.behavior === "twinkle" || star.behavior === "driftTwinkle") {
+            const twinkle = 0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * twinkle;
+          } else if (star.behavior === "bright") {
+            const pulse = 0.85 + 0.15 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * pulse;
+          } else {
+            star.alpha = star.baseAlpha;
+          }
+          const px = star.x + mouseX * star.parallax * 0.015;
+          const py = star.y + mouseY * star.parallax * 0.015;
+          ctx.beginPath();
+          ctx.arc(px, py, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${star.color}, ${star.alpha})`;
+          ctx.shadowBlur = star.r * 6;
+          ctx.shadowColor = `rgba(${star.color}, ${star.alpha * 0.55})`;
+          ctx.fill();
+          if (star.r > 1.35) {
+            ctx.beginPath();
+            ctx.arc(px, py, star.r * 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${star.color}, ${star.alpha * 0.08})`;
+            ctx.shadowBlur = 0;
+            ctx.fill();
+          }
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      function drawShootingStars() {
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const meteor = shootingStars[i];
+          const tailX = meteor.x - meteor.vx * (meteor.length / 18);
+          const tailY = meteor.y - meteor.vy * (meteor.length / 18);
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.15, "rgba(44,126,255,0.82)");
+          gradient.addColorStop(1, "rgba(11,61,145,0)");
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(meteor.x, meteor.y, 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fill();
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+          if (meteor.life > meteor.maxLife || meteor.x > width + 120 || meteor.y > height + 120) shootingStars.splice(i, 1);
+        }
+      }
+
+      function animate(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+        drawSpaceMist();
+        drawConstellations(time);
+        drawStars(time);
+        maybeSpawnShootingStar(time);
+        drawShootingStars();
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+
+      window.addEventListener("resize", resizeStarfield);
+      resizeStarfield();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

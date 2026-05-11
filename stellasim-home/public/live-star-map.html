@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Live Sky Map</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <!-- all the css for the full ui lives here -->
+  <style>
+    /* core theme vars for the whole ui */
+    :root {
+      --panel-bg: rgba(5, 14, 32, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #07162f;
+      --field-border: rgba(47, 124, 255, 0.36);
+      --field-text: #f4f8ff;
+      --muted: #b8c8e8;
+      --accent: #0b3d91;
+      --accent-light: #2f7cff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.58);
+      --btn: linear-gradient(180deg, #0b3d91, #061a3f);
+      --btn-hover: linear-gradient(180deg, #1256bd, #0b3d91);
+      --btn-disabled: linear-gradient(180deg, #15233c, #0a1225);
+    }
+    /* base page layout n the main render layers */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: var(--text); font-family: Inter, system-ui, Arial, sans-serif; }
+    #app { position: fixed; inset: 0; background: radial-gradient(circle at 50% 30%, rgba(11, 61, 145, 0.18), transparent 0 28%), linear-gradient(180deg, #000000 0%, #020816 48%, #000000 100%); }
+    #skyCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+    #skyCanvas.dragging { cursor: grabbing; }
+    #labelLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    /* floating labels that sit over the canvas */
+    .sky-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      color: rgba(235, 243, 255, 0.92);
+      font-size: 12px;
+      white-space: nowrap;
+      text-shadow: 0 0 5px rgba(11, 61, 145, 0.95), 0 0 12px rgba(47, 124, 255, 0.72);
+      opacity: 0.96;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .sky-label.selected {
+      color: #2f7cff;
+      text-shadow: 0 0 8px rgba(47, 124, 255, 1), 0 0 18px rgba(11, 61, 145, 0.95), 0 0 28px rgba(47, 124, 255, 0.55);
+      font-weight: 700;
+    }
+    /* shared glass panel style used by every hud panel */
+    .hud-panel {
+      position: absolute;
+      background: linear-gradient(180deg, rgba(5, 14, 32, 0.96), rgba(2, 8, 20, 0.94));
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.055);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    /* left side control panel layout */
+    #controlPanel {
+      left: 18px; top: 18px; width: 360px; max-height: calc(100vh - 36px); overflow: hidden;
+      display: flex; flex-direction: column; resize: both; min-width: 320px; min-height: 240px; z-index: 20;
+    }
+    #panelHeader {
+      cursor: move; user-select: none; padding: 14px 16px 10px; border-bottom: 1px solid rgba(47,124,255,0.22);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.28), rgba(0,0,0,0));
+    }
+    /* control panel header n section layout bits */
+    .title-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .panel-title { font-size: 18px; font-weight: 700; letter-spacing: 0.01em; }
+    .panel-subtitle { color: var(--muted); font-size: 12px; }
+    #panelBody { overflow: auto; padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+    details.section { border: 1px solid rgba(47,124,255,0.18); border-radius: 14px; padding: 8px 10px 10px; background: rgba(3,12,30,0.48); }
+    details.section[open] { background: rgba(11,61,145,0.10); }
+    details.section > summary {
+      cursor: pointer; list-style: none; font-weight: 700; color: var(--accent-light);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .section-inner { margin-top: 10px; display: grid; gap: 10px; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* form controls n buttons styling */
+    label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    input, select {
+      width: 100%; border: 1px solid var(--field-border); background: linear-gradient(180deg, rgba(7, 22, 47, 0.96), rgba(3, 12, 30, 0.96)); color: var(--field-text);
+      border-radius: 10px; padding: 9px 11px; outline: none; font-size: 13px;
+    }
+    input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    input[type="range"] { padding: 0; background: transparent; border: none; }
+    .toggle-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
+    button {
+      border: 1px solid rgba(47,124,255,0.34); background: var(--btn); color: white; border-radius: 11px;
+      padding: 9px 12px; font-size: 13px; cursor: pointer; transition: transform 0.12s ease, filter 0.12s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.24);
+    }
+    button:hover { background: var(--btn-hover); filter: brightness(1.06); }
+    button:active { transform: translateY(1px); }
+    .small { padding: 7px 9px; font-size: 12px; }
+    /* status badge n info panel area styles */
+    .badge {
+      position: absolute; right: 18px; top: 18px; z-index: 10; padding: 10px 14px; font-size: 12px;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-light);
+    }
+    #infoPanel {
+      right: 18px; bottom: 18px; width: 330px; min-height: 150px; z-index: 10; padding: 14px; display: grid; gap: 10px;
+    }
+    .info-title { font-size: 18px; font-weight: 700; color: #f4f8ff; }
+    .info-type { color: var(--accent-light); font-size: 13px; font-weight: 600; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; font-size: 12px; }
+    .info-item { display: grid; gap: 2px; }
+    .info-item span:first-child { color: var(--muted); }
+    #hintBar {
+      position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 10;
+      padding: 10px 16px; font-size: 12px; color: var(--muted); display: flex; gap: 18px; white-space: nowrap;
+    }
+    #toast {
+      position: absolute; left: 50%; top: 20px; transform: translateX(-50%); z-index: 30;
+      padding: 10px 14px; display: none; font-size: 12px;
+    }
+    #selectedTopName {
+      position: absolute; left: 50%; top: 18px; transform: translateX(-50%); z-index: 14;
+      padding: 9px 16px; font-size: 14px; font-weight: 700; color: #2f7cff; display: none;
+      text-shadow: 0 0 10px rgba(100,170,255,0.9), 0 0 22px rgba(100,170,255,0.45);
+      pointer-events: none;
+    }
+    .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
+    .value-strong { color: var(--text); font-weight: 600; }
+    .muted { color: var(--muted); }
+    /* smaller screen layout tweaks */
+    @media (max-width: 900px) {
+      #controlPanel { width: min(360px, calc(100vw - 18px)); left: 10px; top: 10px; max-height: calc(100vh - 20px); }
+      #infoPanel { width: min(330px, calc(100vw - 20px)); right: 10px; bottom: 10px; }
+      .badge { right: 10px; top: 10px; }
+      #hintBar { bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+<!-- main app shell n render layers -->
+<div id="app">
+  <canvas id="skyCanvas"></canvas>
+  <div id="labelLayer"></div>
+
+  <!-- left side control panel -->
+  <div id="controlPanel" class="hud-panel">
+    <div id="panelHeader">
+      <div class="title-wrap">
+        <div class="panel-title">StellaSim 3D Live Star Map</div>
+        <div class="panel-subtitle">Constellation figures, live sky stats, horizon view</div>
+      </div>
+      <button id="collapseBtn" class="small">−</button>
+    </div>
+    <div id="panelBody">
+      <details class="section" open>
+        <!-- time location n camera controls -->
+        <summary>View Controls</summary>
+        <div class="section-inner">
+          <div class="field-grid">
+            <label>Date<input id="dateInput" type="date" /></label>
+            <label>Time<input id="timeInput" type="time" step="1" /></label>
+          </div>
+          <div class="field-grid">
+            <label>Latitude<input id="latInput" type="number" min="-90" max="90" step="0.0001" value="34.0689" /></label>
+            <label>Longitude<input id="lonInput" type="number" min="-180" max="180" step="0.0001" value="-118.4452" /></label>
+          </div>
+          <div class="row">
+            <button id="applyDateLocationBtn">Apply Time &amp; Location</button>
+            <button id="liveTimeBtn">Live Time: Off</button>
+            <button id="geolocateBtn">Use Geolocation</button>
+          </div>
+          <div class="row">
+            <button class="small headingBtn" data-heading="0">North</button>
+            <button class="small headingBtn" data-heading="90">East</button>
+            <button class="small headingBtn" data-heading="180">South</button>
+            <button class="small headingBtn" data-heading="270">West</button>
+            <button class="small" id="zenithBtn">Zenith</button>
+            <button class="small" id="nadirBtn">Nadir</button>
+            <button class="small" id="resetViewBtn">Reset View</button>
+          </div>
+          <div class="kv"><span>FOV</span><span id="fovReadout" class="value-strong">70°</span></div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- show hide toggles for the sky layers -->
+        <summary>Display Toggles</summary>
+        <div class="section-inner">
+          <div class="toggle-row">
+            <label class="check"><input id="toggleConstellationLines" type="checkbox" checked />Constellation lines</label>
+            <label class="check"><input id="toggleConstellationLabels" type="checkbox" checked />Constellation labels</label>
+            <label class="check"><input id="toggleStarLabels" type="checkbox" checked />Star labels</label>
+            <label class="check"><input id="togglePlanets" type="checkbox" checked />Planets</label>
+            <label class="check"><input id="toggleDeepSky" type="checkbox" checked />Deep sky objects</label>
+            <label class="check"><input id="toggleMilkyWay" type="checkbox" checked />Milky Way</label>
+            <label class="check"><input id="toggleHorizon" type="checkbox" checked />Horizon line</label>
+            <label class="check"><input id="toggleCardinals" type="checkbox" checked />Cardinal directions</label>
+            <label class="check"><input id="toggleAtmosphere" type="checkbox" checked />Atmosphere</label>
+            <label class="check"><input id="toggleGround" type="checkbox" checked />Ground / floor tint</label>
+          </div>
+          <label>Grid overlay
+            <select id="gridModeSelect">
+              <option value="none">None</option>
+              <option value="azimuthal">Azimuthal grid</option>
+              <option value="equatorial">Equatorial grid</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- filters n search tools -->
+        <summary>Filtering</summary>
+        <div class="section-inner">
+          <label>Magnitude limit <span id="magReadout" class="value-strong">6.0</span><input id="magnitudeSlider" type="range" min="1" max="8" step="0.1" value="6.0" /></label>
+          <label>Label density <span id="labelDensityReadout" class="value-strong">0.75</span><input id="labelDensitySlider" type="range" min="0" max="1" step="0.05" value="0.75" /></label>
+          <label>Object type filter
+            <select id="objectTypeFilter">
+              <option value="all">All visible objects</option>
+              <option value="stars">Stars only</option>
+              <option value="planets">Planets / Sun / Moon only</option>
+            </select>
+          </label>
+          <label>Distance display
+            <select id="distanceUnitSelect">
+              <option value="ly">Light years</option>
+              <option value="au">AU</option>
+              <option value="km">Kilometers</option>
+            </select>
+          </label>
+          <label>Search object<input id="searchInput" type="text" placeholder="e.g. Sirius, Rigel, Jupiter, Polaris..." /></label>
+          <div class="row">
+            <button id="searchBtn">Find Object</button>
+            <button id="clearSelectionBtn">Clear Selection</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- top right status badge -->
+  <div class="badge hud-panel">Live Sky Mode</div>
+  <!-- selected object name pill at the top -->
+  <div id="selectedTopName" class="hud-panel"></div>
+
+  <!-- right side selected object info panel -->
+  <div id="infoPanel" class="hud-panel">
+    <div>
+      <div class="info-title" id="infoName">Loading sky data…</div>
+      <div class="info-type" id="infoType">using full star + constellation datasets</div>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><span>Magnitude</span><span id="infoMag">—</span></div>
+      <div class="info-item"><span>Distance</span><span id="infoDistance">—</span></div>
+      <div class="info-item"><span>Altitude</span><span id="infoAlt">—</span></div>
+      <div class="info-item"><span>Azimuth</span><span id="infoAz">—</span></div>
+      <div class="info-item"><span>RA</span><span id="infoRA">—</span></div>
+      <div class="info-item"><span>Dec</span><span id="infoDec">—</span></div>
+      <div class="info-item"><span>Visibility</span><span id="infoVisibility">—</span></div>
+      <div class="info-item"><span>Rise / Set</span><span id="infoRiseSet">—</span></div>
+      <div class="info-item"><span>Constellation</span><span id="infoConstellation">—</span></div>
+      <div class="info-item"><span>Family</span><span id="infoFamily">—</span></div>
+      <div class="info-item"><span>Difficulty</span><span id="infoDifficulty">—</span></div>
+      <div class="info-item"><span>Best Months</span><span id="infoBestMonths">—</span></div>
+      <div class="info-item"><span>Season</span><span id="infoSeason">—</span></div>
+      <div class="info-item"><span>Visible Latitudes</span><span id="infoLatitudes">—</span></div>
+    </div>
+    <div class="muted" id="infoTips">Observation tips will appear here.</div>
+    <div class="muted" id="infoFact"></div>
+  </div>
+
+  <!-- bottom hint bar with the basic controls -->
+  <div id="hintBar" class="hud-panel">
+    <span>drag: look around sky</span>
+    <span>wheel: zoom</span>
+    <span>click: inspect object</span>
+  </div>
+
+  <!-- small toast popup for quick status messages -->
+  <div id="toast" class="hud-panel"></div>
+</div>
+
+<!-- external astronomy lib for sun moon n planet positions -->
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+<!-- main app logic starts here -->
+<script>
+// wrap the whole app so nothing leaks into global scope
+(() => {
+  'use strict';
+
+  // base math constants n quick solar system lookups
+  const RAD = Math.PI / 180;
+  const DEG = 180 / Math.PI;
+  const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
+  const PLANET_COLORS = {
+    Sun: '#ffe6a8', Moon: '#e7ebff', Mercury: '#d9d4cf', Venus: '#ffdeb8', Mars: '#ff9e82',
+    Jupiter: '#f6ddbb', Saturn: '#f0dcaf', Uranus: '#bfefff', Neptune: '#2f7cff'
+  };
+  // little facts shown in the info panel for major solar system objects
+  const FACTS = {
+    Sun: 'The Sun defines the local daytime sky and sets the geometry of the horizon sky each day.',
+    Moon: 'The Moon is Earth\'s only natural satellite and its position changes quickly across the sky.',
+    Mercury: 'Mercury stays close to the Sun and is usually best seen in twilight.',
+    Venus: 'Venus is often the brightest planet visible from Earth.',
+    Mars: 'Mars has a distinct reddish tone caused by iron-rich surface dust.',
+    Jupiter: 'Jupiter is the largest planet in the solar system and often shines brighter than nearby stars.',
+    Saturn: 'Saturn is the ringed giant and usually appears with a warm gold tone.'
+  };
+
+// runtime catalog files the app pulls in from d3 celestial
+const DATA_URLS = {
+  stars: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/stars.8.json',
+  starNames: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/starnames.json',
+  constLines: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/constellations.lines.json',
+  constNames: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/constellations.json',
+  constBounds: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/constellations.bounds.json',
+  milkyWay: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/mw.json',
+  dsos: 'https://cdn.jsdelivr.net/npm/d3-celestial@0.7.35/data/dsos.bright.json'
+};
+
+  // grab all the dom refs once so the rest of the app can reuse em
+  const ui = Object.fromEntries(Array.from(document.querySelectorAll('[id]')).map(el => [el.id, el]));
+  ui.headingBtns = [...document.querySelectorAll('.headingBtn')];
+
+  // canvas n label layer refs
+  const canvas = ui.skyCanvas;
+  const ctx = canvas.getContext('2d');
+  const labelLayer = ui.labelLayer;
+  const labels = new Map();
+
+  // live app state for camera time filters n interaction
+  const state = {
+    currentDate: new Date(),
+    latitude: parseFloat(ui.latInput.value),
+    longitude: parseFloat(ui.lonInput.value),
+    liveTime: false,
+    yaw: 0,
+    pitch: 18,
+    targetYaw: 0,
+    targetPitch: 18,
+    fov: 70,
+    targetFov: 70,
+    magnitudeLimit: 6.0,
+    labelDensity: 0.75,
+    objectFilter: 'all',
+    distanceUnit: 'ly',
+    gridMode: 'none',
+    panelCollapsed: false,
+    isDragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragYaw: 0,
+    dragPitch: 0,
+    dataReady: false
+  };
+
+
+// loaded catalog data n current selection state
+const dataStore = {
+  stars: [],
+  dsos: [],
+  constellationLines: [],
+  constellationLabels: [],
+  milkyWay: [],
+  constellationBounds: [],
+  starNameCatalog: new Map(),
+  constellationByAbbr: new Map(),
+  constellationGenitiveByAbbr: new Map(),
+  constellationMeta: new Map(),
+  constellationMetaByAbbr: new Map(),
+  constellationLookup: new Map(),
+  constellationLookupKeys: [],
+  labeledConstellationStars: new Set(),
+  renderHits: [],
+  selected: null,
+  status: 'Loading sky datasets…'
+};
+
+  // tiny toast helper for quick status messages
+  function showToast(text, ms = 2600) {
+    ui.toast.textContent = text;
+    ui.toast.style.display = 'block';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { ui.toast.style.display = 'none'; }, ms);
+  }
+
+  // basic math n angle helpers used all over the app
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function normalizeAngleDeg(v) { let x = v % 360; if (x < 0) x += 360; return x; }
+  function wrapSigned180(v) { let x = normalizeAngleDeg(v); if (x > 180) x -= 360; return x; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function degFromLon(lon) { return lon < 0 ? lon + 360 : lon; }
+
+  // reset the info panel when nothing is selected yet
+  function setInfoEmpty(message='Click on a star, planet, Sun, or Moon') {
+    ui.infoName.textContent = dataStore.status;
+    ui.infoType.textContent = message;
+    [
+      'infoMag','infoDistance','infoAlt','infoAz','infoRA','infoDec','infoVisibility','infoRiseSet',
+      'infoConstellation','infoFamily','infoDifficulty','infoBestMonths','infoSeason','infoLatitudes'
+    ].forEach(id => ui[id].textContent = '—');
+    ui.infoTips.textContent = 'Observation tips will appear here.';
+    ui.infoFact.textContent = 'This version uses full catalog-style star data and official-style constellation figures loaded at runtime.';
+  }
+
+  // keep the date n time inputs synced with the current date object
+  function formatLocalInputs(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth()+1).padStart(2,'0');
+    const d = String(date.getDate()).padStart(2,'0');
+    const hh = String(date.getHours()).padStart(2,'0');
+    const mm = String(date.getMinutes()).padStart(2,'0');
+    const ss = String(date.getSeconds()).padStart(2,'0');
+    ui.dateInput.value = `${y}-${m}-${d}`;
+    ui.timeInput.value = `${hh}:${mm}:${ss}`;
+  }
+
+  // time math helpers for sidereal sky calculations
+  function julianDay(date) { return date.getTime()/86400000 + 2440587.5; }
+  function gmstDeg(date) {
+    const jd = julianDay(date);
+    const T = (jd - 2451545.0) / 36525.0;
+    const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933*T*T - (T*T*T)/38710000;
+    return normalizeAngleDeg(gmst);
+  }
+  function lstDeg(date, lonDeg) { return normalizeAngleDeg(gmstDeg(date) + lonDeg); }
+
+  // convert ra dec into local alt az for the current observer
+  function eqToAltAz(raHours, decDeg, date, latDeg, lonDeg) {
+    const raDeg = raHours * 15;
+    const dec = decDeg * RAD;
+    const lat = latDeg * RAD;
+    const ha = wrapSigned180(lstDeg(date, lonDeg) - raDeg) * RAD;
+    const sinAlt = Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(lat) * Math.cos(ha);
+    const alt = Math.asin(clamp(sinAlt, -1, 1));
+    const y = -Math.sin(ha) * Math.cos(dec);
+    const x = Math.sin(dec) - Math.sin(alt) * Math.sin(lat);
+    const az = Math.atan2(y, x * Math.cos(lat));
+    return { alt: alt * DEG, az: normalizeAngleDeg(az * DEG) };
+  }
+
+  // turn an alt az point into a 3d world vector
+  function altAzToVec(altDeg, azDeg) {
+    const alt = altDeg * RAD;
+    const az = azDeg * RAD;
+    return {
+      x: Math.sin(az) * Math.cos(alt),
+      y: Math.sin(alt),
+      z: -Math.cos(az) * Math.cos(alt)
+    };
+  }
+
+  // build the camera forward right n up vectors from yaw n pitch
+  function cameraBasis() {
+    const yaw = state.yaw * RAD;
+    const pitch = state.pitch * RAD;
+    const forward = {
+      x: Math.sin(yaw) * Math.cos(pitch),
+      y: Math.sin(pitch),
+      z: -Math.cos(yaw) * Math.cos(pitch)
+    };
+    const worldUp = Math.abs(forward.y) > 0.99 ? {x:0,y:0,z:-1} : {x:0,y:1,z:0};
+    const right = normalizeVec(cross(forward, worldUp));
+    const up = normalizeVec(cross(right, forward));
+    return { forward, right, up };
+  }
+
+  // small vector helpers for the 3d projection math
+  function cross(a,b){ return { x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x }; }
+  function dot(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
+  function normalizeVec(v){ const m = Math.hypot(v.x,v.y,v.z) || 1; return {x:v.x/m,y:v.y/m,z:v.z/m}; }
+
+  // project a sky position into 2d screen space
+  function projectAltAz(altDeg, azDeg) {
+    const world = altAzToVec(altDeg, azDeg);
+    const { forward, right, up } = cameraBasis();
+    const camX = dot(world, right);
+    const camY = dot(world, up);
+    const camZ = dot(world, forward);
+    if (camZ <= 0.0001) return null;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const aspect = w / h;
+    const f = 1 / Math.tan((state.fov * RAD) / 2);
+    const ndcX = (camX / camZ) * (f / aspect);
+    const ndcY = (camY / camZ) * f;
+    return {
+      x: (ndcX * 0.5 + 0.5) * w,
+      y: (-ndcY * 0.5 + 0.5) * h,
+      camZ
+    };
+  }
+
+  // format ra nicely for the info panel
+  function hmsFromHours(h) {
+    const totalSeconds = ((((h % 24) + 24) % 24) * 3600);
+    const hh = Math.floor(totalSeconds / 3600);
+    const mm = Math.floor((totalSeconds % 3600) / 60);
+    const ss = Math.floor(totalSeconds % 60);
+    return `${String(hh).padStart(2,'0')}h ${String(mm).padStart(2,'0')}m ${String(ss).padStart(2,'0')}s`;
+  }
+
+  // format dec nicely for the info panel
+  function dmsFromDeg(d) {
+    const sign = d < 0 ? '−' : '+';
+    const abs = Math.abs(d);
+    const dd = Math.floor(abs);
+    const mm = Math.floor((abs - dd) * 60);
+    const ss = Math.floor((((abs - dd) * 60) - mm) * 60);
+    return `${sign}${String(dd).padStart(2,'0')}° ${String(mm).padStart(2,'0')}′ ${String(ss).padStart(2,'0')}″`;
+  }
+
+  // convert sidereal timing into an approximate local clock time
+  function siderealToLocalClock(targetLSTHours, referenceDate, lonDeg) {
+    const currentLST = lstDeg(referenceDate, lonDeg) / 15;
+    let deltaSidereal = targetLSTHours - currentLST;
+    while (deltaSidereal < 0) deltaSidereal += 24;
+    while (deltaSidereal >= 24) deltaSidereal -= 24;
+    const solarHours = deltaSidereal / 1.00273790935;
+    const dt = new Date(referenceDate.getTime() + solarHours * 3600000);
+    return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // estimate whether something rises sets or stays up all night
+  function computeVisibilityInfo(raHours, decDeg, date, latDeg, lonDeg) {
+    const lat = latDeg * RAD;
+    const dec = decDeg * RAD;
+    const cosH0 = -Math.tan(lat) * Math.tan(dec);
+    if (cosH0 < -1) return { summary: 'Always visible tonight', riseSet: 'Circumpolar' };
+    if (cosH0 > 1) return { summary: 'Not visible tonight', riseSet: 'Never rises' };
+    const H0 = Math.acos(cosH0) * DEG / 15;
+    return {
+      summary: 'Rises and sets tonight',
+      riseSet: `${siderealToLocalClock(raHours - H0, date, lonDeg)} / ${siderealToLocalClock(raHours + H0, date, lonDeg)}`
+    };
+  }
+
+  // rough season n best month helpers for constellation info
+  function monthName(i) { return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]; }
+  function bestMonthsFromRA(raHours) {
+    const sunRaTarget = ((raHours - 9) % 24 + 24) % 24;
+    const monthFloat = ((sunRaTarget / 2) + 2.7) % 12; // rough anchor: 0h sun RA ~ late March
+    const center = Math.round(monthFloat) % 12;
+    const a = (center + 11) % 12, b = center, c = (center + 1) % 12;
+    return `${monthName(a)}–${monthName(c)}`;
+  }
+  function seasonFromRA(raHours) {
+    if (raHours >= 21 || raHours < 3) return 'Autumn/Winter';
+    if (raHours < 9) return 'Winter/Spring';
+    if (raHours < 15) return 'Spring/Summer';
+    return 'Summer/Autumn';
+  }
+
+  // constellation family groupings used for the info panel
+  const FAMILY_MAP = new Map();
+  function addFamily(name, arr) { arr.forEach(c => FAMILY_MAP.set(c, name)); }
+  addFamily('Ursa Major', ['Ursa Major','Ursa Minor','Draco','Canes Venatici','Boötes','Coma Berenices','Corona Borealis','Camelopardalis','Lynx','Leo Minor']);
+  addFamily('Zodiac', ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpius','Sagittarius','Capricornus','Aquarius','Pisces']);
+  addFamily('Perseus', ['Cassiopeia','Cepheus','Andromeda','Perseus','Pegasus','Cetus','Auriga','Lacerta','Triangulum']);
+  addFamily('Hercules', ['Hercules','Sagitta','Aquila','Lyra','Cygnus','Vulpecula','Hydra','Sextans','Crater','Corvus','Ophiuchus','Serpens','Scutum','Centaurus','Lupus','Corona Australis','Ara','Triangulum Australe','Crux']);
+  addFamily('Orion', ['Orion','Canis Major','Canis Minor','Lepus','Monoceros']);
+  addFamily('Heavenly Waters', ['Delphinus','Equuleus','Eridanus','Piscis Austrinus','Carina','Puppis','Vela','Pyxis','Columba']);
+  addFamily('Bayer', ['Hydrus','Dorado','Volans','Apus','Pavo','Grus','Phoenix','Tucana','Indus','Chamaeleon','Musca']);
+  addFamily('La Caille', ['Norma','Circinus','Telescopium','Microscopium','Sculptor','Fornax','Caelum','Horologium','Octans','Mensa','Reticulum','Pictor','Antlia']);
+
+  // little observing tips based on constellation family
+  function constellationTips(name) {
+    const family = FAMILY_MAP.get(name) || 'Other';
+    if (family === 'Zodiac') return 'Look along the ecliptic path and use brighter neighboring zodiac constellations as stepping stones.';
+    if (family === 'Ursa Major') return 'Use the Big Dipper region as a star-hop anchor for nearby northern constellations.';
+    if (family === 'Perseus') return 'Start from Cassiopeia or Pegasus and branch outward using the brighter stars first.';
+    if (family === 'Orion') return 'Use Orion and its bright corner stars to orient nearby winter constellations quickly.';
+    if (family === 'Hercules') return 'These are easier under darker skies; start from the brightest anchor and build out the figure.';
+    if (family === 'Heavenly Waters') return 'These constellations are often faint; dark skies and a low southern horizon help.';
+    if (family === 'Bayer' || family === 'La Caille') return 'Southern constellations usually benefit from darker skies and lower-latitude observing.';
+    return 'Use the brightest anchor star first, then trace the connected figure outward.';
+  }
+
+  // estimate star color from the bv index
+  function starColorFromBV(bv) {
+    if (!Number.isFinite(bv)) return '#f4f8ff';
+    if (bv < -0.2) return '#9dbfff';
+    if (bv < 0.0) return '#c7dcff';
+    if (bv < 0.3) return '#edf5ff';
+    if (bv < 0.6) return '#f8faff';
+    if (bv < 0.9) return '#fbfcff';
+    if (bv < 1.2) return '#f8faff';
+    return '#fff6dc';
+  }
+
+  // convert geojson sky coords into ra dec
+  function geoToRaDec(coords) {
+    const lon = Array.isArray(coords) ? Number(coords[0]) : 0;
+    const lat = Array.isArray(coords) ? Number(coords[1]) : 0;
+    return { raHours: degFromLon(lon) / 15, decDeg: lat };
+  }
+
+  // last ditch internal catalog fallback when a nicer name is missing
+  function fallbackCatalogName(props, index) {
+    const pick = props.hip || props.HIP || props.hd || props.HD || props.hr || props.HR || props.id || props.i;
+    if (props.tyc || props.TYC) return `TYC ${props.tyc || props.TYC}`;
+    if (props.hd || props.HD) return `HD ${props.hd || props.HD}`;
+    if (props.hr || props.HR) return `HR ${props.hr || props.HR}`;
+    if (props.hip || props.HIP) return `HIP ${props.hip || props.HIP}`;
+    if (pick) return `Gaia DR3 ${pick}`;
+    return `Gaia DR3 ${100000000 + index}`;
+  }
+
+  // extra search aliases for the brightest stars
+  const STAR_SEARCH_ALIASES = {
+    rigel: ['beta ori', 'β ori', 'bet ori'],
+    betelgeuse: ['alpha ori', 'α ori', 'alf ori'],
+    sirius: ['alpha cma', 'α cma', 'alf cma'],
+    polaris: ['alpha umi', 'α umi', 'alf umi'],
+    vega: ['alpha lyr', 'α lyr', 'alf lyr'],
+    altair: ['alpha aql', 'α aql', 'alf aql'],
+    deneb: ['alpha cyg', 'α cyg', 'alf cyg'],
+    arcturus: ['alpha boo', 'α boo', 'alf boo'],
+    capella: ['alpha aur', 'α aur', 'alf aur'],
+    aldebaran: ['alpha tau', 'α tau', 'alf tau'],
+    antares: ['alpha sco', 'α sco', 'alf sco'],
+    spica: ['alpha vir', 'α vir', 'alf vir'],
+    regulus: ['alpha leo', 'α leo', 'alf leo'],
+    procyon: ['alpha cmi', 'α cmi', 'alf cmi'],
+    castor: ['alpha gem', 'α gem', 'alf gem'],
+    pollux: ['beta gem', 'β gem', 'bet gem'],
+    fomalhaut: ['alpha psa', 'α psa', 'alf psa'],
+    achernar: ['alpha eri', 'α eri', 'alf eri'],
+    canopus: ['alpha car', 'α car', 'alf car'],
+    acrux: ['alpha cru', 'α cru', 'alf cru']
+  };
+
+  // one anchor star per constellation so every constellation can get a useful label
+  const CONSTELLATION_ANCHOR_STARS = {
+    And: { label: 'Mirach', aliases: ['mirach', 'beta and', 'β and', 'bet and', 'alpheratz', 'alpha and', 'α and', 'alf and'] },
+    Ant: { label: 'Alpha Antliae', aliases: ['alpha antliae', 'alpha ant', 'α ant', 'alf ant'] },
+    Aps: { label: 'Alpha Apodis', aliases: ['alpha apodis', 'alpha aps', 'α aps', 'alf aps'] },
+    Aqr: { label: 'Sadalsuud', aliases: ['sadalsuud', 'beta aqr', 'β aqr', 'bet aqr'] },
+    Aql: { label: 'Altair', aliases: ['altair', 'alpha aql', 'α aql', 'alf aql'] },
+    Ara: { label: 'Beta Arae', aliases: ['beta arae', 'beta ara', 'β ara', 'bet ara'] },
+    Ari: { label: 'Hamal', aliases: ['hamal', 'alpha ari', 'α ari', 'alf ari'] },
+    Aur: { label: 'Capella', aliases: ['capella', 'alpha aur', 'α aur', 'alf aur'] },
+    Boo: { label: 'Arcturus', aliases: ['arcturus', 'alpha boo', 'α boo', 'alf boo'] },
+    Cae: { label: 'Alpha Caeli', aliases: ['alpha caeli', 'alpha cae', 'α cae', 'alf cae'] },
+    Cam: { label: 'Beta Camelopardalis', aliases: ['beta camelopardalis', 'beta cam', 'β cam', 'bet cam'] },
+    Cnc: { label: 'Acubens', aliases: ['acubens', 'alpha cnc', 'α cnc', 'alf cnc'] },
+    CVn: { label: 'Cor Caroli', aliases: ['cor caroli', 'alpha cvn', 'α cvn', 'alf cvn'] },
+    CMa: { label: 'Sirius', aliases: ['sirius', 'alpha cma', 'α cma', 'alf cma'] },
+    CMi: { label: 'Procyon', aliases: ['procyon', 'alpha cmi', 'α cmi', 'alf cmi'] },
+    Cap: { label: 'Deneb Algedi', aliases: ['deneb algedi', 'delta cap', 'δ cap', 'del cap'] },
+    Car: { label: 'Canopus', aliases: ['canopus', 'alpha car', 'α car', 'alf car'] },
+    Cas: { label: 'Schedar', aliases: ['schedar', 'alpha cas', 'α cas', 'alf cas'] },
+    Cen: { label: 'Alpha Centauri', aliases: ['alpha centauri', 'rigil kentaurus', 'alpha cen', 'α cen', 'alf cen'] },
+    Cep: { label: 'Alderamin', aliases: ['alderamin', 'alpha cep', 'α cep', 'alf cep'] },
+    Cet: { label: 'Menkar', aliases: ['menkar', 'alpha cet', 'α cet', 'alf cet', 'diphda', 'beta cet', 'β cet', 'bet cet'] },
+    Cha: { label: 'Alpha Chamaeleontis', aliases: ['alpha chamaeleontis', 'alpha cha', 'α cha', 'alf cha'] },
+    Cir: { label: 'Alpha Circini', aliases: ['alpha circini', 'alpha cir', 'α cir', 'alf cir'] },
+    Col: { label: 'Phact', aliases: ['phact', 'alpha col', 'α col', 'alf col'] },
+    Com: { label: 'Beta Comae Berenices', aliases: ['beta comae berenices', 'beta com', 'β com', 'bet com'] },
+    CrA: { label: 'Alfecca Meridiana', aliases: ['alfecca meridiana', 'alpha cra', 'α cra', 'alf cra'] },
+    CrB: { label: 'Alphecca', aliases: ['alphecca', 'gemma', 'alpha crb', 'α crb', 'alf crb'] },
+    Crv: { label: 'Gienah', aliases: ['gienah', 'gamma crv', 'γ crv', 'gam crv'] },
+    Crt: { label: 'Alkes', aliases: ['alkes', 'alpha crt', 'α crt', 'alf crt'] },
+    Cru: { label: 'Acrux', aliases: ['acrux', 'alpha cru', 'α cru', 'alf cru'] },
+    Cyg: { label: 'Deneb', aliases: ['deneb', 'alpha cyg', 'α cyg', 'alf cyg'] },
+    Del: { label: 'Rotanev', aliases: ['rotanev', 'beta del', 'β del', 'bet del'] },
+    Dor: { label: 'Alpha Doradus', aliases: ['alpha doradus', 'alpha dor', 'α dor', 'alf dor'] },
+    Dra: { label: 'Eltanin', aliases: ['eltanin', 'gamma dra', 'γ dra', 'gam dra'] },
+    Equ: { label: 'Kitalpha', aliases: ['kitalpha', 'alpha equ', 'α equ', 'alf equ'] },
+    Eri: { label: 'Achernar', aliases: ['achernar', 'alpha eri', 'α eri', 'alf eri'] },
+    For: { label: 'Alpha Fornacis', aliases: ['alpha fornacis', 'alpha for', 'α for', 'alf for'] },
+    Gem: { label: 'Pollux', aliases: ['pollux', 'beta gem', 'β gem', 'bet gem', 'castor', 'alpha gem', 'α gem', 'alf gem'] },
+    Gru: { label: 'Alnair', aliases: ['alnair', 'alpha gru', 'α gru', 'alf gru'] },
+    Her: { label: 'Kornephoros', aliases: ['kornephoros', 'beta her', 'β her', 'bet her'] },
+    Hor: { label: 'Alpha Horologii', aliases: ['alpha horologii', 'alpha hor', 'α hor', 'alf hor'] },
+    Hya: { label: 'Alphard', aliases: ['alphard', 'alpha hya', 'α hya', 'alf hya'] },
+    Hyi: { label: 'Beta Hydri', aliases: ['beta hydri', 'beta hyi', 'β hyi', 'bet hyi'] },
+    Ind: { label: 'Alpha Indi', aliases: ['alpha indi', 'alpha ind', 'α ind', 'alf ind'] },
+    Lac: { label: 'Alpha Lacertae', aliases: ['alpha lacertae', 'alpha lac', 'α lac', 'alf lac'] },
+    Leo: { label: 'Regulus', aliases: ['regulus', 'alpha leo', 'α leo', 'alf leo'] },
+    LMi: { label: 'Praecipua', aliases: ['praecipua', 'beta lmi', 'β lmi', 'bet lmi'] },
+    Lep: { label: 'Arneb', aliases: ['arneb', 'alpha lep', 'α lep', 'alf lep'] },
+    Lib: { label: 'Zubeneschamali', aliases: ['zubeneschamali', 'beta lib', 'β lib', 'bet lib'] },
+    Lup: { label: 'Alpha Lupi', aliases: ['alpha lupi', 'alpha lup', 'α lup', 'alf lup'] },
+    Lyn: { label: 'Alpha Lyncis', aliases: ['alpha lyncis', 'alpha lyn', 'α lyn', 'alf lyn'] },
+    Lyr: { label: 'Vega', aliases: ['vega', 'alpha lyr', 'α lyr', 'alf lyr'] },
+    Men: { label: 'Alpha Mensae', aliases: ['alpha mensae', 'alpha men', 'α men', 'alf men'] },
+    Mic: { label: 'Gamma Microscopii', aliases: ['gamma microscopii', 'gamma mic', 'γ mic', 'gam mic'] },
+    Mon: { label: 'Beta Monocerotis', aliases: ['beta monocerotis', 'beta mon', 'β mon', 'bet mon'] },
+    Mus: { label: 'Alpha Muscae', aliases: ['alpha muscae', 'alpha mus', 'α mus', 'alf mus'] },
+    Nor: { label: 'Gamma2 Normae', aliases: ['gamma2 normae', 'gamma 2 normae', 'gamma nor', 'γ nor', 'gam nor'] },
+    Oct: { label: 'Sigma Octantis', aliases: ['sigma octantis', 'sigma oct', 'σ oct', 'sig oct'] },
+    Oph: { label: 'Rasalhague', aliases: ['rasalhague', 'alpha oph', 'α oph', 'alf oph'] },
+    Ori: { label: 'Rigel', aliases: ['rigel', 'beta ori', 'β ori', 'bet ori', 'betelgeuse', 'alpha ori', 'α ori', 'alf ori'] },
+    Pav: { label: 'Peacock', aliases: ['peacock', 'alpha pav', 'α pav', 'alf pav'] },
+    Peg: { label: 'Markab', aliases: ['markab', 'alpha peg', 'α peg', 'alf peg', 'enif', 'epsilon peg', 'ε peg', 'eps peg'] },
+    Per: { label: 'Mirfak', aliases: ['mirfak', 'alpha per', 'α per', 'alf per'] },
+    Phe: { label: 'Ankaa', aliases: ['ankaa', 'alpha phe', 'α phe', 'alf phe'] },
+    Pic: { label: 'Alpha Pictoris', aliases: ['alpha pictoris', 'alpha pic', 'α pic', 'alf pic'] },
+    Psc: { label: 'Alrescha', aliases: ['alrescha', 'alpha psc', 'α psc', 'alf psc'] },
+    PsA: { label: 'Fomalhaut', aliases: ['fomalhaut', 'alpha psa', 'α psa', 'alf psa'] },
+    Pup: { label: 'Naos', aliases: ['naos', 'zeta pup', 'ζ pup', 'zet pup'] },
+    Pyx: { label: 'Alpha Pyxidis', aliases: ['alpha pyxidis', 'alpha pyx', 'α pyx', 'alf pyx'] },
+    Ret: { label: 'Alpha Reticuli', aliases: ['alpha reticuli', 'alpha ret', 'α ret', 'alf ret'] },
+    Sge: { label: 'Gamma Sagittae', aliases: ['gamma sagittae', 'gamma sge', 'γ sge', 'gam sge'] },
+    Sgr: { label: 'Kaus Australis', aliases: ['kaus australis', 'epsilon sgr', 'ε sgr', 'eps sgr'] },
+    Sco: { label: 'Antares', aliases: ['antares', 'alpha sco', 'α sco', 'alf sco'] },
+    Scl: { label: 'Alpha Sculptoris', aliases: ['alpha sculptoris', 'alpha scl', 'α scl', 'alf scl'] },
+    Sct: { label: 'Alpha Scuti', aliases: ['alpha scuti', 'alpha sct', 'α sct', 'alf sct'] },
+    Ser: { label: 'Unukalhai', aliases: ['unukalhai', 'alpha ser', 'α ser', 'alf ser'] },
+    Sex: { label: 'Alpha Sextantis', aliases: ['alpha sextantis', 'alpha sex', 'α sex', 'alf sex'] },
+    Tau: { label: 'Aldebaran', aliases: ['aldebaran', 'alpha tau', 'α tau', 'alf tau'] },
+    Tel: { label: 'Alpha Telescopii', aliases: ['alpha telescopii', 'alpha tel', 'α tel', 'alf tel'] },
+    Tri: { label: 'Mothallah', aliases: ['mothallah', 'alpha tri', 'α tri', 'alf tri'] },
+    TrA: { label: 'Atria', aliases: ['atria', 'alpha tra', 'α tra', 'alf tra'] },
+    Tuc: { label: 'Alpha Tucanae', aliases: ['alpha tucanae', 'alpha tuc', 'α tuc', 'alf tuc'] },
+    UMa: { label: 'Dubhe', aliases: ['dubhe', 'alpha uma', 'α uma', 'alf uma', 'alioth', 'epsilon uma', 'ε uma', 'eps uma'] },
+    UMi: { label: 'Polaris', aliases: ['polaris', 'alpha umi', 'α umi', 'alf umi'] },
+    Vel: { label: 'Suhail', aliases: ['suhail', 'lambda vel', 'λ vel', 'lam vel'] },
+    Vir: { label: 'Spica', aliases: ['spica', 'alpha vir', 'α vir', 'alf vir'] },
+    Vol: { label: 'Beta Volantis', aliases: ['beta volantis', 'beta vol', 'β vol', 'bet vol'] },
+    Vul: { label: 'Anser', aliases: ['anser', 'alpha vul', 'α vul', 'alf vul'] }
+  };
+
+  // extra bright star aliases to make search n labels feel better
+  const EXTRA_MAJOR_STAR_LABELS = {
+    rigel: ['rigel', 'beta ori', 'β ori', 'bet ori'],
+    betelgeuse: ['betelgeuse', 'alpha ori', 'α ori', 'alf ori'],
+    sirius: ['sirius', 'alpha cma', 'α cma', 'alf cma'],
+    polaris: ['polaris', 'alpha umi', 'α umi', 'alf umi'],
+    vega: ['vega', 'alpha lyr', 'α lyr', 'alf lyr'],
+    altair: ['altair', 'alpha aql', 'α aql', 'alf aql'],
+    deneb: ['deneb', 'alpha cyg', 'α cyg', 'alf cyg'],
+    arcturus: ['arcturus', 'alpha boo', 'α boo', 'alf boo'],
+    capella: ['capella', 'alpha aur', 'α aur', 'alf aur'],
+    aldebaran: ['aldebaran', 'alpha tau', 'α tau', 'alf tau'],
+    antares: ['antares', 'alpha sco', 'α sco', 'alf sco'],
+    spica: ['spica', 'alpha vir', 'α vir', 'alf vir'],
+    regulus: ['regulus', 'alpha leo', 'α leo', 'alf leo'],
+    procyon: ['procyon', 'alpha cmi', 'α cmi', 'alf cmi'],
+    castor: ['castor', 'alpha gem', 'α gem', 'alf gem'],
+    pollux: ['pollux', 'beta gem', 'β gem', 'bet gem'],
+    canopus: ['canopus', 'alpha car', 'α car', 'alf car'],
+    fomalhaut: ['fomalhaut', 'alpha psa', 'α psa', 'alf psa'],
+    achernar: ['achernar', 'alpha eri', 'α eri', 'alf eri'],
+    acrux: ['acrux', 'alpha cru', 'α cru', 'alf cru'],
+    hadar: ['hadar', 'beta cen', 'β cen', 'bet cen'],
+    mimosa: ['mimosa', 'beta cru', 'β cru', 'bet cru'],
+    alnitak: ['alnitak', 'zeta ori', 'ζ ori', 'zet ori'],
+    alnilam: ['alnilam', 'epsilon ori', 'ε ori', 'eps ori'],
+    mintaka: ['mintaka', 'delta ori', 'δ ori', 'del ori'],
+    bellatrix: ['bellatrix', 'gamma ori', 'γ ori', 'gam ori'],
+    saiph: ['saiph', 'kappa ori', 'κ ori', 'kap ori'],
+    alpheratz: ['alpheratz', 'alpha and', 'α and', 'alf and'],
+    mirach: ['mirach', 'beta and', 'β and', 'bet and'],
+    algol: ['algol', 'beta per', 'β per', 'bet per'],
+    mirfak: ['mirfak', 'alpha per', 'α per', 'alf per'],
+    markab: ['markab', 'alpha peg', 'α peg', 'alf peg'],
+    enif: ['enif', 'epsilon peg', 'ε peg', 'eps peg']
+  };
+
+
+
+  // giant internal star alias list for better real name matching
+  const OFFICIAL_STAR_NAME_ENTRIES = [["Absolutno",["Absolutno","TOI-5373","TIC 9155187","GSC 02959-00729","2MASS J07465196+3905404","UCAC2 45499774"]],["Acamar",["Acamar","θ¹-Eri","Theta1 Eridani","HR 897","HD 18622","NSV 1002","HIP 13847","TYC 7563-1016-1","Gaia EDR3- 5044368071870093312"]],["Achernar",["Achernar","α-Eri","Alpha Eridani","HR 472","HD 10144","HIP 7588","TYC 8478-1395-1"]],["Achird",["Achird","η-Cas","Eta Cassiopeiae","24-Cas","24 Cassiopeiae","HR 219","HD 4614","HIP 3821","TYC 3663-2669-1"]],["Acrab",["Acrab","β¹-Sco","Beta1 Scorpii","8-Sco","8 Scorpii","HR 5984","HD 144217","NSV 7424","HIP 78820","TYC 6208-1623-1"]],["Acrux",["Acrux","α¹-Cru","Alpha1 Crucis","HR 4730","HD 108248","HIP 60718","TYC 8979-3464-1"]],["Acubens",["Acubens","Sertan","Sartan","α Cnc","Alpha Cancri","Alpha Cnc","65 Cancri","65 Cnc","BD+12 1948","FK5 337","GC 12406","HD 76756","HIP 44066","HR 3572","SAO 98267","PPM 125972","ADS 7115 A","CCDM J08585+1151A"]],["Adhafera",["Adhafera","ζ-Leo","Zeta Leonis","36-Leo","36 Leonis","HR 4031","HD 89025","NSV 4804","HIP 50335","TYC 1969-1261-1"]],["Adhara",["Adhara","ε-CMa","Epsilon Canis Majoris","21-CMa","21 Canis Majoris","HR 2618","HD 52089","HIP 33579","TYC 6535-3619-1"]],["Adhil",["Adhil","ξ Andromedae","Xi And","ξ And","46 Andromedae","BD+44 287","FK5 1035","HD 8207","HIP 6411","HR 390","SAO 37155","PPM 43919"]],["Ain",["Ain","ε-Tau","Epsilon Tauri","74-Tau","74 Tauri","HR 1409","HD 28305","HIP 20889","TYC 1273-1104-1","Gaia EDR3- 48026706558487040"]],["Ainalrami",["Ainalrami","ν1 Sgr","32 Sgr","BD−22°4907","HD 174974","HIP 92761","HR 7116","SAO 187426","WDS J18542-2245"]],["Aiolos",["Aiolos","CD−68 847","HD 95086","HIP 53524","TYC 9212-4675-1","GSC 09212-04675","2MASS J10570301-6840023"]],["Aladfar",["Aladfar","Eta Lyr or η Lyr","20 Lyr","BD+38°3490","HD 180163","HIP 94481","HR 7298","SAO 68010","WDS 19138+3909"]],["Alasia",["Alasia","BD−11°4606","HD 168746","HIP 90004","SAO 161386","PPM 234431"]],["Alaybasan",["Alaybasan","β-Tri","Beta Trianguli","4-Tri","4 Trianguli","HR 622","HD 13161","HIP 10064","TYC 2317-1647-1"]],["Albaldah",["Albaldah","π-Sgr","Pi Sagittarii","41-Sgr","41 Sagittarii","HR 7264","HD 178524","NSV 11769","HIP 94141","TYC 6295-282-1","Gaia EDR3- 4082115215112774272"]],["Albali",["Albali","ε-Aqr","Epsilon Aquarii","2-Aqr","2 Aquarii","HR 7950","HD 198001","HIP 102618","TYC 5760-1997-1","Gaia EDR3- 6903096911032851584"]],["Albireo",["Albireo","β¹-Cyg","Beta1 Cygni","6-Cyg","6 Cygni","HR 7417","HD 183912","NSV 12105","HIP 95947","TYC 2133-2964-1"]],["Alchiba",["Alchiba","Al Minliar al Ghurab","Al Chiba","1 Crv","CD−24°10174","GCTP 2796.00","GJ 455.3","GJ 9389","HD 105452","HIP 59199","HR 4623","SAO 180505"]],["Alcor",["Alcor","g Ursae Majoris","80 Ursae Majoris","BD+55 1603","CCDM J13240+5456D","GC 18155","HD 116842","HIP 65477","HR 5062","PPM 34021","SAO 28751","WDS J13239+5456C"]],["Alcyone",["Alcyone","η-Tau","Eta Tauri","25-Tau","25 Tauri","HR 1165","HD 23630","HIP 17702","TYC 1800-2202-1","Gaia EDR3- 66714384142368256"]],["Aldebaran",["Aldebaran","α-Tau","Alpha Tauri","87-Tau","87 Tauri","HR 1457","HD 29139","HIP 21421","TYC 1266-1416-1"]],["Alderamin",["Alderamin","α-Cep","Alpha Cephei","5-Cep","5 Cephei","HR 8162","HD 203280","NSV 13660","HIP 105199","TYC 4252-1870-1"]],["Aldhanab",["Aldhanab","γ-Gru","Gamma Gruis","HR 8353","HD 207971","HIP 108085","TYC 7494-1748-1"]],["Aldhibah",["Aldhibah","ζ-Dra","Zeta Draconis","22-Dra","22 Draconis","HR 6396","HD 155763","HIP 83895","TYC 4210-1048-1"]],["Aldulfin",["Aldulfin","ε Del","2 Del","BD+10°4321","FK5 768","HD 195810","HIP 101421","HR 7852","SAO 106230"]],["Alfarasalkamil",["Alfarasalkamil","O-And","Omicron Andromedae","1-And","1 Andromedae","HR 8762","HD 217675","HIP 113726","TYC 3224-3434-1"]],["Alfirk",["Alfirk","β-Cep","Beta Cephei","8-Cep","8 Cephei","HR 8238","HD 205021","HIP 106032","TYC 4465-2643-1","Gaia EDR3- 2272185759996420992"]],["Algedi",["Algedi","α²-Cap","Alpha2 Capricorni","6-Cap","6 Capricorni","HR 7754","HD 192947","HIP 100064","TYC 5749-2530-1","Gaia EDR3- 6880093650314169984"]],["Algenib",["Algenib","γ-Peg","Gamma Pegasi","88-Peg","88 Pegasi","HR 39","HD 886","HIP 1067","TYC 1179-1775-1","Gaia EDR3- 2769202742740232960"]],["Algieba",["Algieba","γ¹-Leo","Gamma1 Leonis","41-Leo","41 Leonis","HR 4057","HD 89484","NSV 4823","HIP 50583","TYC 1423-1349-1"]],["Algol",["Algol","β-Per","Beta Persei","26-Per","26 Persei","HR 936","HD 19356","HIP 14576","TYC 2851-2168-1"]],["Algorab",["Algorab","δ-Crv","Delta Corvi","7-Crv","7 Corvi","HR 4757","HD 108767","NSV 5656","HIP 60965","TYC 6103-2395-1","Gaia EDR3- 3520586071217872896"]],["Alhena",["Alhena","γ-Gem","Gamma Geminorum","24-Gem","24 Geminorum","HR 2421","HD 47105","HIP 31681"]],["Alioth",["Alioth","ε-UMa","Epsilon Ursae Majoris","77-UMa","77 Ursae Majoris","HR 4905","HD 112185","HIP 62956","TYC 3845-1190-1"]],["Aljanah",["Aljanah","ε-Cyg","Epsilon Cygni","53-Cyg","53 Cygni","HR 7949","HD 197989","HIP 102488","TYC 2695-4139-1"]],["Alkaid",["Alkaid","η-UMa","Eta Ursae Majoris","85-UMa","85 Ursae Majoris","HR 5191","HD 120315","NSV 6450","HIP 67301","TYC 3467-1257-1"]],["Alkalurops",["Alkalurops","Inkalunis","Icalurus","Clava","Venabulum","μ Boo","51 Boötis","FK5 568","ADS 9626","CCDM 15245+3722"]],["Alkaphrah",["Alkaphrah","κ-UMa","Kappa Ursae Majoris","12-UMa","12 Ursae Majoris","HR 3594","HD 77327","NSV 4357","HIP 44471","TYC 3424-1626-1"]],["Alkarab",["Alkarab","υ Peg","68 Pegasi","BD+22°4833","FK5 881","GC 32585","HD 220657","HIP 115623","HR 8905","SAO 91253"]],["Alkes",["Alkes","Alpha Crt","α Crt","7 Crt","NLTT 25942","LTT 4040","HD 95272","BD−17°3273","HIP 53740","HR 4287","FK5 1283","SAO 156375"]],["Almaaz",["Almaaz","ε-Aur","Epsilon Aurigae","7-Aur","7 Aurigae","HR 1605","HD 31964","HIP 23416","TYC 2907-1275-1","Gaia EDR3- 205499655242974464"]],["Almach",["Almach","γ¹-And","Gamma1 Andromedae","57-And","57 Andromedae","HR 603","HD 12533","HIP 9640","TYC 2837-2311-1"]],["Alnair",["Alnair","α-Gru","Alpha Gruis","HR 8425","HD 209952","NSV 14040","HIP 109268","TYC 8438-1959-1"]],["Alnasl",["Alnasl","γ-Sgr","Gamma Sagittarii","10-Sgr","10 Sagittarii","HR 6746","HD 165135","NSV 10173","HIP 88635","TYC 7391-2710-1"]],["Alnilam",["Alnilam","ε-Ori","Epsilon Orionis","46-Ori","46 Orionis","HR 1903","HD 37128","HIP 26311","TYC 4766-2450-1"]],["Alnitak",["Alnitak","ζ-Ori","Zeta Orionis","50-Ori","50 Orionis","HR 1948","HD 37742","NSV 2553","HIP 26727","TYC 4771-1188-1"]],["Alniyat",["Alniyat","σ-Sco","Sigma Scorpii","20-Sco","20 Scorpii","HR 6084","HD 147165","HIP 80112","TYC 6798-540-1","Gaia EDR3- 6048602103663486592"]],["Alphard",["Alphard","α-Hya","Alpha Hydrae","30-Hya","30 Hydrae","HR 3748","HD 81797","NSV 4496","HIP 46390","TYC 5460-1592-1"]],["Alphecca",["Alphecca","α-CrB","Alpha Coronae Borealis","5-CrB","5 Coronae Borealis","HR 5793","HD 139006","HIP 76267","TYC 2029-1690-1","Gaia EDR3- 1222646935698492160"]],["Alpheratz",["Alpheratz","α-And","Alpha Andromedae","21-And","21 Andromedae","HR 15","HD 358","HIP 677","TYC 1735-3180-1"]],["Alpherg",["Alpherg","η-Psc","Eta Piscium","99-Psc","99 Piscium","HR 437","HD 9270","NSV 532","HIP 7097","TYC 1198-1597-1","Gaia EDR3- 2591891443195067264"]],["Alrakis",["Alrakis","Mu Draconis A","Mu Dra A","HD 154906","TYC 3890-1396-2","HR 6370","BD +54 1857A","Gliese 9584"]],["Alrescha",["Alrescha","Alrischa","Kaitain","Okda","Okdah","Syndesmos","α Psc","113 Piscium","BD+02°317","FK5 28","HIP 9487","SAO 110291","WDS J02020+0246AB"]],["Alruba",["Alruba","BD+53°1978","CPD–51°9815","HD 161693","HIP 86782","HR 6618","SAO 30538"]],["Alsafi",["Alsafi","σ Draconis","Sig Dra","σ Dra","61 Draconis","BD+69°1053","GJ 764","HD 185144","HIP 96100","HR 7462","LHS 477"]],["Alsciaukat",["Alsciaukat","31 Lyn","BN Lyn","NSV 4030","BD+43°1815","FK5 314","GC 11401","HD 70272","HIP 41075","HR 3275","SAO 42319"]],["Alsephina",["Alsephina","δ-Vel","Delta Velorum","HR 3485","HD 74956","HIP 42913","TYC 8573-3571-1"]],["Alshain",["Alshain","β-Aql","Beta Aquilae","60-Aql","60 Aquilae","HR 7602","HD 188512","NSV 12557","HIP 98036","TYC 493-3355-1","Gaia EDR3- 4296708789290712064"]],["Alshat",["Alshat","ν Cap","Nu Cap","8 Cap","BD−13°5642","HD 193432","HIP 100310","HR 7773","SAO 163468","ADS 13714","WDS J20207-1246A"]],["Altair",["Altair","α-Aql","Alpha Aquilae","53-Aql","53 Aquilae","HR 7557","HD 187642","HIP 97649","TYC 1058-3399-1"]],["Altais",["Altais","δ-Dra","Delta Draconis","57-Dra","57 Draconis","HR 7310","HD 180711","HIP 94376","TYC 4444-2239-1","Gaia EDR3- 2255173119658513408"]],["Alterf",["Alterf","λ Leo","4 Leo","BD+23°2107","HD 82308","HIP 46750","HR 3773","SAO 80885"]],["Aludra",["Aludra","η-CMa","Eta Canis Majoris","31-CMa","31 Canis Majoris","HR 2827","HD 58350","HIP 35904","TYC 6550-4525-1","Gaia EDR3- 5605797194566011520"]],["Alula Australis",["Alula Australis","HR 4375","ξ Ursae Majoris","ξ UMa","Xi UMa","53 Ursae Majoris","BD+32°2132","GC 15537","GJ 423","HIP 55203","SAO 62484","CCDM J11182+3132","WDS J11182+3132"]],["Alula Borealis",["Alula Borealis","ν-UMa","Nu Ursae Majoris","54-UMa","54 Ursae Majoris","HR 4377","HD 98262","HIP 55219","TYC 2520-2631-1","Gaia EDR3- 757565233820538752"]],["Alya",["Alya","θ¹-Ser","Theta1 Serpentis Cauda","63-Ser","63 Serpentis Cauda","HR 7141","HD 175638","NSV 11557","HIP 92946","TYC 457-687-1","Gaia EDR3- 4281199284413726208"]],["Alzirr",["Alzirr","ξ-Gem","Xi Geminorum","31-Gem","31 Geminorum","HR 2484","HD 48737","NSV 3193","HIP 32362","TYC 754-2356-1","Gaia EDR3- 3352485999058854912"]],["Amadioha",["Amadioha","CD−29°2884","HD 43197","HIP 29550","SAO 171427","PPM 250048"]],["Amansinaya",["Amansinaya","CD−23 9677","CPD−23 5039","SAO 179442","TOI-744","TIC 437242640","WASP-34","TYC 6636-540-1","GSC 06636-00540","2MASS J11013589-2351382","DENIS J110135.9-235138"]],["Anadolu",["Anadolu","TIC 427685831","WASP-52","2MASS J23135873+0845405"]],["Ancha",["Ancha","θ Aquarii","Tet Aqr","θ Aqr","43 Aquarii","BD−08 5845","FK5 840","HD 211391","HIP 110003","HR 8499","SAO 145991"]],["Angetenar",["Angetenar","τ2 Eridani","2 Eri","BD−21°509","HD 17824","HIP 13288","HR 850","SAO 168094"]],["Aniara",["Aniara","HD 102956"]],["Ankaa",["Ankaa","α-Phe","Alpha Phoenicis","HR 99","HD 2261","HIP 2081","TYC 7527-1031-1"]],["Anser",["Anser","α Vul","6 Vulpeculae","BD+24°3759","FK5 1508","HD 183439","HIP 95771","HR 7405","SAO 87261","CCDM J19288+2442A","WDS J19287+2440A"]],["Antares",["Antares","α-Sco","Alpha Scorpii","21-Sco","21 Scorpii","HR 6134","HD 148478","HIP 80763","TYC 6803-2158-1"]],["Antinous",["Antinous","θ-Aql","Theta Aquilae","65-Aql","65 Aquilae","HR 7710","HD 191692","HIP 99473","TYC 5161-2682-1","Gaia EDR3- 4224225924761329792"]],["Apamvatsa",["Apamvatsa","l Vir","74 Vir","NSV 6297","BD−05°3714","FK5 3079","HD 117675","HIP 66006","HR 5095","SAO 139390"]],["Apdu",["Apdu","γ Tri","9 Tri","BD+33 397","FK5 79","HD 14055","HIP 10670","HR 664","SAO 55427"]],["Arcalís",["Arcalís","BD+18°2957","HD 131496","HIP 72845","SAO 101274"]],["Arcturus",["Arcturus","α-Boo","Alpha Bootis","16-Boo","16 Bootis","HR 5340","HD 124897","NSV 6603","HIP 69673","TYC 1472-1436-1"]],["Arkab Posterior",["Arkab Posterior","β2 Sgr","CD−45°13171","HD 181623","HIP 95294","HR 7343","SAO 229654"]],["Arkab Prior",["Arkab Prior","β¹-Sgr","Beta1 Sagittarii","HR 7337","HD 181454","HIP 95241","TYC 7943-2105-1"]],["Arneb",["Arneb","α-Lep","Alpha Leporis","11-Lep","11 Leporis","HR 1865","HD 36673","NSV 2128","HIP 25985","TYC 5920-1685-1","Gaia EDR3- 2971266110612490624"]],["Ascella",["Ascella","ζ-Sgr","Zeta Sagittarii","38-Sgr","38 Sagittarii","HR 7194","HD 176687","HIP 93506","TYC 6885-2837-1","Gaia EDR3- 6760703042771435136"]],["Asellus Australis",["Asellus Australis","δ-Cnc","Delta Cancri","47-Cnc","47 Cancri","HR 3461","HD 74442","HIP 42911","TYC 1396-2758-1","Gaia EDR3- 660136821288588416"]],["Asellus Borealis",["Asellus Borealis","γ Cnc","Gamma Cnc","43 Cnc","BD+21°1895","FK5 1228","GC 11982","HD 74198","HIP 42806","HR 3449","SAO 80378","CCDM 08433+2128"]],["Ashlesha",["Ashlesha","ε-Hya","Epsilon Hydrae","11-Hya","11 Hydrae","HR 3482","HD 74874","HIP 43109","TYC 224-1333-1"]],["Aspidiske",["Aspidiske","ι-Car","Iota Carinae","HR 3699","HD 80404","NSV 4444","HIP 45556","TYC 8595-3312-1","Gaia EDR3- 5300300156538723328"]],["Asterope",["Asterope","Sterope I","21 Tau","BD+24°553","GC 4502","HD 23432","HIP 17579","HR 1151","SAO 76159"]],["Atakoraka",["Atakoraka","TOI-473","TIC 52640302","WASP-64 B","GSC 07091-01514","2MASS J06442760-3251302","WISE J064427.58-325130."]],["Athebyne",["Athebyne","η-Dra","Eta Draconis","14-Dra","14 Draconis","HR 6132","HD 148387","NSV 7713","HIP 80331","TYC 4190-2568-1","Gaia EDR3- 1625209684868707328"]],["Atik",["Atik","O-Per","Omicron Persei","38-Per","38 Persei","HR 1131","HD 23180","HIP 17448","TYC 2359-1258-1","Gaia EDR3- 216718178536050176"]],["Atlas",["Atlas","27-Tau","27 Tauri","HR 1178","HD 23850","NSV 1345","HIP 17847","TYC 1800-2203-1","Gaia EDR3- 66526127137440128"]],["Atria",["Atria","α-TrA","Alpha Trianguli Australe","HR 6217","HD 150798","HIP 82273","TYC 9275-3641-1"]],["Avior",["Avior","ε-Car","Epsilon Carinae","HR 3307","HD 71129","NSV 4058","HIP 41037","TYC 8579-2692-1"]],["Axólotl",["Axólotl","CD−23°18108","HD 224693","HIP 118319","SAO 192301"]],["Ayeyarwady",["Ayeyarwady","BD−21°533","CPD−21°295","HD 18742","HIP 13993","SAO 168212","PPM 245676","TIC 71345433","TYC 5870-602-1","GSC 05870-00602","2MASS J03001065-2048091","Gaia DR1 5079636964618154112","Gaia DR2 5079636934554540160"]],["Azelfafage",["Azelfafage","π1 Cyg","80 Cyg","BD+50°3410","FK5 3733","HD 206672","HIP 107136","HR 8301","SAO 33665"]],["Azha",["Azha","η-Eri","Eta Eridani","3-Eri","3 Eridani","HR 874","HD 18322","NSV 988","HIP 13701","TYC 5287-1076-1","Gaia EDR3- 5173421634271199104"]],["Azmidi",["Azmidi","ξ-Pup","Xi Puppis","7-Pup","7 Puppis","HR 3045","HD 63700","HIP 38170","TYC 6557-4522-1"]],["Añañuca",["Añañuca","CD−45 5378","GJ 367","HIP 47780","TOI-731","TIC 34068865","TYC 8168-2031-1","2MASS J09442986-4546351"]],["Bade",["Bade","μ-Lep","Mu Leporis","5-Lep","5 Leporis","HR 1702","HD 33904","HIP 24305","TYC 5902-1721-1"]],["Baekdu",["Baekdu","HD 133086","HIP 73136","BD+75 547","2MASS J14564834+7454032","WDS J14568+7454A","Gaia DR3 1700658653802527104"]],["Bagu",["Bagu","δ-Aur","Delta Aurigae","33-Aur","33 Aurigae","HR 2077","HD 40035","HIP 28358","TYC 3750-1042-1"]],["Bake-eo",["Bake-eo","γ-Oph","Gamma Ophiuchi","62-Oph","62 Ophiuchi","HR 6629","HD 161868","HIP 87108","TYC 420-1962-1","Gaia EDR3- 4472097420946809600"]],["Barnard's Star",["Barnard's Star","Proxima Ophiuchi","\"Barnard's Runaway Star\"","\"Greyhound of the Skies\"","V2500 Ophiuchi","BD+04°3561a","GJ 699","HIP 87937","LFT 1385","LHS 57","LTT 15309","2MASS J17574849+0441405","GCTP 4098.00","Gl 140-024","Karmn J17578+046","Munich 15040","Vyssotsky 799","Latin: Velox Barnardi"]],["Baten Kaitos",["Baten Kaitos","ζ-Cet","Zeta Ceti","55-Cet","55 Ceti","HR 539","HD 11353","NSV 638","HIP 8645","TYC 5278-2437-1"]],["Batsũ̀",["Batsũ̀","L 119-213","LFT 1732","LHS 3844","NLTT 54534","TOI-136","TIC 410153553","2MASS J22415815-6910089","WISEA J224158.77-691015.9"]],["Beemim",["Beemim","υ3 Eri","d Eri","43 Eridani","CD−34°1664","FK5 1121","HD 28028","HIP 20535","HR 1393","SAO 194984"]],["Beid",["Beid","ο1 Eri","38 Eri","BD−07°764","FK5 154","HD 26574","HIP 19587","HR 1298","SAO 131019"]],["Belel",["Belel","CD−23°15307","CPD−23°7442","HD 181342","HIP 95124","SAO 188005"]],["Bellatrix",["Bellatrix","γ-Ori","Gamma Orionis","24-Ori","24 Orionis","HR 1790","HD 35468","NSV 1972","HIP 25336","TYC 113-1856-1"]],["Berehynia",["Berehynia","TYC 2883-1687-1","GSC 02883-01687","2MASS J04245952+3927382","Gaia DR3 179498266829041664"]],["Betelgeuse",["Betelgeuse","α-Ori","Alpha Orionis","58-Ori","58 Orionis","HR 2061","HD 39801","HIP 27989","TYC 129-1873-1"]],["Bharani",["Bharani","c-Ari","c Arietis","41-Ari","41 Arietis","HR 838","HD 17573","NSV 951","HIP 13209","TYC 1789-1490-1"]],["Bibhā",["Bibhā","BD−03 2815","HD 86081","HIP 48711","SAO 137236"]],["Biham",["Biham","θ-Peg","Theta Pegasi","26-Peg","26 Pegasi","HR 8450","HD 210418","NSV 14057","HIP 109427","TYC 565-1999-1"]],["Blaze Star",["Blaze Star","T CrB","AAVSO 1555+26","BD+26°2765","HD 143454","HIP 78322","HR 5958","SAO 84129","2MASS J15593015+2555126"]],["Bodu",["Bodu","HD 164669","HR 6730","ADS 10993","TIC 424429430","TYC 1566-3674-1"]],["Bosona",["Bosona","BD−08°5719","HD 206610","HIP 107251","SAO 145619","TIC 333314269","TYC 5221-00210-1","2MASS J21432490-0724296","WISE J214324.89-072429.7","Gaia DR2 2667434008056899712"]],["Botein",["Botein","Botejn","δ Arietis","57 Arietis","BD+19°477","FK5 114","GC 3805","HD 19787","HIP 14838","HR 951","SAO 93328","PPM 118897"]],["Brachium",["Brachium","σ-Lib","Sigma Librae","20-Lib","20 Librae","HR 5603","HD 133216","HIP 73714","TYC 6752-1455-1","Gaia EDR3- 6227443304915069056"]],["Bubup",["Bubup","CD−73°253","HD 38283","HIP 26380","SAO 256213","2MASS J05370199-7341574"]],["Buna",["Buna","BD+41°496","HIP 12191","SAO 38170"]],["Bunda",["Bunda","ξ Aqr","23 Aqr","BD−08 5701","FK5 1569","HD 205767","HIP 106786","HR 8264","SAO 145537","WDS J21378-0751AB"]],["Bélénos",["Bélénos","BD+27°225","GC 1710","HD 8574","HIP 6643","SAO 74702","LTT 10508","NLTT 4709"]],["Canopus",["Canopus","α-Car","Alpha Carinae","HR 2326","HD 45348","HIP 30438","TYC 8534-2277-1"]],["Capella",["Capella","α-Aur","Alpha Aurigae","13-Aur","13 Aurigae","HR 1708","HD 34029","NSV 1897","HIP 24608"]],["Caph",["Caph","β-Cas","Beta Cassiopeiae","11-Cas","11 Cassiopeiae","HR 21","HD 432","HIP 746","TYC 3664-1985-1"]],["Castor",["Castor","YY Gem","α-Gem","Alpha Geminorum","66-Gem","66 Geminorum","HR 2891","HD 60179","HIP 36850","TYC 2457-2407-1","Gaia EDR3- 892348694913501952"]],["Castula",["Castula","υ2 Cas","28 Cassiopeiae","BD+58°138","HD 5395","HIP 4422","HR 265","SAO 21855"]],["Cebalrai",["Cebalrai","β-Oph","Beta Ophiuchi","60-Oph","60 Ophiuchi","HR 6603","HD 161096","HIP 86742","TYC 423-1724-1","Gaia EDR3- 4473334474604992384"]],["Ceibo",["Ceibo","CD−77°298","CPD−77°324","HD 63454","HIP 37284","TYC 9385-1045-1"]],["Celaeno",["Celaeno","Celeno","16 Tau","BD+23 505","GC 4475","HD 23288","HIP 17489","HR 1140","SAO 76126"]],["Cervantes",["Cervantes","μ Arae","CD−51°11094","FK5 662","GC 24024","GJ 691","HD 160691","HIP 86796","HR 6585","SAO 244981","PPM 346258","LTT 7053"]],["Cexing",["Cexing","κ Cas","15 Cassiopeiae","BD+62°102","FK5 16","GC 645","HD 2905","HIP 2599","HR 130","SAO 11256"]],["Chalawan",["Chalawan","47 UMa","BD+41°2147","FK5 1282","GC 15087","GJ 407","HD 95128","HIP 53721","HR 4277","SAO 43557","LTT 12934","PLX 2556.00"]],["Chamukuy",["Chamukuy","θ²-Tau","Theta2 Tauri","78-Tau","78 Tauri","HR 1412","HD 28319","HIP 20894","TYC 1265-1172-1"]],["Chaophraya",["Chaophraya","TOI-391","TIC 382391899","WASP-50","TYC 5290-462-1","GSC 05290-00462","2MASS J02544513-1053530"]],["Chara",["Chara","β CVn","8 CVn","BD+42 2321","FK5 470","GJ 475","HD 109358","HIP 61317","HR 4785","SAO 44230","NGC 4530"]],["Chasoň",["Chasoň","TOI-2135","TIC 76419763","TYC 2634-1087-1","GSC 02634-01087","2MASS J18173731+3637170","HAT-P-5"]],["Chechia",["Chechia","BD+04°4395","FK5 3623","HD 192699","HIP 99894","HR 7288","SAO 125628","TYC 504-2358-1","GSC 00504-02358","2MASS J20160600+0434509"]],["Chertan",["Chertan","θ-Leo","Theta Leonis","70-Leo","70 Leonis","HR 4359","HD 97633","NSV 5144","HIP 54879","TYC 1437-2847-1","Gaia EDR3- 3970052886914547712"]],["Citadelle",["Citadelle","BD+13°34","HD 1502","HIP 1547","SAO 91845","TYC 601-636-1","GSC 00601-00636","2MASS J00191704+1403172","Gaia DR2 2768172019308167296"]],["Citalá",["Citalá","BD−05°1910","HD 52265","HIP 33719","HR 2622","SAO 134031"]],["Cocibolca",["Cocibolca","CD−27°223","GJ 9024","HD 4208","HIP 3479","SAO 166526","LTT 410"]],["Copernicus",["Copernicus","Rho1 Cancri","55 Cnc","BD+28°1660","GJ 324","HD 75732","HIP 43587","HR 3522","SAO 80585"]],["Cor Caroli",["Cor Caroli","α²-CVn","Alpha2 Canum Venaticorum","12-CVn","12 Canum Venaticorum","HR 4915","HD 112413","HIP 63125","TYC 3021-2645-1","Gaia EDR3- 1517698716348324992"]],["Cujam",["Cujam","ω Her","24 Her","51 Ser","BD+14°3049","FK5 613","HD 148112","HIP 80463","HR 6117","SAO 102153","WDS J16254+1402AB"]],["Cursa",["Cursa","β-Eri","Beta Eridani","67-Eri","67 Eridani","HR 1666","HD 33111","NSV 1841","HIP 23875","TYC 4759-1671-1"]],["Custos",["Custos","BE Cam","BD+65°369","HD 23475","HIP 17884","HR 1155","SAO 12916"]],["Dabih",["Dabih","β-Cap","Beta Capricorni","9-Cap","9 Capricorni","HR 7776","HD 193495","HIP 100345","TYC 5753-2281-1"]],["Dajiangjunbei",["Dajiangjunbei","φ Per","54 And","BD+49°444","FK5 57","GC 2102","HD 10516","HIP 8068","HR 496","SAO 22554","PPM 26670"]],["Dalim",["Dalim","α-For","Alpha Fornacis","HR 963","HD 20010","NSV 1074","HIP 14879","TYC 6445-990-1"]],["Danfeng",["Danfeng","CD−60 8051","GJ 4332","HIP 115211","L 168-9","LTT 9494","NLTT 56509","PM J23201-6003","TOI-134","TIC 234994474","TYC 9126-748-1","2MASS J23200751-6003545","WISEA J232007.06-600355.8"]],["Darlugal",["Darlugal","ζ-Lep","Zeta Leporis","14-Lep","14 Leporis","HR 1998","HD 38678","HIP 27288","TYC 5359-1778-1","Gaia EDR3- 2996171698248699904"]],["Deltoton",["Deltoton","δ Tri","Delta Tri","8 Trianguli","BD+33°395","GJ 92","HD 13974","HIP 10644","HR 660","SAO 55420","LHS 154","LTT 10770"]],["Deneb",["Deneb","α-Cyg","Alpha Cygni","50-Cyg","50 Cygni","HR 7924","HD 197345","HIP 102098","TYC 3574-3347-1"]],["Deneb Algedi",["Deneb Algedi","δ-Cap","Delta Capricorni","49-Cap","49 Capricorni","HR 8322","HD 207098","HIP 107556","TYC 6363-1044-1","Gaia EDR3- 6838311796136238976"]],["Denebola",["Denebola","β-Leo","Beta Leonis","94-Leo","94 Leonis","HR 4534","HD 102647","HIP 57632","TYC 870-988-1"]],["Diadem",["Diadem","α Com","42 Com","BD+18 2697","GC 17833","GJ 501","HIP 64241","SAO 100443","PPM 129630","ADS 8804","CCDM J13100+1732","WDS J13100+1732","LTT 13802","NLTT 33105","STF 1728","IDS 13051+1803 AB"]],["Dilmun",["Dilmun","CD−38 3220","TOI-495","WASP-121","TYC 7630-352-1","2MASS J07102406-3905506"]],["Dingolay",["Dingolay","AG−02°638","BD−01°2476","GC 15229","HD 96063","HIP 54158","SAO 137979","PPM 178377","TYC 4924-460-1","GSC 04924-00460","2MASS J11044445-0230475","Gaia DR2 3791263156547622784"]],["Diphda",["Diphda","β-Cet","Beta Ceti","16-Cet","16 Ceti","HR 188","HD 4128","NSV 272","HIP 3419","TYC 5847-2333-1"]],["Diya",["Diya","CD−30 1019","TOI-264","TIC 122612091","WASP-72","TYC 7011-487-1","2MASS J02440959-3010085"]],["Dofida",["Dofida","CD−46°8708","GC 18290","HD 117618","HIP 66047","SAO 224228"]],["Dombay",["Dombay","TOI-1419","TIC 311035838","TYC 3466-819-1","GSC 03466-00819","2MASS J13442258+4801432","HAT-P-3"]],["Dschubba",["Dschubba","δ-Sco","Delta Scorpii","7-Sco","7 Scorpii","HR 5953","HD 143275","HIP 78401","TYC 6779-2194-1"]],["Dubhe",["Dubhe","α-UMa","Alpha Ursae Majoris","50-UMa","50 Ursae Majoris","HR 4301","HD 95689","NSV 5070","HIP 54061","TYC 4146-1274-1"]],["Dziban",["Dziban","31 Dra","ADS 10759 AB","Gliese 694.1"]],["Dìwö",["Dìwö","CD−27 10695","TOI-1050","TIC 66818296","WASP-17","TYC 6787-1927-1","2MASS J15595095-2803422","1SWASP J155950.94−280342.3"]],["Ebla",["Ebla","BD−03°5577","HD 218566","HIP 114322","SAO 146533"]],["Edasich",["Edasich","ι-Dra","Iota Draconis","12-Dra","12 Draconis","HR 5744","HD 137759","NSV 7077","HIP 75458","TYC 3875-1620-1","Gaia EDR3- 1614731957531452544"]],["Electra",["Electra","17-Tau","17 Tauri","HR 1142","HD 23302","HIP 17499","TYC 1799-1441-1","Gaia EDR3- 65271996684817280"]],["Elgafar",["Elgafar","φ Vir","105 Virginis","BD−01°2957","FK5 533","GJ 550.2","GJ 9481","HD 126868","HIP 70755","HR 5409","SAO 139951"]],["Elkurud",["Elkurud","θ Col","CD−37°2609","FK5 2468","HD 42167","HIP 29034","HR 2177","SAO 196514"]],["Elnath",["Elnath","β-Tau","Beta Tauri","112-Tau","112 Tauri","HR 1791","HD 35497","HIP 25428","TYC 1859-1470-1"]],["Eltanin",["Eltanin","γ-Dra","Gamma Draconis","33-Dra","33 Draconis","HR 6705","HD 164058","HIP 87833","TYC 3523-1684-1"]],["Emiw",["Emiw","CD−66°60","HD 7199","HIP 5529","SAO 248334","2MASS J01104719-6611171","Gaia DR2 4704957491028733824"]],["Enif",["Enif","ε-Peg","Epsilon Pegasi","8-Peg","8 Pegasi","HR 8308","HD 206778","HIP 107315","TYC 1125-2186-1"]],["Errai",["Errai","γ-Cep","Gamma Cephei","35-Cep","35 Cephei","HR 8974","HD 222404","NSV 14656","HIP 116727","TYC 4606-3584-1"]],["Fafnir",["Fafnir","BD+65°1271","GC 25212","HD 170693","HIP 90344","HR 6945","SAO 17888","PPM 20916","GCRV 10941"]],["Fang",["Fang","π-Sco","Pi Scorpii","6-Sco","6 Scorpii","HR 5944","HD 143018","NSV 7371","HIP 78265","TYC 6783-2697-1","Gaia EDR3- 6235406071207202688"]],["Fawaris",["Fawaris","δ-Cyg","Delta Cygni","18-Cyg","18 Cygni","HR 7528","HD 186882","NSV 12380","HIP 97165","TYC 3557-2486-1","Gaia EDR3- 2079784488001577600"]],["Felis",["Felis","183 G. Hydrae","BD−18°2810","FK5 373","GC 13644","HD 85951","HIP 48615","HR 3923","SAO 155588"]],["Felixvarela",["Felixvarela","HIP 2247","SAO 147293","PPM 208851","2MASS J00283433-1613343"]],["Filetdor",["Filetdor","WASP-166"]],["Flegetonte",["Flegetonte","BD+03°2549","HD 102195","HIP 57370","HR 4293","SAO 119033","LTT 13232","NLTT 28458"]],["Fomalhaut",["Fomalhaut","α-PsA","Alpha Piscis Austrini","24-PsA","24 Piscis Austrini","HR 8728","HD 216956","NSV 14372","HIP 113368","TYC 6977-1267-1"]],["Formosa",["Formosa","BD+21°2331","HD 100655","HIP 56508","HR 4459","SAO 81886","2MASS J11350375+2026295"]],["Franz",["Franz","HAT-P-14","BD+38 2917"]],["Fulu",["Fulu","ζ-Cas","Zeta Cassiopeiae","17-Cas","17 Cassiopeiae","HR 153","HD 3360","NSV 225","HIP 2920","TYC 3654-2132-1","Gaia EDR3- 418001477279154304"]],["Fumalsamakah",["Fumalsamakah","Beta Psc","β Psc","4 Psc","BD+03°4818","FK5 1602","HD 217891","HIP 113889","HR 8773","SAO 127934"]],["Funi",["Funi","HD 109246","TYC 4400-99-1","HIP 61177","BD+75 474"]],["Furud",["Furud","ζ-CMa","Zeta Canis Majoris","1-CMa","1 Canis Majoris","HR 2282","HD 44402","NSV 2927","HIP 30122","TYC 7073-2426-1","Gaia EDR3- 2896572746685604480"]],["Fuyue",["Fuyue","G-Sco","G Scorpii","HR 6630","HD 161892","HIP 87261","TYC 7389-2159-1"]],["Gacrux",["Gacrux","γ-Cru","Gamma Crucis","HR 4763","HD 108903","NSV 5672","HIP 61084","TYC 8654-3422-1"]],["Gaja",["Gaja","τ Tau","94 Tauri","BD+22°739","FK5 174","GC 5716","HD 29763","HIP 21881","HR 1497","SAO 76721","CCDM J04422+2257AB","WDS J04422+2257A","GSC 01830-02129"]],["Gakyid",["Gakyid","BD+13°1956","HD 73534","HIP 42446","SAO 98004","PPM 125542"]],["Gang",["Gang","50-Cas","50 Cassiopeiae","HR 580","HD 12216","HIP 9598","TYC 4319-1847-1","Gaia EDR3- 546439965996109696"]],["Gar",["Gar","GJ 486","HIP 62452","Wolf 437","TOI-1827","TYC 882-1111-1","2MASS J12475664+0945050"]],["Garnet Star",["Garnet Star","Herschel's Garnet Star","Erakis","μ Cep","BD+58°2316","HD 206936","HIP 107259","HR 8316","SAO 33693"]],["Geminga",["Geminga","SN 437","PSR B0633+17","PSR J0633+1746"]],["Giausar",["Giausar","λ-Dra","Lambda Draconis","1-Dra","1 Draconis","HR 4434","HD 100029","NSV 5231","HIP 56211","TYC 4392-1805-1","Gaia EDR3- 1061909811871141504"]],["Gienah",["Gienah","γ-Crv","Gamma Corvi","4-Crv","4 Corvi","HR 4662","HD 106625","NSV 5515","HIP 59803","TYC 6098-1754-1"]],["Ginan",["Ginan","ε-Cru","Epsilon Crucis","HR 4700","HD 107446","NSV 5568","HIP 60260","TYC 8975-4125-1","Gaia EDR3- 6058271964884299520"]],["Gloas",["Gloas","BD+34 1976","TOI-1767","TIC 8767448","WASP-13","TYC 2496-1114-1","2MASS J09202471+3352567","1SWASP J092024.70+335256.6"]],["Gnomon",["Gnomon","TOI-656","TIC 36734222","WASP-43","GSC 05490-00141","2MASS J10193800-0948225"]],["Gomeisa",["Gomeisa","β-CMi","Beta Canis Minoris","3-CMi","3 Canis Minoris","HR 2845","HD 58715","HIP 36188","TYC 764-2774-1"]],["Grumium",["Grumium","ξ-Dra","Xi Draconis","32-Dra","32 Draconis","HR 6688","HD 163588","HIP 87585","TYC 3910-1710-1","Gaia EDR3- 1421593566062037120"]],["Guahayona",["Guahayona","TYC 320-1027-1","GSC 0320-01027","2MASS J14123753+0403359","Gaia DR2 3668036348641580288"]],["Gudja",["Gudja","κ Ser","35 Ser","NSV 7269","BD+18 3074","FK5 584","HD 141477","HIP 77450","HR 5879","SAO 101752"]],["Gumala",["Gumala","V5652 Sgr","CD−24° 15161","GJ 749","HD 179949","HIP 94645","HR 7291","SAO 187883"]],["Guniibuu",["Guniibuu","HR 6402","HD 155886","LHS 437","SAO 185198"]],["Hadar",["Hadar","β-Cen","Beta Centauri","HR 5267","HD 122451","HIP 68702","TYC 9005-3919-1"]],["Haedus",["Haedus","η-Aur","Eta Aurigae","10-Aur","10 Aurigae","HR 1641","HD 32630","NSV 1822","HIP 23767","TYC 2899-2237-1","Gaia EDR3- 201261278441958656"]],["Hamal",["Hamal","α-Ari","Alpha Arietis","13-Ari","13 Arietis","HR 617","HD 12929","NSV 725","HIP 9884","TYC 1758-2416-1"]],["Hassaleh",["Hassaleh","ι-Aur","Iota Aurigae","3-Aur","3 Aurigae","HR 1577","HD 31398","NSV 1778","HIP 23015","TYC 2391-1446-1","Gaia EDR3- 160886283751041408"]],["Hatysa",["Hatysa","ι-Ori","Iota Orionis","44-Ori","44 Orionis","HR 1899","HD 37043","NSV 2334","HIP 26241","TYC 4778-1401-1"]],["Helvetios",["Helvetios","51 Peg","GJ 882","HR 8729","BD+19°5036","HD 217014","LTT 16750","GCTP 5568.00","SAO 90896","HIP 113357"]],["Heng",["Heng","ν-Cen","Nu Centauri","HR 5190","HD 120307","HIP 67464","TYC 7797-2744-1","Gaia EDR3- 6112195451032545024"]],["Heze",["Heze","ζ-Vir","Zeta Virginis","79-Vir","79 Virginis","HR 5107","HD 118098","HIP 66249","TYC 4966-1366-1"]],["Hoerikwaggo",["Hoerikwaggo","α Men","CD−74°294","FK5 239","GJ 231","HD 43834","HIP 29271","HR 2261","SAO 256274","LTT 2490"]],["Hoggar",["Hoggar","HD 28678","TYC 90-645-1","HIP 21109","04 704"]],["Homam",["Homam","ζ-Peg","Zeta Pegasi","42-Peg","42 Pegasi","HR 8634","HD 214923","HIP 112029","TYC 1155-2187-1"]],["Honores",["Honores","7 And","BD+48°3964","FK5 3852","HD 219080","HIP 114570","HR 8830","SAO 52787","PPM 63927"]],["Horna",["Horna","TOI-3681","TIC 285272237","GSC 02314-00559"]],["Huagai",["Huagai","HR 707","HD 15089","HIP 11569","BD +66 00213","ADS 1860","CCDM 2292+6725","TYC 04058-1504 1","GSC 04058-1504"]],["Hunahpú",["Hunahpú","CD−23 9857","HD 98219","HIP 55174","SAO 179747"]],["Hunor",["Hunor","HAT-P-2","BD+41°2693","HD 147506","HIP 80076","SAO 46035"]],["Hydor",["Hydor","2 Cet","BD−18°6417","FK5 905","HD 225132","HIP 301","HR 9098","SAO 147059"]],["Iklil",["Iklil","ρ-Sco","Rho Scorpii","5-Sco","5 Scorpii","HR 5928","HD 142669","HIP 78104","TYC 6791-2509-1","Gaia EDR3- 6041076668127513984"]],["Illyrian",["Illyrian","BD+35°2026","HD 82886","HIP 47087","SAO 61587"]],["Imai",["Imai","δ-Cru","Delta Crucis","HR 4656","HD 106490","HIP 59747","TYC 8645-2263-1","Gaia EDR3- 6071060144089351808"]],["Inquill",["Inquill","CD−48°11605","HD 156411","HIP 84787","SAO 227825","PPM 322823","NLTT 44550"]],["Intan",["Intan","CD−34°1218","HD 20868","HIP 15578","PPM 278952","LTT 1589","2MASS J03204266-3343484"]],["Intercrus",["Intercrus","41 Lyn","BD+46 1509","GC 13051","HD 81688","HIP 46471","HR 3743","SAO 42876","CCDM J09287+4536A"]],["Irena",["Irena","BD+10°2980","HD 146389","SAO 102042","WASP-38","2MASS J16155036+1001572"]],["Itonda",["Itonda","CD−38° 14804","HD 208487","HIP 108375","SAO 213432","PPM 302029"]],["Izar",["Izar","HIP 72105","TYC 2019-1251-1","Gaia EDR3- 1279798794197267072"]],["Jabbah",["Jabbah","Nu Scorpii","Nu. Sco","Jabhah","HD 145502","EPIC 205088588","TYC 6209-1537-1","HIP 79374","HR 6027","14 Scorpii","14 Sco","BD -19 4333","2MASS J16115974-1927381","IRAS 16090+1919"]],["Jishui",["Jishui","ο Gem","71 Geminorum","BD+34°1649","FK5 2592","HD 61110","HIP 37265","HR 2930","SAO 60247"]],["Junnanmen",["Junnanmen","φ And","42 And","BD+46 275","HD 6811","HIP 5434","HR 335","SAO 36972","PPM 43693","ADS 940"]],["Kaewkosin",["Kaewkosin","GJ 3470","LP 424-4","NLTT 18739","PM J07590+1523","TIC 19028197","2MASS J07590587+1523294"]],["Kaffaljidhma",["Kaffaljidhma","γ-Cet","Gamma Ceti","86-Cet","86 Ceti","HR 804","HD 16970","HIP 12706","TYC 50-1721-1"]],["Kaffalmusalsala",["Kaffalmusalsala","κ And","19 Andromedae","BD+43°4522","FK5 1619","HD 222439","HIP 116805","HR 8976","SAO 53264","PPM 64525"]],["Kalausi",["Kalausi","CD−42°5452","GC 13300","HD 83443","HIP 47202","SAO 221348","2MASS J09371182-4316198"]],["Kamelos",["Kamelos","AG+78°144","BD+78°227","FK5 2507","GC 8574","HD 45866","HIP 31940","HR 2363","SAO 5919"]],["Kamuy",["Kamuy","BD+27°2595","HD 145457","HIP 79219","SAO 84223"]],["Kang",["Kang","98 Virginis","κ Vir","BD−09°3878","FK5 523","HD 124294","HIP 69427","HR 5315","SAO 158427"]],["Karaka",["Karaka","NSV 7116","CPD–79°844","HD 137388","HIP 76351","2MASS J15353994-8012164","Gaia DR2 5778418870846853888"]],["Kaus Australis",["Kaus Australis","ε-Sgr","Epsilon Sagittarii","20-Sgr","20 Sagittarii","HR 6879","HD 169022","HIP 90185","TYC 7401-3471-1"]],["Kaus Borealis",["Kaus Borealis","λ-Sgr","Lambda Sagittarii","22-Sgr","22 Sagittarii","HR 6913","HD 169916","HIP 90496","TYC 6861-3180-1","Gaia EDR3- 4076915349846977664"]],["Kaus Media",["Kaus Media","δ-Sgr","Delta Sagittarii","19-Sgr","19 Sagittarii","HR 6859","HD 168454","HIP 89931","TYC 6856-2170-1","Gaia EDR3- 4049506483413484672"]],["Kaveh",["Kaveh","BD+04°3911","GJ 736","HD 175541","HIP 92895","SAO 124054"]],["Keid",["Keid","ο2 Eri","40 Eri","GJ 166","ADS 3093","CCDM J04153-0739","BD−07°780","HD 26965","HIP 19849","HR 1325","SAO 131063","LHS 23","LTT 1907"]],["Khambalia",["Khambalia","100 Virginis","λ Vir","BD−12°4018","FK5 1371","HD 125337","HIP 69974","HR 5359","SAO 158489."]],["Kitalpha",["Kitalpha","α-Equ","Alpha Equulei","8-Equ","8 Equulei","HR 8131","HD 202447","HIP 104987","TYC 536-2354-1"]],["Kochab",["Kochab","β-UMi","Beta Ursae Minoris","7-UMi","7 Ursae Minoris","HR 5563","HD 131873","NSV 6846","HIP 72607","TYC 4416-1799-1"]],["Koeia",["Koeia","CD−23 1056","HIP 12961","SAO 168043","PPM 245393","LTT 1349","NLTT 8966","TYC 6434-00494-1","2MASS J02464286-2305119"]],["Koit",["Koit","TOI-1721","TIC 51234631","TYC 3793-1994-1","GSC 03793-01994","2MASS J07213317+5816051"]],["Komondor",["Komondor","HAT-P-12","GSC 03033-00706","2MASS J13573347+4329367","Gaia DR3 1499514786891168640","SDSS J135733.42+432936.5"]],["Kornephoros",["Kornephoros","β-Her","Beta Herculis","27-Her","27 Herculis","HR 6148","HD 148856","NSV 7778","HIP 80816","TYC 1518-1442-1","Gaia EDR3- 1297565458994346240"]],["Kosjenka",["Kosjenka","CD−38 2551","TOI-483","WASP-63","TYC 7612-556-1","GSC 07612-00556","2MASS J06172074-3819237"]],["Kraz",["Kraz","β-Crv","Beta Corvi","9-Crv","9 Corvi","HR 4786","HD 109379","NSV 5729","HIP 61359","TYC 6683-1116-1","Gaia EDR3- 3501215734352781440"]],["Krios",["Krios","HD 240429","BD+58°2662","SAO 35851"]],["Kronos",["Kronos","HD 240430","BD+58°2663","SAO 35854"]],["Kui",["Kui","η Andromedae","η And","Eta And","38 Andromedae","38 And","BD+22°153","FK5 2060","GC 1136","HD 5516","HIP 4463","HR 271","SAO 74388","PPM 90327","CCDM J00572+2325A","WDS 00572+2325A/Aa"]],["Kulou",["Kulou","ι-Cen","Iota Centauri","HR 5028","HD 115892","HIP 65109","TYC 7275-2074-1"]],["Kurhah",["Kurhah","17 Cephei","BD+63°1802","CCDM J22038+2407","HIP 108917","HR 8417","SAO 19827","WDS J22038+6438"]],["La Superba",["La Superba","La Superba","Y Canum Venaticorum","HR 4846","HD 110914","BD+46°1817","FK5 1327","HIP 62223","SAO 44317","GC 17342","152 Schjellerup"]],["Lang-exster",["Lang-exster","α-Tuc","Alpha Tucanae","HR 8502","HD 211416","HIP 110130","TYC 9117-1947-1"]],["Larawag",["Larawag","ε-Sco","Epsilon Scorpii","26-Sco","26 Scorpii","HR 6241","HD 151680","NSV 7983","HIP 82396","TYC 7367-804-1"]],["Leepwal",["Leepwal","ζ-Cen","Zeta Centauri","HR 5231","HD 121263","HIP 68002","TYC 8267-3545-1"]],["Lerna",["Lerna","HAT-P-42","2MASS : J09012265+0605500","GSC 00232-01451"]],["Lesath",["Lesath","υ-Sco","Upsilon Scorpii","34-Sco","34 Scorpii","HR 6508","HD 158408","HIP 85696","TYC 7387-1249-1"]],["Libertas",["Libertas","ξ Aquilae","Xi Aql","ξ Aql","59 Aquilae","BD+08 4261","GC 27558","HD 188310","HIP 97938","HR 7595","SAO 125210","PPM 168913","WDS J19542+0828AB"]],["Lich",["Lich","PSR 1257+12","PSR J1300+1240","PSR 1300+1240"]],["Liesma",["Liesma","BD+54°1609","HD 118203","HIP 66192","SAO 28802","TOI-1271","TIC 286923464","TYC 3850-458-1"]],["Lilii Borea",["Lilii Borea","BD+28°462","HD 17361","HIP 13061","HR 824","SAO 75578."]],["Lionrock",["Lionrock","BD−17°6526","HD 212771","HIP 110813","SAO 165086"]],["Lucilinburhuc",["Lucilinburhuc","BD+39°1637","HD 45350","HIP 30860","SAO 591265","PPM 71672","TYC 2927-323-1","GSC 02927-00323"]],["Lumbung",["Lumbung","39 Crucis","CH Cru","CPD−59°4393","HD 110335","HIP 61966","HR 4823","SAO 240161"]],["Lusitânia",["Lusitânia","BD+11 1197","GC 8415","HD 45652","HIP 30905","SAO 95735","NLTT 16570"]],["Maasym",["Maasym","λ Her","76 Herculis","BD+26°3034","FK5 1460","HD 158899","HIP 85693","HR 6526","SAO 249461"]],["Macondo",["Macondo","CD−32°7598","GJ 1137","HD 93083","HIP 52521","SAO 201693","PPM 288057","GSC 07190-02048"]],["Mago",["Mago","AG+69°241","BD+69°302","GC 6245","HD 32518","HIP 24003","HR 1636","SAO 13382"]],["Mahasim",["Mahasim","θ-Aur","Theta Aurigae","37-Aur","37 Aurigae","HR 2095","HD 40312","HIP 28380","TYC 2418-1573-1"]],["Mahsati",["Mahsati","Mahsait","HD 152581","BD+12 3012","HIP 82651","SAO 102455"]],["Maia",["Maia","20-Tau","20 Tauri","HR 1149","HD 23408","NSV 1279","HIP 17573","TYC 1799-1439-1","Gaia EDR3- 65283232316451328"]],["Malmok",["Malmok","WASP-39"]],["Marfik",["Marfik","λ Oph","10 Oph","NSV 7784","BD+02°3118","HD 148857","HIP 80883","HR 6149","SAO 121658","ADS 10087","WDS 16309+0159"]],["Markab",["Markab","α-Peg","Alpha Pegasi","54-Peg","54 Pegasi","HR 8781","HD 218045","NSV 14417","HIP 113963","TYC 1711-2475-1"]],["Markeb",["Markeb","κ-Vel","Kappa Velorum","HR 3734","HD 81188","HIP 45941","TYC 8588-4200-1","Gaia EDR3- 5310393535853560576"]],["Marsic",["Marsic","κ Her","7 Herculis","CCDM J16081+1703","NSV 7471","AAVSO 1603+17","WDS 16081+1703"]],["Maru",["Maru","GJ 3483","BPM 4834","L 97-3","LAWD 27","LTT 3059","NLTT 19008","WD 0806-661","WD 0806−66","GSC 08936−01284","2MASS J08065373−6618167","GEN# +6.00204834","uvby98 986097003","WG 12"]],["Matar",["Matar","η-Peg","Eta Pegasi","44-Peg","44 Pegasi","HR 8650","HD 215182","NSV 14285","HIP 112158","TYC 2736-1823-1"]],["Matza",["Matza","HIP 65426"]],["Mazaalai",["Mazaalai","HAT-P-21","TOI-1800","TIC 17993892","TYC 3013-1229-1","GSC 03013-01229","2MASS J11250598+4101406"]],["Mebsuta",["Mebsuta","ε-Gem","Epsilon Geminorum","27-Gem","27 Geminorum","HR 2473","HD 48329","NSV 3183","HIP 32246","TYC 1897-1639-1","Gaia EDR3- 3384529341302871296"]],["Megrez",["Megrez","δ-UMa","Delta Ursae Majoris","69-UMa","69 Ursae Majoris","HR 4660","HD 106591","NSV 5513","HIP 59774","TYC 3837-1070-1","Gaia EDR3- 1575287046603605888"]],["Meissa",["Meissa","λ-Ori","Lambda Orionis","39-Ori","39 Orionis","HR 1879","HD 36861","NSV 2240","HIP 26207","TYC 705-2400-1"]],["Mekbuda",["Mekbuda","ζ Gem","43 Gem","BD+20°1687","FK5 269","HD 52973","HIP 34088","HR 2650","SAO 79031","WDS J07041+2034A"]],["Meleph",["Meleph","CCDM J08404+1932","WDS J08405+1933"]],["Menkalinan",["Menkalinan","β-Aur","Beta Aurigae","34-Aur","34 Aurigae","HR 2088","HD 40183","HIP 28360","TYC 2924-2742-1"]],["Menkar",["Menkar","α-Cet","Alpha Ceti","92-Cet","92 Ceti","HR 911","HD 18884","HIP 14135","TYC 58-1618-1"]],["Menkent",["Menkent","θ-Cen","Theta Centauri","5-Cen","5 Centauri","HR 5288","HD 123139","HIP 68933","TYC 7293-2215-1"]],["Menkib",["Menkib","46 Per","HR 1228","HD 24912","FK5 148","SAO 56856","HIP 18614","BD+35°775"]],["Merak",["Merak","β-UMa","Beta Ursae Majoris","48-UMa","48 Ursae Majoris","HR 4295","HD 95418","NSV 5053","HIP 53910","TYC 3827-1079-1"]],["Merga",["Merga","Marrha","El Mara el Musalsela","Falx Italica","h Boötis","38 Boo","BD+46°1993","FK5 1383","GC 19959","HD 130945","HIP 72487","HR 5533","SAO 45226"]],["Meridiana",["Meridiana","α CrA","Alf CrA","CD−38°13350","FK5 718","GC 26360","HD 178253","HIP 94114","HR 7254","SAO 210990","IRAS 19060-3759","2MASS J19092834-3754157"]],["Merope",["Merope","23 Tau","V971 Tauri","HR 1156","BD+23°522","HD 23480","HIP 17608","SAO 76172","GC 4512","CCDM J03463+2357A"]],["Mesarthim",["Mesarthim","5 Ari","BD+18 243","HIP 8832","WDS J01535+1918"]],["Miaplacidus",["Miaplacidus","β-Car","Beta Carinae","HR 3685","HD 80007","HIP 45238","TYC 9200-2603-1"]],["Mimosa",["Mimosa","β-Cru","Beta Crucis","HR 4853","HD 111123","HIP 62434","TYC 8659-3107-1"]],["Minchir",["Minchir","σ Hya","5 Hydrae","BD+03°2026","FK5 1224","HD 73471","HIP 42402","HR 3418","SAO 116988"]],["Minelauva",["Minelauva","δ-Vir","Delta Virginis","43-Vir","43 Virginis","HR 4910","HD 112300","NSV 6026","HIP 63090","TYC 294-1032-1","Gaia EDR3- 3704342295607157120"]],["Mintaka",["Mintaka","δ-Ori","Delta Orionis","34-Ori","34 Orionis","HR 1852","HD 36486","HIP 25930","TYC 4766-2445-1","Gaia EDR3- 3220756843825383936"]],["Mira",["Mira","Stella Mira","Collum Ceti","Wonderful Star","ο Ceti","68 Ceti","BD−03°353","HD 14386","HIP 10826","HR 681","SAO 129825","WDS J02193-0259A","LTT 1179"]],["Mirach",["Mirach","β-And","Beta Andromedae","43-And","43 Andromedae","HR 337","HD 6860","NSV 414","HIP 5447","TYC 2286-1329-1"]],["Miram",["Miram","η-Per","Eta Persei","15-Per","15 Persei","HR 834","HD 17506","HIP 13268","TYC 3704-1332-1","Gaia EDR3- 454491381981202944"]],["Mirfak",["Mirfak","α-Per","Alpha Persei","33-Per","33 Persei","HR 1017","HD 20902","NSV 1125","HIP 15863","TYC 3320-2808-1"]],["Mirzam",["Mirzam","β-CMa","Beta Canis Majoris","2-CMa","2 Canis Majoris","HR 2294","HD 44743","HIP 30324","TYC 5938-2918-1"]],["Misam",["Misam","κ-Per","Kappa Persei","27-Per","27 Persei","HR 941","HD 19476","NSV 1055","HIP 14668","TYC 2859-2274-1"]],["Mizar",["Mizar","ζ-UMa","Zeta Ursae Majoris","79-UMa","79 Ursae Majoris","HR 5054","HD 116656","NSV 6224","HIP 65378","TYC 3850-1385-1","Gaia EDR3- 1563590579347125632"]],["Moldoveanu",["Moldoveanu","BD+28 2507","TOI-2021","TIC 236312126","TYC 2041-1657-1","GSC 02041-01657","2MASS J16021184+2810105"]],["Montuno",["Montuno","WASP-79","2MASS J04252901-3036016 b","TYC 7038-834-1 b","CD-30 1812 b","SAO 195000 b","GSC 7038-834 b","Gaia DR2 4884779765893739904 b","Montuno b"]],["Morava",["Morava","TOI-6015","TIC 288246496","WASP-60","TYC 2767-1746-1","2MASS J23463997+3109213"]],["Moriah",["Moriah","TYC 1632-1396-1","GSC 01632-01396","2MASS J20242972+1645437"]],["Mothallah",["Mothallah","α-Tri","Alpha Trianguli","2-Tri","2 Trianguli","HR 544","HD 11443","HIP 8796","TYC 1763-3028-1"]],["Mouhoun",["Mouhoun","CD−24 2616","HD 30856","HIP 22491","SAO 169805","TIC 612908","TYC 6466-1769-1","GSC 06466-01769","2MASS J04501787-2422077","Gaia DR3 4893980371818915456"]],["Mpingo",["Mpingo","BD+00 316","TOI-388","TIC 422655579","WASP-71","TYC 30-116-1","2MASS J01570320+0045318"]],["Muliphein",["Muliphein","Muliphen","γ Canis Majoris","23 Canis Majoris","BD−15°1625","FK5 271","GC 9320","HD 53244","HIP 34045","HR 2657","SAO 152303"]],["Muphrid",["Muphrid","η-Boo","Eta Bootis","8-Boo","8 Bootis","HR 5235","HD 121370","HIP 67927","TYC 1470-1157-1"]],["Muscida",["Muscida","O-UMa","Omicron Ursae Majoris","1-UMa","1 Ursae Majoris","HR 3323","HD 71369","NSV 4093","HIP 41704","TYC 4127-2431-1","Gaia EDR3- 1041808368494264576"]],["Musica",["Musica","18 Del","BD+10°4425","GC 29266","HD 199665","HIP 103527","HR 8030","SAO 106712","WDS J20584+1050A"]],["Muspelheim",["Muspelheim","TYC 3293-1539-1","GSC 03293-01539","2MASS J02123147+5146435"]],["Márohu",["Márohu","TOI-231","TIC 204376737","WASP-6","TYC 6972-75-1","2MASS J23123773-2240261","DENIS J231237.7-224025","UCAC2 22823425"]],["Mönch",["Mönch","BD+00 3243","HD 130322","HIP 72339","LTT 5873","NLTT 38386"]],["Naga",["Naga","γ-Hya","Gamma Hydrae","46-Hya","46 Hydrae","HR 5020","HD 115659","NSV 6180","HIP 64962","TYC 6700-1436-1","Gaia EDR3- 6194563955869054848"]],["Nahn",["Nahn","ξ Cnc","77 Cancri","BD+22°2061","FK5 1239","GC 12635","HD 78515","HIP 44946","HR 3627","SAO 80666","WDS J09094+2203AB"]],["Naledi",["Naledi","CPD−64 484","TOI-102","TIC 149603524","WASP-62","TYC 8900-874-1","GSC 08900-00874","2MASS J05483359-6359183"]],["Naos",["Naos","ζ-Pup","Zeta Puppis","HR 3165","HD 66811","HIP 39429","TYC 7663-4093-1","Gaia EDR3- 5534788672055388032"]],["Nashira",["Nashira","γ-Cap","Gamma Capricorni","40-Cap","40 Capricorni","HR 8278","HD 206088","HIP 106985","TYC 6362-1078-1"]],["Natasha",["Natasha","CD−49°4727","HD 85390","HIP 48235","SAO 221526","2MASS J09500249-4947250"]],["Nekkar",["Nekkar","β-Boo","Beta Bootis","42-Boo","42 Bootis","HR 5602","HD 133208","NSV 6898","HIP 73555","TYC 3047-1258-1","Gaia EDR3- 1296713990316692096"]],["Nembus",["Nembus","51-And","51 Andromedae","HR 464","HD 9927","HIP 7607","TYC 3282-2271-1","Gaia EDR3- 399402894487590144"]],["Nenque",["Nenque","CD–40°239","GJ 9037","HD 6434","HIP 5054","SAO 192911","LFT 102","LHS 1188","LPM 57","LTT 610","GCRV 51158","2MASS J01044015-3929173"]],["Nervia",["Nervia","BD+41°1544","HD 49674","HIP 32916","SAO 41390","PPM 49392","TYC 2946-426-1","GSC 02946-00426"]],["Nganurganity",["Nganurganity","σ-CMa","Sigma Canis Majoris","22-CMa","22 Canis Majoris","HR 2646","HD 52877","HIP 33856","TYC 6531-3793-1","Gaia EDR3- 5610441600394646016"]],["Nihal",["Nihal","β-Lep","Beta Leporis","9-Lep","9 Leporis","HR 1829","HD 36079","NSV 2008","HIP 25606","TYC 5928-1657-1","Gaia EDR3- 2968097043227107840"]],["Nikawiy",["Nikawiy","HD 136418","TYC 3048-172-1","HIP 74961","BD+42 2587"]],["Noquisi",["Noquisi","GJ 436","HIP 57087","LHS 310","LTT 13213","Ross 905","2MASS J11421096+2642251"]],["Nosaxa",["Nosaxa","CD−48 2430","HD 48265","HIP 31895","SAO 218115"]],["Nunki",["Nunki","σ-Sgr","Sigma Sagittarii","34-Sgr","34 Sagittarii","HR 7121","HD 175191","HIP 92855","TYC 6868-1829-1"]],["Nusakan",["Nusakan","β-CrB","Beta Coronae Borealis","3-CrB","3 Coronae Borealis","HR 5747","HD 137909","HIP 75695","TYC 2032-1605-1"]],["Nushagak",["Nushagak","AG+71 95","BD+71 171","HD 17156","HIP 13192","SAO 4737","PPM 5099","TOI-1573","TIC 302773669","TYC 4321-1320-1","GSC 04321-01320"]],["Nyamien",["Nyamien","CD−31 10766","TOI-820","TIC 111991770","WASP-15","TYC 7283-1162-1","2MASS J13554270-3209345"]],["Násti",["Násti","BD+61°1038","HD 68988","HIP 40687","SAO 14494"]],["Ogma",["Ogma","BD+38°2787","HD 149026","HIP 80838","SAO 65349","TOI-2024","TIC 255930614","GSC 03063-01587"]],["Okab",["Okab","ζ-Aql","Zeta Aquilae","17-Aql","17 Aquilae","HR 7235","HD 177724","NSV 11724","HIP 93747","TYC 1052-3027-1","Gaia EDR3- 4314399312979641728"]],["Orkaria",["Orkaria","GJ 1214","G 139-21","LHS 3275","LSPM J1715+0457","NLTT 44431","TIC 467929202","2MASS J17151894+0457496"]],["Paikauhale",["Paikauhale","τ-Sco","Tau Scorpii","23-Sco","23 Scorpii","HR 6165","HD 149438","HIP 81266","TYC 6807-1012-1","Gaia EDR3- 6044420729667868928"]],["Paradys",["Paradys","α-Aps","Alpha Apodis","HR 5470","HD 129078","HIP 72370","TYC 9436-2393-1","Gaia EDR3- 5773473920382493440"]],["Parumleo",["Parumleo","TOI-4523","TIC 427332229","WASP-32","TYC 2-1155-1","2MASS J00155080+0112016"]],["Peacock",["Peacock","α-Pav","Alpha Pavonis","HR 7790","HD 193924","NSV 13060","HIP 100751","TYC 8785-1898-1"]],["Petra",["Petra","TYC 5165-481-1","GSC 05165-00481","2MASS J20124017-0208391","Gaia DR2 4223507222112425344"]],["Phact",["Phact","α-Col","Alpha Columbae","HR 1956","HD 37795","NSV 2549","HIP 26634","TYC 7064-1357-1","Gaia EDR3- 2900546759663847168"]],["Phecda",["Phecda","γ-UMa","Gamma Ursae Majoris","64-UMa","64 Ursae Majoris","HR 4554","HD 103287","NSV 5379","HIP 58001","TYC 3833-1034-1"]],["Pherkad",["Pherkad","γ-UMi","Gamma Ursae Minoris","13-UMi","13 Ursae Minoris","HR 5735","HD 137422","HIP 75097","TYC 4414-2314-1"]],["Pherkad Minor",["Pherkad Minor","11 UMi","BD+72°678","HD 136726","HIP 74793","HR 5714","SAO 8207","PPM 8870","GCRV 8864"]],["Phoenicia",["Phoenicia","V1703 Aquilae","BD−01°3925","HD 192263","HIP 99711","SAO 144192","LTT 8003","NLTT 48902"]],["Phyllon Kissinou",["Phyllon Kissinou","23 Com","BD+23°2475","FK5 1323","GC 17142","HD 109485","HIP 61394","HR 4789","SAO 82390","WDS J12349+2238"]],["Piautos",["Piautos","λ Cnc","19 Cancri","BD+24°1909","HD 70011","HIP 40881","HR 3268","SAO 80113"]],["Pincoya",["Pincoya","CD–28° 14058","HD 164604","HIP 88414","SAO 186165","PPM 267742"]],["Ping",["Ping","ε-Lep","Epsilon Leporis","2-Lep","2 Leporis","HR 1654","HD 32887","NSV 1826","HIP 23685","TYC 5913-1374-1"]],["Pipirima",["Pipirima","μ²-Sco","Mu2 Scorpii","HR 6252","HD 151985","HIP 82545","TYC 7868-1820-1","Gaia EDR3- 5971244451311982336"]],["Pipit",["Pipit","ν-Pup","Nu Puppis","HR 2451","HD 47670","NSV 3062","HIP 31685","TYC 7626-2203-1","Gaia EDR3- 5557271829408912896"]],["Pipoltr",["Pipoltr","TrES-3 Parent Star","V1434 Her","TOI-2126","TIC 116264089","GSC 03089-00929","1SWASP J175207.01+373246.3","UCAC2 45017453"]],["Pleione",["Pleione","28 Tau","BU Tau","BD+23°558","GC 4587","HD 23862","HIP 17851","HR 1180","SAO 76229"]],["Poerava",["Poerava","CD−58°8579","HD 221287","HIP 116084","SAO 247912","TYC 8838-463-1","2MASS J23312032-5812350"]],["Polaris",["Polaris","α-UMi","Alpha Ursae Minoris","1-UMi","1 Ursae Minoris","HR 424","HD 8890","HIP 11767","TYC 4628-237-1"]],["Polaris Australis",["Polaris Australis","σ Oct","CPD−89°47","FK5 923","HD 177482","HIP 104382","HR 7228","SAO 258857"]],["Polis",["Polis","μ-Sgr","Mu Sagittarii","13-Sgr","13 Sagittarii","HR 6812","HD 166937","HIP 89341","TYC 6276-3093-1","Gaia EDR3- 4093933487636355968"]],["Pollux",["Pollux","β-Gem","Beta Geminorum","78-Gem","78 Geminorum","HR 2990","HD 62509","NSV 3712","HIP 37826","TYC 1920-2194-1"]],["Porrima",["Porrima","γ-Vir","Gamma Virginis","29-Vir","29 Virginis","HR 4825","HD 110379","NSV 5859","HIP 61941"]],["Praecipua",["Praecipua","46-LMi","46 Leonis Minoris","HR 4247","HD 94264","NSV 4999","HIP 53229","TYC 2521-2271-1"]],["Prima Hyadum",["Prima Hyadum","γ-Tau","Gamma Tauri","54-Tau","54 Tauri","HR 1346","HD 27371","NSV 1553","HIP 20205","TYC 1264-1009-1","Gaia EDR3- 3312052249215275904"]],["Procyon",["Procyon","α-CMi","Alpha Canis Minoris","10-CMi","10 Canis Minoris","HR 2943","HD 61421","NSV 3672","HIP 37279"]],["Propus",["Propus","η-Gem","Eta Geminorum","7-Gem","7 Geminorum","HR 2216","HD 42995","HIP 29655","TYC 1877-1716-1"]],["Proxima Centauri",["Proxima Centauri","Alf Cen C","Alpha Centauri C","V645 Centauri","GJ 551","HIP 70890","CCDM J14396-6050C","LFT 1110","LHS 49","LPM 526","LTT 5721","NLTT 37460"]],["Quadrans",["Quadrans","i Boötis","44 Boo","BD+48°2259","FK5 3182","GJ 575","HD 133640","HIP 73695","HR 5618","SAO 45357","ADS 9494","CCDM 15038+4739"]],["Ramus",["Ramus","102 Her","BD+20°3674","FK5 3443","HD 166182","HIP 88886","HR 6787","SAO 85769","WDS J18088+2049"]],["Ran",["Ran","ε-Eri","Epsilon Eridani","18-Eri","18 Eridani","HR 1084","HD 22049","HIP 16537","TYC 5296-1533-1"]],["Rana",["Rana","δ-Eri","Delta Eridani","23-Eri","23 Eridani","HR 1136","HD 23249","HIP 17378","TYC 5303-1320-1","Gaia EDR3- 5164120762333028736"]],["Rangifer",["Rangifer","49 Cas","BD+75°86","GC 2475","HD 12339","HIP 9763","HR 592","SAO 4565","CCDM J02056+7607","GSC 04495-01881"]],["Rapeto",["Rapeto","CD–43°11380","HIP 83547","SAO 227597","PPM 322565","LTT 6814","GSC 07881-00474","2MASS J17043086-4318351"]],["Rasalas",["Rasalas","μ-Leo","Mu Leonis","24-Leo","24 Leonis","HR 3905","HD 85503","HIP 48455","TYC 1964-1473-1","Gaia EDR3- 643819484617141504"]],["Rasalgethi",["Rasalgethi","Alp Her","α¹-Her","Alpha1 Herculis","64-Her","64 Herculis","HR 6406","HD 156014","HIP 84345","TYC 990-2133-1"]],["Rasalhague",["Rasalhague","α-Oph","Alpha Ophiuchi","55-Oph","55 Ophiuchi","HR 6556","HD 159561","NSV 9189","HIP 86032","TYC 1000-2508-1"]],["Rasalnaqa",["Rasalnaqa","ι And","17 And","BD+42°4720","FK5 891","HD 222173","HIP 116631","HR 8965","SAO 53216","PPM 64473"]],["Rastaban",["Rastaban","β-Dra","Beta Draconis","23-Dra","23 Draconis","HR 6536","HD 159181","HIP 85670","TYC 3521-1800-1","Gaia EDR3- 1415230383034813824"]],["Regulus",["Regulus","α-Leo","Alpha Leonis","32-Leo","32 Leonis","HR 3982","HD 87901","NSV 4750","HIP 49669","TYC 833-1381-1"]],["Revati",["Revati","Zeta Piscium","HD 7344","EPIC 220536030","TYC 613-1249-1","HIP 5737","HR 361","86 Piscium","86 Psc","BD+06 174"]],["Rhombus",["Rhombus","α-Ret","Alpha Reticuli","HR 1336","HD 27256","HIP 19780","TYC 8869-2461-1"]],["Rigel",["Rigel","β-Ori","Beta Orionis","19-Ori","19 Orionis","HR 1713","HD 34085","NSV 1882","HIP 24436","TYC 5331-1752-1"]],["Rigil Kentaurus",["Rigil Kentaurus","α-Cen","Alpha Centauri","HR 5459","HD 128620","HIP 71683"]],["Rosalíadecastro",["Rosalíadecastro","BD+02°3127","HD 149143","HIP 81022","SAO 121678","PPM 162774"]],["Rotanev",["Rotanev","β-Del","Beta Delphini","6-Del","6 Delphini","HR 7882","HD 196524","HIP 101769","TYC 1100-1720-1"]],["Ruchbah",["Ruchbah","δ-Cas","Delta Cassiopeiae","37-Cas","37 Cassiopeiae","HR 403","HD 8538","HIP 6686","TYC 4031-3289-1","Gaia EDR3- 510204838759030144"]],["Rukbat",["Rukbat","α-Sgr","Alpha Sagittarii","HR 7348","HD 181869","HIP 95347","TYC 7935-2139-1","Gaia EDR3- 6713727061309245952"]],["Sabik",["Sabik","η-Oph","Eta Ophiuchi","35-Oph","35 Ophiuchi","HR 6378","HD 155125","HIP 84012","TYC 6232-1333-1"]],["Saclateni",["Saclateni","ζ-Aur","Zeta Aurigae","8-Aur","8 Aurigae","HR 1612","HD 32068","HIP 23453","TYC 2899-2236-1"]],["Sadachbia",["Sadachbia","γ-Aqr","Gamma Aquarii","48-Aqr","48 Aquarii","HR 8518","HD 212061","NSV 14132","HIP 110395","TYC 5226-1606-1"]],["Sadalbari",["Sadalbari","μ-Peg","Mu Pegasi","48-Peg","48 Pegasi","HR 8684","HD 216131","HIP 112748","TYC 2225-1821-1","Gaia EDR3- 1876510592179455744"]],["Sadalmelik",["Sadalmelik","α-Aqr","Alpha Aquarii","34-Aqr","34 Aquarii","HR 8414","HD 209750","HIP 109074","TYC 5224-1806-1","Gaia EDR3- 2680356911816018048"]],["Sadalsuud",["Sadalsuud","β-Aqr","Beta Aquarii","22-Aqr","22 Aquarii","HR 8232","HD 204867","HIP 106278","TYC 5216-1725-1","Gaia EDR3- 2671038928727970944"]],["Sadr",["Sadr","γ-Cyg","Gamma Cygni","37-Cyg","37 Cygni","HR 7796","HD 194093","NSV 13048","HIP 100453","TYC 3156-2223-1","Gaia EDR3- 2067518817314952576"]],["Safina",["Safina","c²-Aqr","c2 Aquarii","88-Aqr","88 Aquarii","HR 8812","HD 218594","HIP 114341","TYC 6401-1355-1","Gaia EDR3- 2386316510063903616"]],["Sagarmatha",["Sagarmatha","BD–03°3147","HD 100777","HIP 56572","SAO 138288","TYC 4933-678-1","2MASS J11355152-0445204"]],["Saiph",["Saiph","κ-Ori","Kappa Orionis","53-Ori","53 Orionis","HR 2004","HD 38771","NSV 2641","HIP 27366","TYC 5351-760-1","Gaia EDR3- 3011968416163350272"]],["Salm",["Salm","62 Pegasi","BD+22°4810","FK5 880","GC 32503","HIP 115250","HR 8880","HD 220061","SAO 91186"]],["Sansuna",["Sansuna","HAT-P-34","HD 351766","TYC 1622-1261-1","BD +17 4250"]],["Sargas",["Sargas","θ-Sco","Theta Scorpii","HR 6553","HD 159532","NSV 9233","HIP 86228","TYC 7892-7679-1"]],["Sarin",["Sarin","δ-Her","Delta Herculis","65-Her","65 Herculis","HR 6410","HD 156164","NSV 8419","HIP 84379","TYC 2065-1930-1","Gaia EDR3- 4573412435280434560"]],["Sarvvis",["Sarvvis","δ-Per","Delta Persei","39-Per","39 Persei","HR 1122","HD 22928","HIP 17358","TYC 3317-3034-1"]],["Sceptrum",["Sceptrum","l-Eri","l Eridani","53-Eri","53 Eridani","HR 1481","HD 29503","HIP 21594","TYC 5327-1434-1"]],["Scheat",["Scheat","β-Peg","Beta Pegasi","53-Peg","53 Pegasi","HR 8775","HD 217906","HIP 113881","TYC 2243-1831-1"]],["Schedar",["Schedar","α-Cas","Alpha Cassiopeiae","18-Cas","18 Cassiopeiae","HR 168","HD 3712","HIP 3179","TYC 3663-2668-1","Gaia EDR3- 418551920284673408"]],["Secunda Hyadum",["Secunda Hyadum","δ-Tau","Delta Tauri","61-Tau","61 Tauri","HR 1373","HD 27697","NSV 1582","HIP 20455","TYC 1268-1267-1","Gaia EDR3- 3314024566919613952"]],["Segin",["Segin","ε-Cas","Epsilon Cassiopeiae","45-Cas","45 Cassiopeiae","HR 542","HD 11415","NSV 652","HIP 8886","TYC 4036-2834-1"]],["Seginus",["Seginus","γ-Boo","Gamma Bootis","27-Boo","27 Bootis","HR 5435","HD 127762","HIP 71075","TYC 3036-1151-1"]],["Sham",["Sham","Alsahm","α Sge","5 Sagittae","BD+17°4042","FK5 1133","GC 27215","HD 185758","HIP 96757","HR 7479","SAO 105120","PPM 136737","CCDM J19401+1801A","WDS J19401+1801A"]],["Shama",["Shama","BD−00°2437","HD 99109","HIP 55664","SAO 138182"]],["Shangcheng",["Shangcheng","BD+73°168","FK5 2222","GC 3759","HD 19275","HIP 14862","HR 932","SAO 4840","GSC 04325-01562"]],["Shangwei",["Shangwei","BD+69°371","FK5 234","HD 42818","HIP 29997","HR 2209","SAO 13788"]],["Shaomin",["Shaomin","ρ-Leo","Rho Leonis","47-Leo","47 Leonis","HR 4133","HD 91316","HIP 51624","TYC 838-1485-1","Gaia EDR3- 3870025847369674624"]],["Shaowei",["Shaowei","γ Cam","BD+70°259","FK5 138","GC 4557","HD 23401","HIP 17959","HR 1148","SAO 5006","CCDM 03504+7120","WDS J03504+7120A"]],["Sharjah",["Sharjah","HIP 79431","LP 804-27","NLTT 42226"]],["Shatabhisha",["Shatabhisha","λ-Aqr","Lambda Aquarii","73-Aqr","73 Aquarii","HR 8698","HD 216386","HIP 112961","TYC 5813-1406-1","Gaia EDR3- 2610370969483589888"]],["Shaula",["Shaula","λ-Sco","Lambda Scorpii","35-Sco","35 Scorpii","HR 6527","HD 158926","HIP 85927","TYC 7388-1093-1"]],["Sheliak",["Sheliak","β-Lyr","Beta Lyrae","10-Lyr","10 Lyrae","HR 7106","HD 174638","HIP 92420","TYC 2642-2929-1","Gaia EDR3- 2090687795056051328"]],["Shengong",["Shengong","HR 6298","HD 153072","HIP 83100","TYC 7868-106-1","Gaia EDR3- 5970622505708199168"]],["Sheratan",["Sheratan","β-Ari","Beta Arietis","6-Ari","6 Arietis","HR 553","HD 11636","NSV 658","HIP 8903","TYC 1212-1935-1"]],["Shimu",["Shimu","ζ And","Zeta Andromedae","Zet And","34 Andromedae","34 And","BD+23 106","FK5 27","GC 940","HD 4502","HIP 3693","HR 215","SAO 74267","PPM 90149","CCDM J00473+2416A","WDS 00473+2416A"]],["Sika",["Sika","CD–33°14164","HD 181720","HIP 95262","SAO 211218","PPM 298918","LTT 7666","NLTT 47718","GCRV 69331","2MASS J19225298-3255079"]],["Sirius",["Sirius","α-CMa","Alpha Canis Majoris","9-CMa","9 Canis Majoris","HR 2491","HD 48915","HIP 32349"]],["Situla",["Situla","63 Aquarii","BD−04 5716","FK5 1595","GC 31581","HD 214376","HIP 111710","HR 8610","SAO 146210","PPM 206585","WDS J22378-0414A"]],["Skat",["Skat","δ-Aqr","Delta Aquarii","76-Aqr","76 Aquarii","HR 8709","HD 216627","NSV 14356","HIP 113136","TYC 6387-1382-1"]],["Solaris",["Solaris","AG+14 2370","BD+14 4559","HIP 104780","PPM 139779","LTT 16221"]],["Solitaire",["Solitaire","E Hya","58 Hya","CD−27°10073","HD 130694","HIP 72571","HR 5526","SAO 182911","LTT 5887"]],["Spica",["Spica","α-Vir","Alpha Virginis","67-Vir","67 Virginis","HR 5056","HD 116658","HIP 65474","TYC 5547-1518-1"]],["Stellio",["Stellio","α-Lac","Alpha Lacertae","7-Lac","7 Lacertae","HR 8585","HD 213558","HIP 111169","TYC 3628-3193-1","Gaia EDR3- 1988193348344678656"]],["Sterrennacht",["Sterrennacht","BD+41 4831","TOI-1373","TIC 176899385","TYC 3239-992-1","GSC 03239-00992","2MASS J23390581+4227575","HAT-P-6"]],["Stribor",["Stribor","BD+33°1776","HD 75898","HIP 43674","SAO 61116"]],["Sualocin",["Sualocin","α-Del","Alpha Delphini","9-Del","9 Delphini","HR 7906","HD 196867","NSV 13207","HIP 101958","TYC 1633-2442-1"]],["Subra",["Subra","O-Leo","Omicron Leonis","14-Leo","14 Leonis","HR 3852","HD 83808","HIP 47508","TYC 821-2130-1","Gaia EDR3- 588551501854159744"]],["Suhail",["Suhail","λ-Vel","Lambda Velorum","HR 3634","HD 78647","HIP 44816","TYC 7689-2617-1"]],["Sulafat",["Sulafat","γ-Lyr","Gamma Lyrae","14-Lyr","14 Lyrae","HR 7178","HD 176437","NSV 11624","HIP 93194","TYC 2643-3346-1","Gaia EDR3- 2043823929421342848"]],["Syrma",["Syrma","99 Vir","BD−05°3843","FK5 525","GJ 9473","HD 124850","HIP 69701","HR 5338","SAO 139824"]],["Sāmaya",["Sāmaya","Samaya","CD−32° 16667","HD 205739","HIP 106824","SAO 213152","PPM 301636"]],["Tabit",["Tabit","π³-Ori","Pi3 Orionis","1-Ori","1 Orionis","HR 1543","HD 30652","NSV 1731","HIP 22449","TYC 96-1462-1","Gaia EDR3- 3288921720025503360"]],["Taika",["Taika","2MASS","J22220308+4527265","Gaia DR2 196215385497 720 96","GSC 03607-01028","TYC 3607-1028-1"]],["Taiyangshou",["Taiyangshou","χ-UMa","Chi Ursae Majoris","63-UMa","63 Ursae Majoris","HR 4518","HD 102224","NSV 5319","HIP 57399","TYC 3452-2140-1","Gaia EDR3- 786420645182229504"]],["Taiyi",["Taiyi","8 Dra","IR Draconis","BD+66°778","FK5 486","HD 112429","HIP 63076","HR 4916","SAO 15941"]],["Talitha",["Talitha","ι-UMa","Iota Ursae Majoris","9-UMa","9 Ursae Majoris","HR 3569","HD 76644","NSV 4329","HIP 44127","TYC 3420-2149-1","Gaia EDR3- 1014058103758571520"]],["Tangra",["Tangra","TOI-5963","TIC 436478932","WASP-21","GSC 01715-00679","2MASS J23095825+1823459"]],["Tania Australis",["Tania Australis","μ-UMa","Mu Ursae Majoris","34-UMa","34 Ursae Majoris","HR 4069","HD 89758","NSV 4829","HIP 50801","TYC 3004-1418-1"]],["Tania Borealis",["Tania Borealis","λ-UMa","Lambda Ursae Majoris","33-UMa","33 Ursae Majoris","HR 4033","HD 89021","HIP 50372","TYC 3007-1286-1"]],["Tapecue",["Tapecue","CD−53°2007","HD 63765","HIP 38041","SAO 235521","PPM 336398","LTT 2952","NLTT 18486"]],["Tarandus",["Tarandus","2 UMi","BD+85°19","FK5 906","HD 5848","HIP 5372","HR 285","SAO 181"]],["Tarazed",["Tarazed","γ-Aql","Gamma Aquilae","50-Aql","50 Aquilae","HR 7525","HD 186791","HIP 97278","TYC 1061-2577-1","Gaia EDR3- 4302054339959905920"]],["Tarf",["Tarf","β-Cnc","Beta Cancri","17-Cnc","17 Cancri","HR 3249","HD 69267","NSV 3973","HIP 40526","TYC 794-1622-1","Gaia EDR3- 3098404220680931968"]],["Taygeta",["Taygeta","q Tauri","19 Tauri","HR 1145","HD 23338","BD+24°547","HIP 17531","SAO 76140","GC 4486","BDS 1848","CCDM 03452+2429"]],["Tegmine",["Tegmen","Tegmine","16 Cancri","HR 3208/3209/3210","HD 68257/68255/68256","BD+18°1867","HIP 40167","SAO 97645/97646","GC 11142/11141","ADS 6650","CCDM J08123+1738","WDS 08122+1739"]],["Tejat",["Tejat","μ-Gem","Mu Geminorum","13-Gem","13 Geminorum","HR 2286","HD 44478","HIP 30343","TYC 1878-1429-1"]],["Tengshe",["Tengshe","V424 Lac","BD+48°3887","HR 8726","HD 216946","HIP 113288","SAO 52516"]],["Terebellum",["Terebellum","ψ Sgr","58 Sagittarii","CPD−26°6880","FK5 1629","GC 27583","GJ 770.1","GJ 9673","HD 188376","HIP 98066","HR 7597","SAO 188722","PPM 270451"]],["Tevel",["Tevel","TOI-1731","TIC 371234684","TYC 2463-281-1","GSC 02463-00281","2MASS J07204044+3708263","HAT-P-9"]],["Theemin",["Theemin","υ²-Eri","Upsilon2 Eridani","52-Eri","52 Eridani","HR 1464","HD 29291","HIP 21393","TYC 7038-1509-1","Gaia EDR3- 4878631812268014464"]],["Thuban",["Thuban","α-Dra","Alpha Draconis","11-Dra","11 Draconis","HR 5291","HD 123299","NSV 6546","HIP 68756","TYC 4174-1262-1"]],["Tiaki",["Tiaki","β-Gru","Beta Gruis","HR 8636","HD 214952","HIP 112122","TYC 8446-1644-1"]],["Tianfu",["Tianfu","τ Aquilae","τ Aql","63 Aquilae","BD+06 4416","FK5 1524","GC 27824","HD 190327","HIP 98823","HR 7669","SAO 125403","PPM 169262"]],["Tianguan",["Tianguan","ζ-Tau","Zeta Tauri","123-Tau","123 Tauri","HR 1910","HD 37202","HIP 26451","TYC 1310-2697-1","Gaia EDR3- 3402918982515591168"]],["Tiansi",["Tiansi","γ-Cas","Gamma Cassiopeiae","27-Cas","27 Cassiopeiae","HR 264","HD 5394","HIP 4427","TYC 4017-2319-1"]],["Tianyi",["Tianyi","7 Dra","BD+67°764","FK5 3020","HD 111335","HIP 62423","HR 4863","SAO 15902"]],["Timir",["Timir","BD−13°4437","HD 148427","HIP 80687","SAO 159932","PPM 231736"]],["Tislit",["Tislit","TYC 5435-1109-1","Wasp 161","BD -11 2350"]],["Titawin",["Titawin","50 Andromedae","BD+40 332","CCDM 01367+4125","FK5 1045","GC 1948","GCTP 331.00","Gl 61","HD 9826","HIP 7513","HR 458","LTT 10561","SAO 37362","PPM 44216","WDS 01368+4124A","2MASS J01364784+4124200","Gaia DR2 348020448377061376"]],["Tojil",["Tojil","WASP-22"]],["Toliman",["Toliman","α-Cen","Alpha Centauri","HR 5460","HD 128621","HIP 71681"]],["Tonatiuh",["Tonatiuh","BD+77°461","FK5 451","GC 16514","HD 104985","HIP 58952","HR 4609","SAO 7500","NLTT 29548"]],["Tonglingxing",["Tonglingxing","BD+77°266","FK5 260","GC 9073","HD 49878","HIP 33694","HR 2527","SAO 6022"]],["Torcular",["Torcular","Torcularis Septentrionalis","ο Psc","110 Piscium","BD+08°273","FK5 60","GC 2139","HD 10761","HIP 8198","HR 510","SAO 110110","PPM 144950"]],["Triminus",["Triminus","ι Tri","6 Tri","TZ Tri","BD+29°371","HD 13480","HIP 10280","HR 642","SAO 55347","WDS J02124+3018"]],["Tuiren",["Tuiren","TYC 3020-2221-1","2MASS J12330390+4454552","Gaia DR3 1541532207133249920"]],["Tupi",["Tupi","CD–53°738","GC 4401","HD 23079","HIP 17096","SAO 233208","LTT 1739"]],["Tupã",["Tupã","CD−63°757","CPD−63°2270","GC 16944","HIP 60644","LTT 4696","SAO 251899"]],["Tureis",["Tureis","ρ-Pup","Rho Puppis","15-Pup","15 Puppis","HR 3185","HD 67523","HIP 39757","TYC 6555-3245-1","Gaia EDR3- 5698015743046182272"]],["Tusizuo",["Tusizuo","109-Her","109 Herculis","HR 6895","HD 169414","NSV 10742","HIP 90139","TYC 1580-2158-1","Gaia EDR3- 4529285391533766400"]],["Udang",["Udang","Dorsum","θ Cap","23 Cap","BD−17°6174","FK5 1552","HD 200761","HIP 104139","HR 8075","SAO 164132"]],["Udkadua",["Udkadua","λ-And","Lambda Andromedae","16-And","16 Andromedae","HR 8961","HD 222107","HIP 116584","TYC 3638-2515-1","Gaia EDR3- 1939115478598580352"]],["Ukdah",["Ukdah","ι-Hya","Iota Hydrae","35-Hya","35 Hydrae","HR 3845","HD 83618","NSV 4568","HIP 47431","TYC 4894-2529-1","Gaia EDR3- 3827873938815011200"]],["Uklun",["Uklun","CD−58°4207","HD 102117","HIP 57291","SAO 239348"]],["Unukalhai",["Unukalhai","α-Ser","Alpha Serpentis Caput","24-Ser","24 Serpentis Caput","HR 5854","HD 140573","HIP 77070","TYC 363-1135-1","Gaia EDR3- 4429785739602747392"]],["Uridim",["Uridim","α-Lup","Alpha Lupi","HR 5469","HD 129056","HIP 71860","TYC 8283-4134-1","Gaia EDR3- 5905821894507108864"]],["Uruk",["Uruk","BD+16°3883","HD 231701","HIP 96078","SAO 104946"]],["Uúba",["Uúba","CD−38 15670","CPD−38 8578","HIP 117883","SAO 214854","PPM 304331","LTT 9779","NLTT 58368","TOI-193","TIC 183985250","TYC 8015-1162-1","2MASS J23544020-3737408","WISEA J235440.43-373741.2"]],["Vega",["Vega","α-Lyr","Alpha Lyrae","3-Lyr","3 Lyrae","HR 7001","HD 172167","HIP 91262"]],["Veritate",["Veritate","14 And","NSV 14599","BD+38°5023","GC 32703","HD 221345","HIP 116076","HR 8930","SAO 73311","PPM 88889","2MASS J23311742+3914102"]],["Vindemiatrix",["Vindemiatrix","ε-Vir","Epsilon Virginis","47-Vir","47 Virginis","HR 4932","HD 113226","NSV 6064","HIP 63608","TYC 886-1326-1","Gaia EDR3- 3736865265441207424"]],["Wasat",["Wasat","δ-Gem","Delta Geminorum","55-Gem","55 Geminorum","HR 2777","HD 56986","HIP 35550","TYC 1359-2672-1"]],["Wattle",["Wattle","TOI-655","TIC 35516889","WASP-19","GSC 08181-01711","2MASS J09534008-4539330","USNO-B1.0 0443-00193111"]],["Wazn",["Wazn","β-Col","Beta Columbae","HR 2040","HD 39425","HIP 27628","TYC 7069-1482-1","Gaia EDR3- 2887731882922767744"]],["Wezen",["Wezen","δ-CMa","Delta Canis Majoris","25-CMa","25 Canis Majoris","HR 2693","HD 54605","NSV 3424","HIP 34444","TYC 6532-5001-1"]],["Wouri",["Wouri","BD−05 5432","TOI-5823","TIC 248853232","WASP-69","TYC 5200-1560-1","GSC 05200-01560","2MASS J21000618-0505398"]],["Wurren",["Wurren","HR 338","CD−55°267","CPD−55°241","HD 6882","SAO 232306","HIP 5348."]],["Xami",["Xami","α-Cir","Alpha Circini","HR 5463","HD 128898","HIP 71908","TYC 9015-1445-1"]],["Xamidimura",["Xamidimura","μ¹-Sco","Mu1 Scorpii","HR 6247","HD 151890","HIP 82514","TYC 7868-1821-1"]],["Xihe",["Xihe","AG+36 1680","BD+36 3246","GC 25640","HD 173416","HIP 91852","HR 7043","SAO 67292","PPM 81707","TYC 2649-1153-1","GCRV 11177","GSC 02649-01153","IRAS 18418+3630","2MASS J18433610+3633237"]],["Xuange",["Xuange","λ Boo","19 Boötis","BD+46°1949","FK5 527","GC 19273","GJ 3837","HD 125162","HIP 69732","HR 5351","SAO 44965"]],["Yed Posterior",["Yed Posterior","ε-Oph","Epsilon Ophiuchi","2-Oph","2 Ophiuchi","HR 6075","HD 146791","HIP 79882","TYC 5042-999-1","Gaia EDR3- 4356298849169862784"]],["Yed Prior",["Yed Prior","δ-Oph","Delta Ophiuchi","1-Oph","1 Ophiuchi","HR 6056","HD 146051","NSV 7556","HIP 79593","TYC 5037-1068-1","Gaia EDR3- 4357027756659697664"]],["Yildun",["Yildun","Vildiur","Gildun","δ UMi","23 Ursae Minoris","BD+86°269","FK5 913","GC 24236","HD 166205","HIP 85822","HR 6789","SAO 2937"]],["Yunü",["Yunü","31 Leo","BD+10°2112","HD 87837","HIP 49637","HR 3980","SAO 98964"]],["Yuyu",["Iota Cancri A","Yuyu","NSV 4238","BD+29°1824","FK5 328","GC 12083","HD 74739","HIP 43103","HR 3475","SAO 80416"]],["Zaniah",["Zaniah","η-Vir","Eta Virginis","15-Vir","15 Virginis","HR 4689","HD 107259","NSV 5555","HIP 60129","TYC 4940-1158-1"]],["Zaurak",["Zaurak","γ-Eri","Gamma Eridani","34-Eri","34 Eridani","HR 1231","HD 25025","HIP 18543","TYC 5311-1285-1"]],["Zavijava",["Zavijava","β-Vir","Beta Virginis","5-Vir","5 Virginis","HR 4540","HD 102870","HIP 57757","TYC 273-924-1","Gaia EDR3- 3796442680948579328"]],["Zembra",["Zembra","HATS-72"]],["Zhang",["Zhang","υ1 Hya","39 Hya","BD−14°2963","HD 85444","HIP 48356","HR 3903","SAO 155542"]],["Zhou",["Zhou","β-Ser","Beta Serpentis Caput","28-Ser","28 Serpentis Caput","HR 5867","HD 141003","HIP 77233","TYC 1495-1994-1","Gaia EDR3- 1195823284391343104"]],["Zibal",["Zibal","ζ Eri","13 Eri","FK5 1091","HD 20320","HIP 15197","HR 984","SAO 130387","BD−09°624","WDS J03158-0849A"]],["Zosma",["Zosma","δ-Leo","Delta Leonis","68-Leo","68 Leonis","HR 4357","HD 97603","NSV 5143","HIP 54872","TYC 1439-2479-1"]],["Zubenelgenubi",["Zubenelgenubi","α²-Lib","Alpha2 Librae","9-Lib","9 Librae","HR 5531","HD 130841","NSV 6827","HIP 72622","TYC 6155-1210-1"]],["Zubenelhakrabi",["Zubenelhakrabi","γ-Lib","Gamma Librae","38-Lib","38 Librae","HR 5787","HD 138905","HIP 76333","TYC 5608-1381-1","Gaia EDR3- 6265374394490973184"]],["Zubeneschamali",["Zubeneschamali","β-Lib","Beta Librae","27-Lib","27 Librae","HR 5685","HD 135742","NSV 7009","HIP 74785","TYC 5585-1014-1"]],["Áldu",["Áldu","ε-Per","Epsilon Persei","45-Per","45 Persei","HR 1220","HD 24760","HIP 18532","TYC 2868-1623-1"]]];
+  // merge all the star alias tables into one normalized lookup
+  function allKnownStarAliasesNormalized() {
+    const map = new Map();
+    for (const [abbr, entry] of Object.entries(CONSTELLATION_ANCHOR_STARS)) {
+      for (const alias of entry.aliases || []) map.set(normalizeSearchText(alias), entry.label);
+      map.set(normalizeSearchText(entry.label), entry.label);
+    }
+    for (const [label, aliases] of Object.entries(EXTRA_MAJOR_STAR_LABELS)) {
+      for (const alias of aliases || []) map.set(normalizeSearchText(alias), label[0].toUpperCase() + label.slice(1));
+      map.set(normalizeSearchText(label), label[0].toUpperCase() + label.slice(1));
+    }
+    for (const [label, aliases] of OFFICIAL_STAR_NAME_ENTRIES) {
+      for (const alias of aliases || []) {
+        const normalized = normalizeSearchText(alias);
+        if (normalized) map.set(normalized, label);
+      }
+      const normalizedLabel = normalizeSearchText(label);
+      if (normalizedLabel) map.set(normalizedLabel, label);
+    }
+    return map;
+  }
+
+  // normalize search text so greek letters n abbreviations all line up
+  function normalizeSearchText(value) {
+    const greekMap = {
+      'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon',
+      'ζ': 'zeta', 'η': 'eta', 'θ': 'theta', 'ι': 'iota', 'κ': 'kappa',
+      'λ': 'lambda', 'μ': 'mu', 'ν': 'nu', 'ξ': 'xi', 'ο': 'omicron',
+      'π': 'pi', 'ρ': 'rho', 'σ': 'sigma', 'τ': 'tau', 'υ': 'upsilon',
+      'φ': 'phi', 'χ': 'chi', 'ψ': 'psi', 'ω': 'omega'
+    };
+    let out = String(value || '').toLowerCase().normalize('NFKD');
+    out = out.replace(/[α-ω]/g, m => greekMap[m] || m);
+    out = out.replace(/[̀-ͯ]/g, '');
+    out = out
+      .replace(/\balf\b/g, 'alpha')
+      .replace(/\bbet\b/g, 'beta')
+      .replace(/\bgam\b/g, 'gamma')
+      .replace(/\bdel\b/g, 'delta')
+      .replace(/\beps\b/g, 'epsilon')
+      .replace(/\bzet\b/g, 'zeta')
+      .replace(/\bet[a]?\b/g, 'eta')
+      .replace(/\bkap\b/g, 'kappa')
+      .replace(/\blam\b/g, 'lambda')
+      .replace(/\bmu\b/g, 'mu')
+      .replace(/\bnu\b/g, 'nu')
+      .replace(/\bxi\b/g, 'xi')
+      .replace(/\bomi\b/g, 'omicron')
+      .replace(/\bpi\b/g, 'pi')
+      .replace(/\brho\b/g, 'rho')
+      .replace(/\bsig\b/g, 'sigma')
+      .replace(/\btau\b/g, 'tau')
+      .replace(/\bups\b/g, 'upsilon')
+      .replace(/\bphi\b/g, 'phi')
+      .replace(/\bchi\b/g, 'chi')
+      .replace(/\bpsi\b/g, 'psi')
+      .replace(/\bome\b/g, 'omega');
+    return out.replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+// expand a search like rigel into related designation searches too
+function expandedSearchQueries(q) {
+    const out = new Set([q]);
+    for (const [canonical, aliases] of Object.entries(STAR_SEARCH_ALIASES)) {
+      const normalizedAliases = aliases.map(normalizeSearchText);
+      if (q === canonical || normalizedAliases.includes(q)) {
+        out.add(canonical);
+        normalizedAliases.forEach(v => out.add(v));
+      }
+    }
+    return out;
+  }
+
+
+// helpers for reading superscript digits in star designations
+const SUPERSCRIPT_DIGIT_MAP = {
+  '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+  '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
+};
+
+// greek letter lookup data for bayer names
+const GREEK_LETTER_DATA = [
+  { word: 'Alpha', normalized: 'alpha', short: 'Alf', symbol: 'α' },
+  { word: 'Beta', normalized: 'beta', short: 'Bet', symbol: 'β' },
+  { word: 'Gamma', normalized: 'gamma', short: 'Gam', symbol: 'γ' },
+  { word: 'Delta', normalized: 'delta', short: 'Del', symbol: 'δ' },
+  { word: 'Epsilon', normalized: 'epsilon', short: 'Eps', symbol: 'ε' },
+  { word: 'Zeta', normalized: 'zeta', short: 'Zet', symbol: 'ζ' },
+  { word: 'Eta', normalized: 'eta', short: 'Eta', symbol: 'η' },
+  { word: 'Theta', normalized: 'theta', short: 'The', symbol: 'θ' },
+  { word: 'Iota', normalized: 'iota', short: 'Iot', symbol: 'ι' },
+  { word: 'Kappa', normalized: 'kappa', short: 'Kap', symbol: 'κ' },
+  { word: 'Lambda', normalized: 'lambda', short: 'Lam', symbol: 'λ' },
+  { word: 'Mu', normalized: 'mu', short: 'Mu', symbol: 'μ' },
+  { word: 'Nu', normalized: 'nu', short: 'Nu', symbol: 'ν' },
+  { word: 'Xi', normalized: 'xi', short: 'Xi', symbol: 'ξ' },
+  { word: 'Omicron', normalized: 'omicron', short: 'Omi', symbol: 'ο' },
+  { word: 'Pi', normalized: 'pi', short: 'Pi', symbol: 'π' },
+  { word: 'Rho', normalized: 'rho', short: 'Rho', symbol: 'ρ' },
+  { word: 'Sigma', normalized: 'sigma', short: 'Sig', symbol: 'σ' },
+  { word: 'Tau', normalized: 'tau', short: 'Tau', symbol: 'τ' },
+  { word: 'Upsilon', normalized: 'upsilon', short: 'Ups', symbol: 'υ' },
+  { word: 'Phi', normalized: 'phi', short: 'Phi', symbol: 'φ' },
+  { word: 'Chi', normalized: 'chi', short: 'Chi', symbol: 'χ' },
+  { word: 'Psi', normalized: 'psi', short: 'Psi', symbol: 'ψ' },
+  { word: 'Omega', normalized: 'omega', short: 'Ome', symbol: 'ω' }
+];
+
+// fast lookup maps built from the greek data n official alias data
+const GREEK_LETTER_BY_NORMALIZED = new Map(GREEK_LETTER_DATA.map(entry => [entry.normalized, entry]));
+const OFFICIAL_STAR_ALIAS_LOOKUP = buildOfficialStarAliasLookup();
+
+// turn the giant alias list into a quick lookup map
+function buildOfficialStarAliasLookup() {
+  const map = new Map();
+  for (const [label, aliases] of OFFICIAL_STAR_NAME_ENTRIES) {
+    map.set(normalizeSearchText(label), Array.from(new Set([label, ...(aliases || [])])));
+  }
+  return map;
+}
+
+// clean weird unicode spacing dashes n superscripts from catalog text
+function cleanAstronomyText(value) {
+  return String(value || '')
+    .replace(/[   -‍  　]/g, ' ')
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, ch => SUPERSCRIPT_DIGIT_MAP[ch] || ch)
+    .replace(/[–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// get the full constellation name from an abbreviation
+function constellationFullNameFromAbbr(abbr) {
+  return dataStore.constellationByAbbr.get(abbr) || '';
+}
+
+// get the genitive constellation form for designation names
+function constellationGenitiveFromAbbr(abbr) {
+  return dataStore.constellationGenitiveByAbbr.get(abbr) || constellationFullNameFromAbbr(abbr) || '';
+}
+
+// build constellation lookup tables from the loaded constellation dataset
+function buildConstellationLookup() {
+  const lookup = new Map();
+  dataStore.constellationByAbbr = new Map();
+  dataStore.constellationGenitiveByAbbr = new Map();
+  for (const c of dataStore.constellationLabels) {
+    if (!c.abbr) continue;
+    dataStore.constellationByAbbr.set(c.abbr, c.name);
+    dataStore.constellationGenitiveByAbbr.set(c.abbr, c.genitive || c.name);
+    [c.abbr, c.name, c.genitive, c.english].filter(Boolean).forEach(value => {
+      lookup.set(normalizeSearchText(value), c.abbr);
+    });
+  }
+  lookup.set(normalizeSearchText('Serpentis Caput'), 'Ser');
+  lookup.set(normalizeSearchText('Serpentis Cauda'), 'Ser');
+  lookup.set(normalizeSearchText('Serpens Caput'), 'Ser');
+  lookup.set(normalizeSearchText('Serpens Cauda'), 'Ser');
+  dataStore.constellationLookup = lookup;
+  dataStore.constellationLookupKeys = [...lookup.keys()].sort((a, b) => b.length - a.length);
+}
+
+// pull a constellation abbreviation out of a designation string
+function extractConstellationAbbrFromText(value) {
+  const normalized = normalizeSearchText(cleanAstronomyText(value));
+  if (!normalized) return '';
+  for (const key of dataStore.constellationLookupKeys) {
+    if (normalized === key || normalized.endsWith(` ${key}`) || normalized.includes(` ${key} `)) {
+      return dataStore.constellationLookup.get(key) || '';
+    }
+  }
+  return '';
+}
+
+// guess the constellation from the best designation fields we have
+function inferConstellationAbbrFromNameInfo(nameInfo) {
+  if (!nameInfo) return '';
+  return extractConstellationAbbrFromText(nameInfo.bayer)
+    || extractConstellationAbbrFromText(nameInfo.flam)
+    || extractConstellationAbbrFromText(nameInfo.desig)
+    || extractConstellationAbbrFromText(nameInfo.var)
+    || '';
+}
+
+// detect raw catalog style ids so they dont show up to users
+function isRawCatalogLikeName(value) {
+  const normalized = normalizeSearchText(cleanAstronomyText(value));
+  if (!normalized) return false;
+  return /^(gaia( dr\d+)?|hip|hd|hr|tyc|gsc|tic|ucac|2mass|sao|bd|cd|cpd|ppm|ltt|lft|lhs|nltt|wisea|iras|toi|epic|fk5|ccdm|ads|wds)/.test(normalized);
+}
+
+// pick a quiet internal catalog id only when we really need one
+function chooseInternalCatalogName(star) {
+  const info = star.nameInfo || {};
+  const hip = info.hip || star.hipId;
+  if (hip) return `HIP ${hip}`;
+  if (info.hd) return `HD ${info.hd}`;
+  return `Star ${star.index + 1}`;
+}
+
+// normalize designation text before trying to parse it
+function preparedDesignationText(value) {
+  return normalizeSearchText(cleanAstronomyText(value))
+    .replace(/([a-z])([0-9]+)/g, '$1 $2')
+    .replace(/([0-9])([a-z]+)/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// parse bayer designations like alpha ori or beta1 sco
+function parseBayerInfo(value, fallbackConstellationAbbr = '') {
+  const raw = cleanAstronomyText(value);
+  const prepared = preparedDesignationText(raw);
+  if (!prepared) return null;
+  const match = prepared.match(/(alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)(?:\s+([0-9]+))?/i);
+  if (!match) return null;
+  const constellationAbbr = extractConstellationAbbrFromText(raw) || fallbackConstellationAbbr || '';
+  const greekNormalized = match[1].toLowerCase();
+  const greekEntry = GREEK_LETTER_BY_NORMALIZED.get(greekNormalized);
+  if (!greekEntry) return null;
+  return {
+    greekWord: greekEntry.word,
+    greekNormalized,
+    suffix: match[2] || '',
+    constellationAbbr
+  };
+}
+
+// turn parsed bayer data into a user facing name
+function formatBayerDisplayName(info) {
+  if (!info) return '';
+  const genitive = constellationGenitiveFromAbbr(info.constellationAbbr);
+  return genitive ? `${info.greekWord}${info.suffix || ''} ${genitive}` : `${info.greekWord}${info.suffix || ''}`;
+}
+
+// build search aliases for the bayer designation forms
+function buildBayerAliasStrings(info) {
+  if (!info || !info.constellationAbbr) return [];
+  const greekEntry = GREEK_LETTER_BY_NORMALIZED.get(info.greekNormalized);
+  const suffix = info.suffix || '';
+  const suffixSpaced = info.suffix ? ` ${info.suffix}` : '';
+  const genitive = constellationGenitiveFromAbbr(info.constellationAbbr);
+  const full = constellationFullNameFromAbbr(info.constellationAbbr);
+  return [
+    genitive && `${greekEntry.word}${suffix} ${genitive}`,
+    genitive && `${greekEntry.word}${suffixSpaced} ${genitive}`,
+    full && `${greekEntry.word}${suffix} ${full}`,
+    full && `${greekEntry.word}${suffixSpaced} ${full}`,
+    `${greekEntry.word}${suffix} ${info.constellationAbbr}`,
+    `${greekEntry.word}${suffixSpaced} ${info.constellationAbbr}`,
+    `${greekEntry.short}${suffix} ${info.constellationAbbr}`,
+    `${greekEntry.short}${suffixSpaced} ${info.constellationAbbr}`,
+    `${greekEntry.symbol}${suffix} ${info.constellationAbbr}`,
+    `${greekEntry.symbol}${suffixSpaced} ${info.constellationAbbr}`,
+    genitive && `${greekEntry.symbol}${suffix} ${genitive}`,
+    genitive && `${greekEntry.symbol}${suffixSpaced} ${genitive}`
+  ].filter(Boolean);
+}
+
+// parse flamsteed designations like 51 peg
+function parseFlamsteedInfo(value, fallbackConstellationAbbr = '') {
+  const raw = cleanAstronomyText(value);
+  const prepared = preparedDesignationText(raw);
+  if (!prepared || isRawCatalogLikeName(prepared)) return null;
+  const numberMatch = prepared.match(/^([0-9]{1,3})/);
+  if (!numberMatch) return null;
+  const constellationAbbr = extractConstellationAbbrFromText(raw) || fallbackConstellationAbbr || '';
+  return { number: numberMatch[1], constellationAbbr };
+}
+
+// turn parsed flamsteed data into a user facing name
+function formatFlamsteedDisplayName(info) {
+  if (!info) return '';
+  const genitive = constellationGenitiveFromAbbr(info.constellationAbbr);
+  return genitive ? `${info.number} ${genitive}` : `${info.number}`;
+}
+
+// build search aliases for the flamsteed forms
+function buildFlamsteedAliasStrings(info) {
+  if (!info || !info.constellationAbbr) return [];
+  const genitive = constellationGenitiveFromAbbr(info.constellationAbbr);
+  const full = constellationFullNameFromAbbr(info.constellationAbbr);
+  return [
+    genitive && `${info.number} ${genitive}`,
+    full && `${info.number} ${full}`,
+    `${info.number} ${info.constellationAbbr}`
+  ].filter(Boolean);
+}
+
+// soft fallback names so users never just see raw catalog ids
+function buildSoftStarFallbackName(constellationName) {
+  return constellationName ? `Unnamed star in ${constellationName}` : 'Unnamed star';
+}
+
+// build the search alias list separate from the display name
+function buildStarAliasesFromResolvedData(resolved) {
+  const set = new Set();
+  const add = value => {
+    const text = cleanAstronomyText(value);
+    if (text) set.add(text);
+  };
+  const info = resolved.star.nameInfo || {};
+
+  [
+    resolved.displayName,
+    resolved.properName,
+    resolved.bayerName,
+    resolved.flamsteedName,
+    resolved.designationName,
+    resolved.catalogName,
+    info.name,
+    info.desig,
+    info.bayer,
+    info.flam,
+    info.var,
+    info.gliese
+  ].filter(Boolean).forEach(add);
+
+  if (info.hip || resolved.star.hipId) {
+    add(`HIP ${info.hip || resolved.star.hipId}`);
+    add(`Hip ${info.hip || resolved.star.hipId}`);
+  }
+  if (info.hd) add(`HD ${info.hd}`);
+  if (info.hr) add(`HR ${info.hr}`);
+  if (info.tyc) add(`TYC ${info.tyc}`);
+
+  buildBayerAliasStrings(resolved.bayerInfo).forEach(add);
+  buildFlamsteedAliasStrings(resolved.flamInfo).forEach(add);
+
+  if (resolved.constellationName) {
+    add(`Star in ${resolved.constellationName}`);
+    add(buildSoftStarFallbackName(resolved.constellationName));
+  }
+
+  const canonical = normalizeSearchText(resolved.properName || resolved.bayerName || resolved.flamsteedName || resolved.displayName);
+  if (STAR_SEARCH_ALIASES[canonical]) STAR_SEARCH_ALIASES[canonical].forEach(add);
+  if (EXTRA_MAJOR_STAR_LABELS[canonical]) EXTRA_MAJOR_STAR_LABELS[canonical].forEach(add);
+  if (OFFICIAL_STAR_ALIAS_LOOKUP.get(canonical)) OFFICIAL_STAR_ALIAS_LOOKUP.get(canonical).forEach(add);
+
+  const anchor = CONSTELLATION_ANCHOR_STARS[resolved.constellationAbbr];
+  if (anchor && normalizeSearchText(anchor.label) === canonical) {
+    add(anchor.label);
+    (anchor.aliases || []).forEach(add);
+  }
+
+  return Array.from(set);
+}
+
+// small default fact string for stars
+function buildStarFact(star) {
+  const visibleName = star.properName || star.bayerName || star.flamsteedName || star.displayName || star.catalogName || 'This star';
+  const where = star.constellationName ? ` in ${star.constellationName}` : '';
+  return `${visibleName} is a star${where} in the live sky.`;
+}
+
+// main star naming resolver with the proper name then bayer then flamsteed priority
+function resolveBestStarNameContext(star, forcedConstellationAbbr = '') {
+  const info = star.nameInfo || {};
+  const resolvedConstellationAbbr = forcedConstellationAbbr || star.constellationAbbr || inferConstellationAbbrFromNameInfo(info) || '';
+  const constellationName = constellationFullNameFromAbbr(resolvedConstellationAbbr) || '';
+  const constellationGenitive = constellationGenitiveFromAbbr(resolvedConstellationAbbr) || '';
+
+  const properName = info.name && !isRawCatalogLikeName(info.name) ? cleanAstronomyText(info.name) : '';
+
+  const bayerInfo = parseBayerInfo(info.bayer, resolvedConstellationAbbr)
+    || (!info.bayer && info.desig && !isRawCatalogLikeName(info.desig) ? parseBayerInfo(info.desig, resolvedConstellationAbbr) : null);
+  const flamInfo = parseFlamsteedInfo(info.flam, resolvedConstellationAbbr)
+    || (!info.flam && info.desig && !isRawCatalogLikeName(info.desig) ? parseFlamsteedInfo(info.desig, resolvedConstellationAbbr) : null);
+
+  const bayerName = formatBayerDisplayName(bayerInfo);
+  const flamsteedName = formatFlamsteedDisplayName(flamInfo);
+  const designationName = info.desig && !isRawCatalogLikeName(info.desig) ? cleanAstronomyText(info.desig) : '';
+  const catalogName = chooseInternalCatalogName(star);
+  const labelName = properName || bayerName || flamsteedName || '';
+  const displayName = properName || bayerName || flamsteedName || buildSoftStarFallbackName(constellationName);
+
+  const resolved = {
+    displayName,
+    name: displayName,
+    properName,
+    bayerName,
+    flamsteedName,
+    designationName,
+    catalogName,
+    labelName,
+    constellationAbbr: resolvedConstellationAbbr,
+    constellationName,
+    constellationGenitive,
+    bayerInfo,
+    flamInfo
+  };
+  resolved.aliases = buildStarAliasesFromResolvedData({ ...resolved, star });
+  return resolved;
+}
+
+// wrap longitudes so constellation boundary tests stay stable
+function normalizeLonNear(lon, refLon) {
+  let value = Number(lon) || 0;
+  while (value - refLon > 180) value -= 360;
+  while (value - refLon < -180) value += 360;
+  return value;
+}
+
+// point in polygon test for constellation boundary matching
+function pointInPolygonLonLat(lonDeg, latDeg, ring) {
+  let inside = false;
+  const x = Number(lonDeg) || 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = normalizeLonNear(ring[i].lon, x);
+    const yi = ring[i].lat;
+    const xj = normalizeLonNear(ring[j].lon, x);
+    const yj = ring[j].lat;
+    const intersects = ((yi > latDeg) !== (yj > latDeg)) && (x < ((xj - xi) * (latDeg - yi)) / ((yj - yi) || 1e-12) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+// find a star constellation from the official boundary polygons
+function resolveConstellationByBounds(lonDeg, latDeg) {
+  for (const boundary of dataStore.constellationBounds) {
+    for (const ring of boundary.rings) {
+      if (pointInPolygonLonLat(lonDeg, latDeg, ring)) return boundary.abbr;
+    }
+  }
+  return '';
+}
+
+// patch in missing constellation info before a star gets shown
+function ensureStarConstellationResolved(star) {
+  if (!star || star.kind !== 'star') return star;
+  if (!star.constellationAbbr && dataStore.constellationBounds.length && Number.isFinite(star.sourceLonDeg) && Number.isFinite(star.sourceLatDeg)) {
+    const abbr = resolveConstellationByBounds(star.sourceLonDeg, star.sourceLatDeg);
+    if (abbr) Object.assign(star, resolveBestStarNameContext(star, abbr));
+  }
+  if (!star.fact) star.fact = buildStarFact(star);
+  return star;
+}
+
+// make sure selected objects have their latest resolved data
+function ensureObjectReady(obj) {
+  if (!obj) return obj;
+  if (obj.kind === 'star') return ensureStarConstellationResolved(obj);
+  return obj;
+}
+
+// return the final alias list for a star
+function starAliases(star) {
+  if (Array.isArray(star.aliases) && star.aliases.length) return star.aliases;
+  return buildStarAliasesFromResolvedData({
+    star,
+    displayName: star.displayName || star.name || '',
+    properName: star.properName || star.proper || '',
+    bayerName: star.bayerName || '',
+    flamsteedName: star.flamsteedName || '',
+    designationName: star.designationName || star.design || '',
+    catalogName: star.catalogName || chooseInternalCatalogName(star),
+    constellationAbbr: star.constellationAbbr || '',
+    constellationName: star.constellationName || constellationFullNameFromAbbr(star.constellationAbbr) || '',
+    constellationGenitive: star.constellationGenitive || constellationGenitiveFromAbbr(star.constellationAbbr) || '',
+    bayerInfo: star.bayerInfo || parseBayerInfo(star.bayerName || star.design || '', star.constellationAbbr || ''),
+    flamInfo: star.flamInfo || parseFlamsteedInfo(star.flamsteedName || star.design || '', star.constellationAbbr || '')
+  });
+}
+
+// pick the best anchor star to label for each constellation
+function buildLabeledConstellationStars() {
+  const bestByConst = new Map();
+  for (const star of dataStore.stars) {
+    if (!star.constellationAbbr || !star.labelName) continue;
+    const anchor = CONSTELLATION_ANCHOR_STARS[star.constellationAbbr];
+    const aliases = new Set((star.aliases || []).map(normalizeSearchText));
+    const isRequestedAnchor = !!anchor && (aliases.has(normalizeSearchText(anchor.label)) || (anchor.aliases || []).some(alias => aliases.has(normalizeSearchText(alias))));
+    const hasProperName = !!star.properName;
+    const hasDesignationLabel = !!(star.bayerName || star.flamsteedName);
+    const candidateScore = [isRequestedAnchor ? 0 : 1, hasProperName ? 0 : 1, hasDesignationLabel ? 0 : 1, Number.isFinite(star.mag) ? star.mag : 99];
+    const current = bestByConst.get(star.constellationAbbr);
+    if (!current || candidateScore[0] < current.score[0] || (candidateScore[0] === current.score[0] && (candidateScore[1] < current.score[1] || (candidateScore[1] === current.score[1] && (candidateScore[2] < current.score[2] || (candidateScore[2] === current.score[2] && candidateScore[3] < current.score[3])))))) {
+      bestByConst.set(star.constellationAbbr, { score: candidateScore, star });
+    }
+  }
+  dataStore.labeledConstellationStars = new Set([...bestByConst.values()].map(entry => entry.star.uid));
+}
+
+// turn the starnames catalog into a hip id lookup map
+function parseStarNamesCatalog(json) {
+  return new Map(Object.entries(json || {}).map(([hipId, info]) => [String(hipId), info || {}]));
+}
+
+// parse constellation boundary polygons for fallback constellation detection
+function parseConstellationBounds(json) {
+  const feats = json.features || [];
+  return feats.map(f => {
+    const type = f.geometry?.type;
+    const polygons = [];
+    if (type === 'Polygon') polygons.push(f.geometry?.coordinates || []);
+    if (type === 'MultiPolygon') polygons.push(...(f.geometry?.coordinates || []));
+    const rings = polygons.map(poly => (poly?.[0] || []).map(coord => ({ lon: Number(coord?.[0]) || 0, lat: Number(coord?.[1]) || 0 }))).filter(ring => ring.length >= 3);
+    return { abbr: f.id || f.properties?.desig || '', rings };
+  }).filter(entry => entry.abbr && entry.rings.length);
+}
+
+// merge stars.8 geojson with the star name catalog n resolve user facing names
+function parseStarsGeoJSON(json, starNameCatalog) {
+  const feats = json.features || [];
+  return feats.map((f, i) => {
+    const p = f.properties || {};
+    const coords = f.geometry?.coordinates || [0, 0];
+    const lonDeg = Number(coords[0]) || 0;
+    const latDeg = Number(coords[1]) || 0;
+    const { raHours, decDeg } = geoToRaDec(coords);
+    const hipId = String(f.id ?? p.hip ?? p.HIP ?? '').trim();
+    const nameInfo = starNameCatalog.get(hipId) || starNameCatalog.get(String(Number(hipId))) || {};
+    const mag = Number.isFinite(+p.mag) ? +p.mag : (Number.isFinite(+p.vmag) ? +p.vmag : 8.5);
+    const distanceLy = Number.isFinite(+p.dist) ? +p.dist : (Number.isFinite(+p.distance) ? +p.distance : null);
+    const star = {
+      kind: 'star',
+      uid: `star:${hipId || i + 1}`,
+      index: i,
+      hipId,
+      nameInfo,
+      rawProperties: p,
+      sourceLonDeg: lonDeg,
+      sourceLatDeg: latDeg,
+      raHours,
+      decDeg,
+      mag,
+      distanceLy,
+      color: starColorFromBV(+p.bv),
+      constellationAbbr: inferConstellationAbbrFromNameInfo(nameInfo),
+      fact: ''
+    };
+    Object.assign(star, resolveBestStarNameContext(star, star.constellationAbbr));
+    star.fact = buildStarFact(star);
+    return star;
+  }).filter(s => Number.isFinite(s.raHours) && Number.isFinite(s.decDeg));
+}
+
+// parse the official constellation figure lines
+function parseConstellationLines(json) {
+  const feats = json.features || [];
+  return feats.map(f => {
+    const p = f.properties || {};
+    const coords = f.geometry?.coordinates || [];
+    const lines = (f.geometry?.type === 'MultiLineString' ? coords : [coords]).map(line => (line || []).map(geoToRaDec));
+    return {
+      abbr: f.id || p.desig || p.id || p.con || '',
+      name: p.name || p.n || f.id || p.desig || 'Constellation',
+      lines
+    };
+  });
+}
+
+// parse the official constellation names n label positions
+function parseConstellationLabels(json) {
+  const feats = json.features || [];
+  return feats.map(f => {
+    const p = f.properties || {};
+    const loc = p.loc || f.geometry?.coordinates || [0,0];
+    const { raHours, decDeg } = geoToRaDec(loc);
+    return {
+      abbr: f.id || p.desig || p.id || p.con || '',
+      name: p.name || p.n || f.id || p.desig || 'Constellation',
+      genitive: p.gen || p.name || p.n || f.id || p.desig || 'Constellation',
+      english: p.en || p.name || p.n || f.id || p.desig || 'Constellation',
+      raHours, decDeg,
+      rank: p.rank || 3
+    };
+  });
+}
+
+  // parse the milky way polygons for the sky background
+  function parseMilkyWay(json) {
+    const feats = json.features || [];
+    return feats.map(f => {
+      const coords = f.geometry?.coordinates || [];
+      const type = f.geometry?.type;
+      const polys = [];
+      if (type === 'Polygon') polys.push(coords);
+      if (type === 'MultiPolygon') polys.push(...coords);
+      return polys.map(poly => (poly || []).map(ring => (ring || []).map(geoToRaDec)));
+    }).flat();
+  }
+
+
+// parse bright deep sky objects into the app format
+function parseDsos(json) {
+  const feats = json.features || [];
+  return feats.map((f,i) => {
+    const p = f.properties || {};
+    const { raHours, decDeg } = geoToRaDec(f.geometry?.coordinates || [0,0]);
+    const displayName = p.name || p.desig || p.id || `DSO ${i+1}`;
+    return {
+      kind: 'dso',
+      uid: `dso:${p.desig || p.id || i + 1}`,
+      name: displayName,
+      displayName,
+      type: p.type || p.t || 'Deep Sky Object',
+      raHours, decDeg,
+      mag: Number.isFinite(+p.mag) ? +p.mag : 6.5,
+      constellationAbbr: p.con || '',
+      distanceLy: null,
+      fact: `${displayName} is a ${p.type || 'deep sky object'} in the live sky.`
+    };
+  }).filter(d => Number.isFinite(d.raHours) && Number.isFinite(d.decDeg));
+}
+
+
+// build constellation metadata for the info panel n tips
+function buildConstellationMeta() {
+  dataStore.constellationMeta = new Map();
+  dataStore.constellationMetaByAbbr = new Map();
+  dataStore.constellationByAbbr = new Map();
+  dataStore.constellationGenitiveByAbbr = new Map();
+
+  const temp = new Map();
+  for (const c of dataStore.constellationLabels) {
+    const abbr = c.abbr || c.name;
+    temp.set(abbr, {
+      name: c.name,
+      abbr,
+      genitive: c.genitive || c.name,
+      raHours: c.raHours,
+      decDeg: c.decDeg,
+      rank: c.rank,
+      decMin: c.decDeg,
+      decMax: c.decDeg,
+      starMags: []
+    });
+    if (abbr) {
+      dataStore.constellationByAbbr.set(abbr, c.name);
+      dataStore.constellationGenitiveByAbbr.set(abbr, c.genitive || c.name);
+    }
+  }
+
+  for (const c of dataStore.constellationLines) {
+    const key = c.abbr || c.name;
+    const meta = temp.get(key) || {
+      name: dataStore.constellationByAbbr.get(key) || c.name,
+      abbr: key,
+      genitive: dataStore.constellationGenitiveByAbbr.get(key) || dataStore.constellationByAbbr.get(key) || c.name,
+      raHours: 0,
+      decDeg: 0,
+      rank: 3,
+      decMin: 90,
+      decMax: -90,
+      starMags: []
+    };
+    for (const line of c.lines) {
+      for (const pt of line) {
+        meta.decMin = Math.min(meta.decMin, pt.decDeg);
+        meta.decMax = Math.max(meta.decMax, pt.decDeg);
+      }
+    }
+    temp.set(key, meta);
+    if (key) {
+      dataStore.constellationByAbbr.set(key, meta.name);
+      dataStore.constellationGenitiveByAbbr.set(key, meta.genitive || meta.name);
+    }
+  }
+
+  for (const star of dataStore.stars) {
+    if (!star.constellationAbbr) continue;
+    const meta = temp.get(star.constellationAbbr) || {
+      name: star.constellationName || star.constellationAbbr,
+      abbr: star.constellationAbbr,
+      genitive: star.constellationGenitive || star.constellationName || star.constellationAbbr,
+      raHours: star.raHours,
+      decDeg: star.decDeg,
+      rank: 3,
+      decMin: star.decDeg,
+      decMax: star.decDeg,
+      starMags: []
+    };
+    meta.starMags.push(star.mag);
+    if (!meta.raHours) meta.raHours = star.raHours;
+    if (!meta.decDeg) meta.decDeg = star.decDeg;
+    meta.decMin = Math.min(meta.decMin, star.decDeg);
+    meta.decMax = Math.max(meta.decMax, star.decDeg);
+    temp.set(star.constellationAbbr, meta);
+    dataStore.constellationByAbbr.set(star.constellationAbbr, meta.name);
+    dataStore.constellationGenitiveByAbbr.set(star.constellationAbbr, meta.genitive || meta.name);
+  }
+
+  for (const [abbr, meta] of temp) {
+    const family = FAMILY_MAP.get(meta.name) || FAMILY_MAP.get(abbr) || 'Other';
+    const brightest = meta.starMags.length ? Math.min(...meta.starMags) : 3.8;
+    const difficulty = brightest <= 1.5 ? 'Easy' : brightest <= 2.8 ? 'Moderate' : 'Hard';
+    const minLat = clamp(meta.decMin - 90, -90, 90);
+    const maxLat = clamp(meta.decMax + 90, -90, 90);
+    const entry = {
+      fullName: meta.name,
+      genitive: meta.genitive || meta.name,
+      abbr,
+      family,
+      difficulty,
+      bestMonths: bestMonthsFromRA(meta.raHours || 0),
+      season: seasonFromRA(meta.raHours || 0),
+      visibleLatitudes: `${Math.round(maxLat)}°N to ${Math.abs(Math.round(minLat))}°${minLat < 0 ? 'S' : 'N'}`,
+      tips: constellationTips(meta.name),
+      raHours: meta.raHours || 0,
+      decDeg: meta.decDeg || 0
+    };
+    dataStore.constellationMeta.set(entry.fullName, entry);
+    dataStore.constellationMetaByAbbr.set(abbr, entry);
+  }
+}
+
+// one time console inspection so you can see what the raw star records look like
+function logStarDatasetSamples(rawStarsJson) {
+  if (logStarDatasetSamples._done) return;
+  logStarDatasetSamples._done = true;
+  try {
+    const rawSample = (rawStarsJson.features || []).slice(0, 3).map(feature => ({
+      id: feature.id,
+      propertyKeys: Object.keys(feature.properties || {}),
+      properties: feature.properties || {},
+      coordinates: feature.geometry?.coordinates || []
+    }));
+    const namedSample = dataStore.stars.filter(star => star.properName || star.bayerName || star.flamsteedName).slice(0, 5).map(star => ({
+      hipId: star.hipId,
+      displayName: star.displayName,
+      properName: star.properName,
+      bayerName: star.bayerName,
+      flamsteedName: star.flamsteedName,
+      constellationAbbr: star.constellationAbbr
+    }));
+    const unnamedSample = dataStore.stars.filter(star => !star.properName && !star.bayerName && !star.flamsteedName).slice(0, 5).map(star => ({
+      hipId: star.hipId,
+      displayName: star.displayName,
+      catalogName: star.catalogName,
+      constellationAbbr: star.constellationAbbr,
+      mag: star.mag
+    }));
+    console.groupCollapsed('[StellaSim] Star dataset inspection');
+    console.log('Raw stars.8.json sample', rawSample);
+    console.log('Resolved named star sample', namedSample);
+    console.log('Resolved unnamed star sample', unnamedSample);
+    console.groupEnd();
+  } catch (err) {
+    console.warn('[StellaSim] Star dataset inspection logging failed', err);
+  }
+}
+
+// fetch all runtime datasets n build the final working sky data store
+async function loadData() {
+  try {
+    dataStore.status = 'Loading sky datasets…';
+    setInfoEmpty('using official-style star and constellation catalog data');
+    const [starsRes, starNamesRes, linesRes, namesRes, boundsRes, mwRes, dsosRes] = await Promise.all([
+      fetch(DATA_URLS.stars),
+      fetch(DATA_URLS.starNames),
+      fetch(DATA_URLS.constLines),
+      fetch(DATA_URLS.constNames),
+      fetch(DATA_URLS.constBounds),
+      fetch(DATA_URLS.milkyWay),
+      fetch(DATA_URLS.dsos)
+    ]);
+    const [starsJson, starNamesJson, linesJson, namesJson, boundsJson, mwJson, dsosJson] = await Promise.all([
+      starsRes.json(),
+      starNamesRes.json(),
+      linesRes.json(),
+      namesRes.json(),
+      boundsRes.json(),
+      mwRes.json(),
+      dsosRes.json()
+    ]);
+
+    dataStore.constellationLines = parseConstellationLines(linesJson);
+    dataStore.constellationLabels = parseConstellationLabels(namesJson);
+    dataStore.constellationBounds = parseConstellationBounds(boundsJson);
+    dataStore.starNameCatalog = parseStarNamesCatalog(starNamesJson);
+    buildConstellationLookup();
+
+    dataStore.stars = parseStarsGeoJSON(starsJson, dataStore.starNameCatalog);
+    dataStore.milkyWay = parseMilkyWay(mwJson);
+    dataStore.dsos = parseDsos(dsosJson);
+
+    buildConstellationMeta();
+    buildLabeledConstellationStars();
+    logStarDatasetSamples(starsJson);
+
+    state.dataReady = true;
+    dataStore.status = 'No object selected';
+    setInfoEmpty('Click on a star, planet, Sun, or Moon');
+    showToast(`Loaded ${dataStore.stars.length.toLocaleString()} stars and ${dataStore.constellationLines.length} constellation figures.`);
+  } catch (err) {
+    console.error(err);
+    dataStore.status = 'Sky data failed to load';
+    setInfoEmpty('Open this file with internet access so the sky catalogs can load.');
+    showToast(`Sky error: ${err.message || err}` , 5000);
+  }
+}
+
+
+// compute live solar system positions from astronomy engine
+function planetObjects() {
+  const observer = new Astronomy.Observer(state.latitude, state.longitude, 0);
+  return PLANET_NAMES.map(name => {
+    const eq = name === 'Moon'
+      ? Astronomy.Equator(name, state.currentDate, observer, true, true)
+      : Astronomy.Equator(name, state.currentDate, observer, true, true);
+    const hor = Astronomy.Horizon(state.currentDate, observer, eq.ra, eq.dec, 'normal');
+    let distanceAu = Number(eq.dist || 0);
+    if (name === 'Moon' && !distanceAu) {
+      const vec = Astronomy.GeoVector(name, state.currentDate, true);
+      distanceAu = vec ? vec.Length : 0.00257;
+    }
+    const km = distanceAu * 149597870.7;
+    const ly = km / 9.4607e12;
+    return {
+      kind: 'planet',
+      uid: `planet:${name}`,
+      name,
+      displayName: name,
+      type: name === 'Sun' ? 'Sun' : name === 'Moon' ? 'Moon' : 'Planet',
+      color: PLANET_COLORS[name],
+      raHours: eq.ra,
+      decDeg: eq.dec,
+      alt: hor.altitude,
+      az: normalizeAngleDeg(hor.azimuth),
+      mag: name === 'Sun' ? -26.74 : name === 'Moon' ? -12.6 : null,
+      distanceAu, distanceKm: km, distanceLy: ly,
+      fact: FACTS[name] || `${name} is a solar system object.`
+    };
+  });
+}
+
+// stable object ids for selection n hit testing
+function getObjectId(obj) {
+  if (!obj) return '';
+  return obj.uid || `${obj.kind || 'object'}:${obj.name || obj.displayName || ''}`;
+}
+
+// always prefer the resolved display name for anything user facing
+function getObjectDisplayName(obj) {
+  return obj?.displayName || obj?.name || '—';
+}
+
+  // convert brightness into a draw radius on screen
+  function magnitudeToRadius(mag, isPlanet=false, isDso=false) {
+    if (isPlanet) return 3.2 + clamp((6 - (mag ?? 1)) * 0.18, 0, 2.8);
+    if (isDso) return 2.2 + clamp((6 - mag) * 0.12, 0, 1.4);
+    return clamp(0.7 + (8.2 - mag) * 0.42 * (80 / state.fov), 0.55, 5.2);
+  }
+
+  // small easing helper for below horizon reveal effects
+  function smoothstep01(x) {
+    const t = clamp(x, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  // how much of the below horizon region should be faded in rn
+  function belowHorizonRevealFactor() {
+    const t = smoothstep01((-state.pitch - 0.8) / 8.5);
+    return Math.pow(t, 0.92);
+  }
+
+  // fade objects based on how far below the horizon they are
+  function belowHorizonAlpha(alt) {
+    if (alt >= 0) return 1;
+    const reveal = belowHorizonRevealFactor();
+    if (reveal <= 0.001) return 0;
+    if (reveal >= 0.985) return 1;
+    const altitudeFade = clamp(Math.exp(alt / 28), 0, 1);
+    return clamp(altitudeFade * reveal, 0, 1);
+  }
+
+
+// rule for whether a star is important enough to label on screen
+function shouldShowMajorStarLabel(star) {
+  if (!ui.toggleStarLabels.checked) return false;
+  return !!star.labelName;
+}
+
+  // hide every floating html label before the next render pass
+  function clearLabels() {
+    for (const el of labels.values()) el.style.display = 'none';
+  }
+
+  // create or reuse one floating html label element
+  function ensureLabel(key, text) {
+    if (!labels.has(key)) {
+      const el = document.createElement('div');
+      el.className = 'sky-label';
+      labelLayer.appendChild(el);
+      labels.set(key, el);
+    }
+    const el = labels.get(key);
+    el.textContent = text;
+    return el;
+  }
+
+  // draw the sky background n atmosphere glow
+  function drawBackground() {
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!ui.toggleAtmosphere.checked) return;
+
+    const centerHorizon = projectAltAz(0, state.yaw);
+    const horizonY = centerHorizon ? centerHorizon.y : h * 0.72;
+    const topFadeStart = Math.max(0, horizonY - 300);
+    const topFadeEnd = Math.max(0, horizonY + 8);
+
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, topFadeEnd);
+    skyGrad.addColorStop(0.00, 'rgba(0, 0, 0, 1)');
+    skyGrad.addColorStop(Math.max(0.15, topFadeStart / Math.max(1, topFadeEnd)), 'rgba(2, 5, 12, 1)');
+    skyGrad.addColorStop(Math.max(0.32, (horizonY - 80) / Math.max(1, topFadeEnd)), 'rgba(7, 16, 34, 0.98)');
+    skyGrad.addColorStop(Math.max(0.55, (horizonY - 15) / Math.max(1, topFadeEnd)), 'rgba(6, 22, 58, 0.92)');
+    skyGrad.addColorStop(1.00, 'rgba(11, 61, 145, 0.72)');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, topFadeEnd);
+
+    const glow = ctx.createRadialGradient(w / 2, horizonY + 20, 0, w / 2, horizonY + 20, Math.max(w, h) * 0.55);
+    glow.addColorStop(0, 'rgba(47, 124, 255, 0.12)');
+    glow.addColorStop(0.30, 'rgba(11, 61, 145, 0.08)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, Math.max(0, horizonY + 120));
+  }
+
+  // draw the milky way overlay
+  function drawMilkyWay() {
+    if (!ui.toggleMilkyWay.checked) return;
+    ctx.save();
+    for (const poly of dataStore.milkyWay) {
+      for (const ring of poly) {
+        let started = false;
+        let visiblePts = [];
+        ctx.beginPath();
+        for (const pt of ring) {
+          const horiz = eqToAltAz(pt.raHours, pt.decDeg, state.currentDate, state.latitude, state.longitude);
+          const proj = projectAltAz(horiz.alt, horiz.az);
+          if (!proj) { started = false; continue; }
+          visiblePts.push(horiz.alt);
+          if (!started) { ctx.moveTo(proj.x, proj.y); started = true; }
+          else ctx.lineTo(proj.x, proj.y);
+        }
+        if (started && visiblePts.length) {
+          const avgAlpha = visiblePts.reduce((a,b)=>a+belowHorizonAlpha(b),0) / visiblePts.length;
+          if (avgAlpha > 0.01) {
+            ctx.fillStyle = `rgba(47, 124, 255, ${0.06 * avgAlpha})`;
+            ctx.strokeStyle = `rgba(111, 165, 255, ${0.13 * avgAlpha})`;
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // draw the horizon line n the ground fade
+  function drawHorizonAndGround() {
+    const reveal = belowHorizonRevealFactor();
+
+    if (ui.toggleGround.checked && reveal > 0.01) {
+      ctx.save();
+      const topY = lerp(canvas.height + 20, canvas.height * 0.72, reveal);
+      const fade = ctx.createLinearGradient(0, topY, 0, canvas.height);
+      fade.addColorStop(0, `rgba(0, 0, 0, ${0.82 * reveal})`);
+      fade.addColorStop(1, `rgba(0, 0, 0, ${0.00 * reveal})`);
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, topY, canvas.width, canvas.height - topY + 4);
+      ctx.restore();
+    }
+
+    const pts = [];
+    for (let az = 0; az <= 360; az += 2) {
+      const p = projectAltAz(0, az);
+      if (p) pts.push(p);
+    }
+    if (!pts.length) return;
+
+    if (ui.toggleGround.checked) {
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 0, 0, ${lerp(1.0, 0.0, reveal)})`;
+      ctx.beginPath();
+      let first = true;
+      for (const p of pts) {
+        if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (ui.toggleHorizon.checked) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(47, 124, 255, ${0.78 + reveal * 0.17})`;
+      ctx.lineWidth = 1.35;
+      ctx.beginPath();
+      let first = true;
+      for (const p of pts) {
+        if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+
+  // shared line drawer for grids n sky curves
+  function drawPolylineAltAz(points, alpha, width=0.9) {
+    let started = false;
+    ctx.save();
+    ctx.strokeStyle = `rgba(47, 124, 255, ${alpha})`;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (const pt of points) {
+      const p = projectAltAz(pt.alt, pt.az);
+      if (!p) { started = false; continue; }
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+      else ctx.lineTo(p.x, p.y);
+    }
+    if (started) ctx.stroke();
+    ctx.restore();
+  }
+
+  // draw none azimuthal or equatorial grid modes
+  function drawGrid() {
+    if (state.gridMode === 'none') return;
+    const reveal = Math.max(0.18, belowHorizonRevealFactor());
+    const alpha = 0.34 * reveal;
+    if (state.gridMode === 'azimuthal') {
+      for (let az = 0; az < 360; az += 15) {
+        const pts = [];
+        for (let alt = -80; alt <= 80; alt += 2) pts.push({ alt, az });
+        drawPolylineAltAz(pts, alpha, az % 45 === 0 ? 1.0 : 0.7);
+      }
+      for (let alt = -75; alt <= 75; alt += 15) {
+        const pts = [];
+        for (let az = 0; az <= 360; az += 2) pts.push({ alt, az });
+        drawPolylineAltAz(pts, alpha, alt === 0 ? 1.0 : 0.7);
+      }
+      return;
+    }
+
+    for (let ra = 0; ra < 24; ra += 1) {
+      const pts = [];
+      for (let dec = -85; dec <= 85; dec += 2) {
+        const horiz = eqToAltAz(ra, dec, state.currentDate, state.latitude, state.longitude);
+        pts.push(horiz);
+      }
+      drawPolylineAltAz(pts, alpha, ra % 3 === 0 ? 1.0 : 0.7);
+    }
+    for (let dec = -75; dec <= 75; dec += 15) {
+      const pts = [];
+      for (let ra = 0; ra <= 24; ra += 0.125) {
+        const horiz = eqToAltAz(ra, dec, state.currentDate, state.latitude, state.longitude);
+        pts.push(horiz);
+      }
+      drawPolylineAltAz(pts, alpha, dec === 0 ? 1.0 : 0.7);
+    }
+  }
+
+  // draw the n e s w markers
+  function drawCardinals() {
+    if (!ui.toggleCardinals.checked) return;
+    const defs = [ ['N',0], ['E',90], ['S',180], ['W',270] ];
+    for (const [name, az] of defs) {
+      const p = projectAltAz(0.8, az);
+      if (!p) continue;
+      ctx.save();
+      ctx.fillStyle = 'rgba(47, 124, 255, 0.95)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2);
+      ctx.fill();
+      const label = ensureLabel(`cardinal:${name}`, name);
+      label.style.display = 'block';
+      label.style.left = `${p.x}px`;
+      label.style.top = `${p.y - 11}px`;
+      label.style.color = 'rgba(111, 165, 255, 0.95)';
+      label.style.fontSize = '13px';
+      label.style.fontWeight = '700';
+      label.classList.remove('selected');
+      ctx.restore();
+    }
+  }
+
+  // draw the constellation figure lines
+  function drawConstellations() {
+    if (!ui.toggleConstellationLines.checked) return;
+    ctx.save();
+    ctx.lineWidth = 1.2;
+    for (const c of dataStore.constellationLines) {
+      for (const line of c.lines) {
+        let started = false;
+        let alts = [];
+        ctx.beginPath();
+        for (const pt of line) {
+          const horiz = eqToAltAz(pt.raHours, pt.decDeg, state.currentDate, state.latitude, state.longitude);
+          const p = projectAltAz(horiz.alt, horiz.az);
+          if (!p) { started = false; continue; }
+          alts.push(horiz.alt);
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+          else ctx.lineTo(p.x, p.y);
+        }
+        if (started && alts.length) {
+          const alpha = alts.reduce((a,b)=>a+belowHorizonAlpha(b),0) / alts.length;
+          if (alpha > 0.01) {
+            ctx.strokeStyle = `rgba(111, 165, 255, ${0.76 * alpha})`;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // draw constellation names on the sky
+  function drawConstellationLabels() {
+
+    if (!ui.toggleConstellationLabels.checked) return;
+    for (const c of dataStore.constellationLabels) {
+      const horiz = eqToAltAz(c.raHours, c.decDeg, state.currentDate, state.latitude, state.longitude);
+      const p = projectAltAz(horiz.alt, horiz.az);
+      const label = ensureLabel(`const:${c.abbr||c.name}`, c.name);
+      if (!p) { label.style.display = 'none'; continue; }
+      label.style.display = 'block';
+      label.style.left = `${p.x}px`;
+      label.style.top = `${p.y}px`;
+      label.style.color = 'rgba(111, 165, 255, 0.90)';
+      label.style.fontSize = '11px';
+      label.style.textTransform = 'uppercase';
+      label.style.letterSpacing = '0.06em';
+      label.style.textShadow = '0 0 8px rgba(11, 61, 145, 0.9)';
+      label.classList.remove('selected');
+    }
+  }
+
+
+// draw stars dsos n planets plus labels n hit targets
+function drawPoints() {
+  dataStore.renderHits = [];
+
+  const objectFilter = state.objectFilter;
+  const starsAllowed = objectFilter === 'all' || objectFilter === 'stars';
+  const planetsAllowed = objectFilter === 'all' || objectFilter === 'planets';
+  const selectedId = getObjectId(dataStore.selected);
+
+  if (starsAllowed) {
+    for (const star of dataStore.stars) {
+      if (star.mag > state.magnitudeLimit) continue;
+      const horiz = eqToAltAz(star.raHours, star.decDeg, state.currentDate, state.latitude, state.longitude);
+      const p = projectAltAz(horiz.alt, horiz.az);
+      if (!p) continue;
+      const r = magnitudeToRadius(star.mag, false, false);
+      const alpha = belowHorizonAlpha(horiz.alt);
+      const isSelected = selectedId === star.uid;
+      ctx.save();
+      ctx.fillStyle = isSelected ? `rgba(111, 165, 255, ${Math.max(alpha, 0.9)})` : hexToRgba(star.color, alpha);
+      ctx.shadowBlur = isSelected ? r * 8.5 : r * 3.4;
+      ctx.shadowColor = isSelected ? `rgba(47, 124, 255, ${Math.max(alpha, 0.95)})` : hexToRgba(star.color, alpha * 0.85);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, isSelected ? r * 1.15 : r, 0, Math.PI * 2);
+      ctx.fill();
+      if (isSelected) {
+        ctx.strokeStyle = `rgba(111, 165, 255, ${Math.max(alpha, 0.95)})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 2.1, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const majorLabel = shouldShowMajorStarLabel(star);
+      const isAnchor = dataStore.labeledConstellationStars?.has(star.uid);
+      if (majorLabel || isSelected || isAnchor) {
+        const label = ensureLabel(`star:${star.uid}`, star.labelName || star.displayName || star.catalogName || 'Star');
+        const densityThreshold = lerp(3.0, 1.2, 1 - state.labelDensity);
+        const show = !!(star.labelName && (isSelected || isAnchor || (majorLabel && star.mag <= densityThreshold + 0.8)));
+        label.style.display = show ? 'block' : 'none';
+        if (show) {
+          label.style.left = `${p.x}px`;
+          label.style.top = `${p.y - 10}px`;
+          label.style.color = 'rgba(235, 243, 255, 0.92)';
+          label.style.fontSize = '12px';
+          label.style.textTransform = 'none';
+          label.style.letterSpacing = '0';
+          label.classList.toggle('selected', isSelected);
+        }
+      }
+
+      if (r >= 1.0) dataStore.renderHits.push({ obj: star, alt: horiz.alt, az: horiz.az, x: p.x, y: p.y, radius: Math.max(7, r * 4) });
+    }
+  }
+
+  if (ui.toggleDeepSky.checked && starsAllowed) {
+    for (const d of dataStore.dsos) {
+      if (d.mag > Math.max(6.5, state.magnitudeLimit)) continue;
+      const horiz = eqToAltAz(d.raHours, d.decDeg, state.currentDate, state.latitude, state.longitude);
+      const p = projectAltAz(horiz.alt, horiz.az);
+      if (!p) continue;
+      const r = magnitudeToRadius(d.mag, false, true);
+      ctx.save();
+      ctx.strokeStyle = `rgba(164, 195, 255, ${belowHorizonAlpha(horiz.alt) * 0.8})`;
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      if (d.mag <= 4.5) {
+        const label = ensureLabel(`dso:${d.uid}`, d.displayName || d.name);
+        label.style.display = selectedId === d.uid ? 'block' : 'none';
+        if (label.style.display === 'block') {
+          label.style.left = `${p.x}px`;
+          label.style.top = `${p.y - 10}px`;
+          label.classList.add('selected');
+        }
+      }
+      dataStore.renderHits.push({ obj: d, alt: horiz.alt, az: horiz.az, x: p.x, y: p.y, radius: 10 });
+    }
+  }
+
+  if (ui.togglePlanets.checked && planetsAllowed) {
+    for (const pObj of planetObjects()) {
+      const p = projectAltAz(pObj.alt, pObj.az);
+      if (!p) continue;
+      const r = magnitudeToRadius(pObj.mag ?? 1.2, true, false);
+      const isSelected = selectedId === pObj.uid;
+      ctx.save();
+      ctx.fillStyle = isSelected ? '#2f7cff' : pObj.color;
+      ctx.shadowBlur = isSelected ? r * 8 : r * 4;
+      ctx.shadowColor = isSelected ? 'rgba(47, 124, 255, 0.95)' : pObj.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (r + (pObj.name === 'Sun' ? 2.5 : 0)) * (isSelected ? 1.08 : 1), 0, Math.PI*2);
+      ctx.fill();
+      if (isSelected) {
+        ctx.strokeStyle = 'rgba(111, 165, 255, 0.98)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 2.0, 0, Math.PI*2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      const label = ensureLabel(`planet:${pObj.uid}`, pObj.displayName || pObj.name);
+      label.style.display = isSelected ? 'block' : 'none';
+      if (label.style.display === 'block') {
+        label.style.left = `${p.x}px`;
+        label.style.top = `${p.y - 12}px`;
+        label.classList.add('selected');
+      }
+      dataStore.renderHits.push({ obj: pObj, x: p.x, y: p.y, radius: 14 });
+    }
+  }
+}
+
+  // small color helper for star glow rendering
+  function hexToRgba(hex, alpha=1) {
+    const h = hex.replace('#','');
+    const bigint = parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+    const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  // placeholder for extra label cleanup if needed later
+  function clearUnusedLabels() {
+    for (const [key, el] of labels.entries()) {
+      if (el.style.display !== 'block') continue;
+    }
+  }
+
+  // full render pass for one animation frame
+  function render() {
+    resizeCanvas();
+    clearLabels();
+    drawBackground();
+    if (ui.toggleAtmosphere.checked) drawMilkyWay();
+    drawHorizonAndGround();
+    drawGrid();
+    drawConstellations();
+    drawPoints();
+    drawConstellationLabels();
+    drawCardinals();
+    updateInfoPanel();
+    updateSelectedTopName();
+  }
+
+  // keep the canvas matched to the current screen size n dpr
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
+
+// pick the right constellation metadata for the selected object
+function constellationMetaForObject(obj) {
+  const ready = ensureObjectReady(obj);
+  const full = ready?.constellationName || dataStore.constellationByAbbr.get(ready?.constellationAbbr) || ready?.constellation || '—';
+  return dataStore.constellationMetaByAbbr.get(ready?.constellationAbbr)
+    || dataStore.constellationMeta.get(full)
+    || {
+      fullName: full,
+      genitive: full,
+      family: FAMILY_MAP.get(full) || 'Other',
+      difficulty: 'Moderate',
+      bestMonths: 'Varies',
+      season: 'Varies',
+      visibleLatitudes: 'Varies',
+      tips: 'Use nearby bright stars first.'
+    };
+}
+
+  // format distance based on the active distance unit setting
+  function formatDistance(obj) {
+    const unit = state.distanceUnit;
+    if (obj.kind === 'planet') {
+      if (unit === 'au') return `${obj.distanceAu.toFixed(obj.name === 'Moon' ? 5 : 3)} AU`;
+      if (unit === 'km') return `${Math.round(obj.distanceKm).toLocaleString()} km`;
+      return `${obj.distanceLy.toExponential(3)} ly`;
+    }
+    if (obj.distanceLy != null) {
+      if (unit === 'ly') return `${obj.distanceLy.toLocaleString()} ly`;
+      if (unit === 'au') return `${Math.round(obj.distanceLy * 63241.1).toLocaleString()} AU`;
+      return `${(obj.distanceLy * 9.4607e12).toExponential(3)} km`;
+    }
+    return '—';
+  }
+
+
+// update the top selected object pill
+function updateSelectedTopName() {
+  const selected = ensureObjectReady(dataStore.selected);
+  if (!selected) {
+    ui.selectedTopName.style.display = 'none';
+    ui.selectedTopName.textContent = '';
+    return;
+  }
+  ui.selectedTopName.textContent = getObjectDisplayName(selected);
+  ui.selectedTopName.style.display = 'block';
+}
+
+// refresh the right side info panel with live data
+function updateInfoPanel() {
+  const obj = ensureObjectReady(dataStore.selected);
+  if (!obj) {
+    ui.infoName.textContent = dataStore.status;
+    ui.infoType.textContent = state.dataReady ? 'Click on a star, planet, Sun, or Moon' : 'using official-style star and constellation catalog data';
+    return;
+  }
+
+  let live = obj;
+  if (obj.kind === 'star' || obj.kind === 'dso') {
+    const horiz = eqToAltAz(obj.raHours, obj.decDeg, state.currentDate, state.latitude, state.longitude);
+    live = { ...obj, alt: horiz.alt, az: horiz.az };
+  } else if (obj.kind === 'planet') {
+    live = planetObjects().find(p => p.name === obj.name) || obj;
+  }
+
+  const meta = constellationMetaForObject(live);
+  const visibility = computeVisibilityInfo(live.raHours, live.decDeg, state.currentDate, state.latitude, state.longitude);
+
+  ui.infoName.textContent = getObjectDisplayName(live);
+  ui.infoType.textContent = live.kind === 'star' ? 'Star' : live.kind === 'dso' ? live.type : live.type;
+  ui.infoMag.textContent = Number.isFinite(live.mag) ? live.mag.toFixed(2) : '—';
+  ui.infoDistance.textContent = formatDistance(live);
+  ui.infoAlt.textContent = Number.isFinite(live.alt) ? `${live.alt.toFixed(1)}°` : '—';
+  ui.infoAz.textContent = Number.isFinite(live.az) ? `${live.az.toFixed(1)}°` : '—';
+  ui.infoRA.textContent = Number.isFinite(live.raHours) ? hmsFromHours(live.raHours) : '—';
+  ui.infoDec.textContent = Number.isFinite(live.decDeg) ? dmsFromDeg(live.decDeg) : '—';
+  ui.infoVisibility.textContent = visibility.summary;
+  ui.infoRiseSet.textContent = visibility.riseSet;
+  ui.infoConstellation.textContent = meta.fullName || '—';
+  ui.infoFamily.textContent = meta.family || '—';
+  ui.infoDifficulty.textContent = meta.difficulty || '—';
+  ui.infoBestMonths.textContent = meta.bestMonths || '—';
+  ui.infoSeason.textContent = meta.season || '—';
+  ui.infoLatitudes.textContent = meta.visibleLatitudes || '—';
+  ui.infoTips.textContent = meta.tips || '—';
+  ui.infoFact.textContent = live.fact || FACTS[live.name] || 'Live sky data from the active catalog.';
+}
+
+  // snap the target camera heading to a compass direction
+  function animateToHeading(headingDeg, pitchDeg = state.targetPitch) {
+    state.targetYaw = normalizeAngleDeg(headingDeg);
+    state.targetPitch = clamp(pitchDeg, -89, 89);
+  }
+
+  // ease the live camera toward its target yaw pitch n fov
+  function syncCamera() {
+    state.yaw = normalizeAngleDeg(state.yaw + wrapSigned180(state.targetYaw - state.yaw) * 0.16);
+    state.pitch += (state.targetPitch - state.pitch) * 0.16;
+    state.fov += (state.targetFov - state.fov) * 0.18;
+    ui.fovReadout.textContent = `${state.fov.toFixed(0)}°`;
+  }
+
+
+// pick the closest rendered object under the mouse or touch point
+function pickObject(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  let best = null, bestD = Infinity;
+  for (const hit of dataStore.renderHits) {
+    const d = Math.hypot(hit.x - x, hit.y - y);
+    if (d <= hit.radius && d < bestD) { best = hit; bestD = d; }
+  }
+  return best?.obj || null;
+}
+
+// search stars planets n dsos then center the camera on the best match
+function searchAndFocus(query) {
+  const q = normalizeSearchText(query);
+  if (!q) return;
+  const queries = expandedSearchQueries(q);
+
+  const starMatches = [];
+  for (const s of dataStore.stars) {
+    const aliases = (s.aliases || starAliases(s)).map(normalizeSearchText);
+    if (aliases.some(a => queries.has(a))) {
+      starMatches.push({ score: 0, obj: s });
+      continue;
+    }
+    if (aliases.some(a => [...queries].some(q2 => a.startsWith(q2) || q2.startsWith(a)))) {
+      starMatches.push({ score: 1, obj: s });
+      continue;
+    }
+    if (aliases.some(a => [...queries].some(q2 => a.includes(q2) || q2.includes(a)))) {
+      starMatches.push({ score: 2, obj: s });
+    }
+  }
+  starMatches.sort((a, b) => a.score - b.score || (a.obj.mag ?? 99) - (b.obj.mag ?? 99));
+
+  const dsoMatches = [];
+  for (const d of dataStore.dsos) {
+    const aliases = [d.displayName, d.name, d.designation, d.id].filter(Boolean).map(normalizeSearchText);
+    if (aliases.some(a => queries.has(a))) dsoMatches.push({ score: 0, obj: d });
+    else if (aliases.some(a => [...queries].some(q2 => a.startsWith(q2) || q2.startsWith(a)))) dsoMatches.push({ score: 1, obj: d });
+    else if (aliases.some(a => [...queries].some(q2 => a.includes(q2) || q2.includes(a)))) dsoMatches.push({ score: 2, obj: d });
+  }
+  dsoMatches.sort((a, b) => a.score - b.score || (a.obj.mag ?? 99) - (b.obj.mag ?? 99));
+
+  const planetMatches = PLANET_NAMES
+    .map(name => {
+      const n = normalizeSearchText(name);
+      const score = queries.has(n) ? 0 : ([...queries].some(q2 => n.startsWith(q2) || q2.startsWith(n)) ? 1 : ([...queries].some(q2 => n.includes(q2) || q2.includes(n)) ? 2 : 99));
+      return { kind: 'planet', uid: `planet:${name}`, displayName: name, name, score };
+    })
+    .filter(p => p.score < 99)
+    .sort((a, b) => a.score - b.score);
+
+  const best = starMatches[0]?.obj || dsoMatches[0]?.obj || planetMatches[0] || null;
+  if (!best) { showToast(`No object found for "${query}".`); return; }
+  focusObject(best);
+  showToast(`Centered on ${getObjectDisplayName(best)}.`);
+}
+
+// select an object n move the camera toward it
+function focusObject(obj) {
+  if (!obj) return;
+  obj = ensureObjectReady(obj);
+  let live = obj;
+  if (obj.kind === 'star' || obj.kind === 'dso') {
+    const horiz = eqToAltAz(obj.raHours, obj.decDeg, state.currentDate, state.latitude, state.longitude);
+    live = { ...obj, alt: horiz.alt, az: horiz.az };
+  } else if (obj.kind === 'planet') {
+    live = planetObjects().find(p => p.name === obj.name) || obj;
+  }
+  if (Number.isFinite(live.az) && Number.isFinite(live.alt)) {
+    state.targetYaw = normalizeAngleDeg(live.az);
+    state.targetPitch = clamp(live.alt, -89, 89);
+  }
+  dataStore.selected = obj;
+}
+
+  // read the date time n location inputs into live app state
+  function applyTimeLocationFromInputs() {
+    const dateStr = ui.dateInput.value;
+    const timeStr = ui.timeInput.value || '00:00:00';
+    const lat = parseFloat(ui.latInput.value);
+    const lon = parseFloat(ui.lonInput.value);
+    if (!dateStr || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      showToast('Enter a valid date, time, latitude, and longitude.');
+      return;
+    }
+    state.latitude = clamp(lat, -90, 90);
+    state.longitude = clamp(lon, -180, 180);
+    const nextDate = new Date(`${dateStr}T${timeStr}`);
+    if (!Number.isNaN(nextDate.getTime())) state.currentDate = nextDate;
+    ui.latInput.value = state.latitude.toFixed(4);
+    ui.lonInput.value = state.longitude.toFixed(4);
+    showToast('Time and location applied.');
+  }
+
+  // wire up the main ui controls
+  ui.applyDateLocationBtn.addEventListener('click', applyTimeLocationFromInputs);
+  ui.liveTimeBtn.addEventListener('click', () => {
+    state.liveTime = !state.liveTime;
+    ui.liveTimeBtn.textContent = `Live Time: ${state.liveTime ? 'On' : 'Off'}`;
+    if (state.liveTime) { state.currentDate = new Date(); formatLocalInputs(state.currentDate); }
+  });
+  ui.geolocateBtn.addEventListener('click', () => {
+    if (!navigator.geolocation) return showToast('Geolocation is not supported in this browser.');
+    navigator.geolocation.getCurrentPosition(pos => {
+      state.latitude = pos.coords.latitude; state.longitude = pos.coords.longitude;
+      ui.latInput.value = state.latitude.toFixed(4); ui.lonInput.value = state.longitude.toFixed(4);
+      showToast('Using your current location.');
+    }, () => showToast('Could not get your location.'));
+  });
+  ui.headingBtns.forEach(btn => btn.addEventListener('click', () => animateToHeading(parseFloat(btn.dataset.heading), 8)));
+  ui.zenithBtn.addEventListener('click', () => { state.targetPitch = 89; });
+  ui.nadirBtn.addEventListener('click', () => { state.targetPitch = -89; });
+  ui.resetViewBtn.addEventListener('click', () => { state.targetYaw = 0; state.targetPitch = 18; state.targetFov = 70; });
+  ui.magnitudeSlider.addEventListener('input', () => { state.magnitudeLimit = parseFloat(ui.magnitudeSlider.value); ui.magReadout.textContent = state.magnitudeLimit.toFixed(1); });
+  ui.labelDensitySlider.addEventListener('input', () => { state.labelDensity = parseFloat(ui.labelDensitySlider.value); ui.labelDensityReadout.textContent = state.labelDensity.toFixed(2); });
+  ui.objectTypeFilter.addEventListener('change', () => { state.objectFilter = ui.objectTypeFilter.value; });
+  ui.distanceUnitSelect.addEventListener('change', () => { state.distanceUnit = ui.distanceUnitSelect.value; });
+  ui.gridModeSelect.addEventListener('change', () => { state.gridMode = ui.gridModeSelect.value; });
+  ui.searchBtn.addEventListener('click', () => searchAndFocus(ui.searchInput.value));
+  ui.searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchAndFocus(ui.searchInput.value); });
+  ui.clearSelectionBtn.addEventListener('click', () => { dataStore.selected = null; });
+  ui.collapseBtn.addEventListener('click', () => {
+    state.panelCollapsed = !state.panelCollapsed;
+    ui.panelBody.style.display = state.panelCollapsed ? 'none' : 'flex';
+    ui.controlPanel.style.minHeight = state.panelCollapsed ? 'unset' : '240px';
+    ui.controlPanel.style.resize = state.panelCollapsed ? 'none' : 'both';
+    ui.collapseBtn.textContent = state.panelCollapsed ? '+' : '−';
+  });
+
+  // state n handlers for dragging the control panel around
+  let draggingPanel = false;
+  let panelDrag = {x:0,y:0,left:0,top:0};
+  ui.panelHeader.addEventListener('pointerdown', e => {
+    if (e.target === ui.collapseBtn) return;
+    draggingPanel = true;
+    const rect = ui.controlPanel.getBoundingClientRect();
+    panelDrag = { x:e.clientX, y:e.clientY, left:rect.left, top:rect.top };
+    ui.panelHeader.setPointerCapture(e.pointerId);
+  });
+  ui.panelHeader.addEventListener('pointermove', e => {
+    if (!draggingPanel) return;
+    ui.controlPanel.style.left = `${panelDrag.left + (e.clientX - panelDrag.x)}px`;
+    ui.controlPanel.style.top = `${panelDrag.top + (e.clientY - panelDrag.y)}px`;
+    ui.controlPanel.style.right = 'auto';
+    ui.controlPanel.style.bottom = 'auto';
+  });
+  // finish a control panel drag cleanly
+  function endPanelDrag(e){ draggingPanel = false; try { ui.panelHeader.releasePointerCapture(e.pointerId); } catch {} }
+  ui.panelHeader.addEventListener('pointerup', endPanelDrag);
+  ui.panelHeader.addEventListener('pointercancel', endPanelDrag);
+
+  // state n handlers for dragging clicking n zooming the sky canvas
+  let movedDuringDrag = false;
+  canvas.addEventListener('pointerdown', e => {
+    state.isDragging = true;
+    movedDuringDrag = false;
+    state.dragStartX = e.clientX; state.dragStartY = e.clientY;
+    state.dragYaw = state.targetYaw; state.dragPitch = state.targetPitch;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!state.isDragging) return;
+    const dx = e.clientX - state.dragStartX;
+    const dy = e.clientY - state.dragStartY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedDuringDrag = true;
+    state.targetYaw = normalizeAngleDeg(state.dragYaw + dx * 0.18);
+    state.targetPitch = clamp(state.dragPitch - dy * 0.16, -89, 89);
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    canvas.classList.remove('dragging');
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    if (!movedDuringDrag) {
+      const hit = pickObject(e.clientX, e.clientY);
+      dataStore.selected = hit || null;
+    }
+  });
+  canvas.addEventListener('pointercancel', () => { state.isDragging = false; canvas.classList.remove('dragging'); });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); state.targetFov = clamp(state.targetFov + Math.sign(e.deltaY) * 2.4, 25, 100); }, { passive:false });
+  window.addEventListener('resize', resizeCanvas);
+
+  // main animation loop
+  function loop() {
+    requestAnimationFrame(loop);
+    if (state.liveTime) { state.currentDate = new Date(); formatLocalInputs(state.currentDate); }
+    syncCamera();
+    render();
+  }
+
+  // initial ui sync n app startup
+  ui.magReadout.textContent = state.magnitudeLimit.toFixed(1);
+  ui.labelDensityReadout.textContent = state.labelDensity.toFixed(2);
+  if (ui.gridModeSelect) ui.gridModeSelect.value = state.gridMode;
+  ui.fovReadout.textContent = `${state.fov.toFixed(0)}°`;
+  formatLocalInputs(state.currentDate);
+  setInfoEmpty('using official-style star and constellation catalog data');
+  loadData();
+  loop();
+})();
+</script>
+</body>
+</html>

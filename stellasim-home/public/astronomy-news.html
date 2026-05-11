@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>StellaSim ★ Astronomy News</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  <style>
+    :root {
+      --panel-bg: rgba(5, 14, 32, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #07162f;
+      --field-border: rgba(47, 124, 255, 0.42);
+      --field-text: #f4f8ff;
+      --muted: #b8c8e8;
+      --accent: #0b3d91;
+      --accent-2: #2f7cff;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.58);
+      --sidebar-width: 240px;
+      --radius-lg: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.2), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(47, 124, 255, 0.1), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(11, 61, 145, 0.13), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #020816 42%, #000000 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      user-select: none;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 {
+      width: 360px;
+      height: 360px;
+      top: 6%;
+      left: 10%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.24), transparent 72%);
+    }
+
+    .glow-2 {
+      width: 430px;
+      height: 430px;
+      right: 7%;
+      top: 14%;
+      background: radial-gradient(circle, rgba(47, 124, 255, 0.14), transparent 72%);
+      animation-delay: -6s;
+    }
+
+    .glow-3 {
+      width: 380px;
+      height: 380px;
+      left: 48%;
+      bottom: 4%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.16), transparent 74%);
+      animation-delay: -11s;
+    }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle at 35% 35%,
+          rgba(255, 255, 255, 0.96),
+          rgba(160, 190, 255, 0.88) 36%,
+          rgba(47, 124, 255, 0.24) 62%,
+          rgba(11, 61, 145, 0) 76%
+        );
+      box-shadow:
+        0 0 40px rgba(47, 124, 255, 0.16),
+        0 0 95px rgba(11, 61, 145, 0.16);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #000814;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .page-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .page-inner {
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }
+
+    .panel,
+    .hero-card,
+    .apod-card,
+    .featured-card,
+    .controls-card,
+    .status-card,
+    .saved-card,
+    .tool-card,
+    .article-card {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(5, 14, 32, 0.96), rgba(2, 8, 20, 0.94));
+      border: 1px solid rgba(47, 124, 255, 0.22);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.58),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(47, 124, 255, 0.05);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel::after,
+    .hero-card::after,
+    .apod-card::after,
+    .featured-card::after,
+    .controls-card::after,
+    .status-card::after,
+    .saved-card::after,
+    .tool-card::after,
+    .article-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 32%,
+        rgba(255, 255, 255, 0.05) 40%,
+        transparent 49%,
+        transparent 100%
+      );
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 30px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: center;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -150px;
+      top: -170px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(11, 61, 145, 0.2), transparent 65%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.04), transparent 22%);
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .hero-content,
+    .hero-actions,
+    .panel-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(11, 61, 145, 0.2);
+      border: 1px solid rgba(47, 124, 255, 0.24);
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      margin-bottom: 14px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.35rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .hero-title span {
+      color: var(--accent-2);
+      text-shadow:
+        0 0 24px rgba(47, 124, 255, 0.24),
+        0 0 44px rgba(11, 61, 145, 0.2);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 78ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .badge-row,
+    .action-row,
+    .filter-row,
+    .meta-row,
+    .tool-grid,
+    .saved-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      color: var(--accent-2);
+      background: rgba(11, 61, 145, 0.2);
+      border: 1px solid rgba(140, 205, 255, 0.16);
+      animation: badgeGlow 3.8s ease-in-out infinite;
+    }
+
+    .hero-actions {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+    }
+
+    .mascot-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .mascot-chip img {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      filter:
+        drop-shadow(0 0 8px rgba(255, 255, 255, 0.12))
+        drop-shadow(0 0 16px rgba(47, 124, 255, 0.2));
+      animation: brandPulse 4.6s ease-in-out infinite;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(47, 124, 255, 0.32);
+      border-radius: 14px;
+      padding: 11px 16px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.035);
+      transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        border-color 180ms ease,
+        background 180ms ease;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.62), rgba(5, 22, 58, 0.72));
+      border-color: rgba(47, 124, 255, 0.82);
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(47, 124, 255, 0.58);
+      background: rgba(11, 61, 145, 0.28);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.2),
+        0 0 18px rgba(47, 124, 255, 0.18);
+    }
+
+    .btn:disabled {
+      opacity: 0.62;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+      gap: 22px;
+    }
+
+    .apod-card,
+    .featured-card,
+    .controls-card,
+    .status-card,
+    .saved-card,
+    .tool-card {
+      padding: 22px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .apod-card { animation-delay: 90ms; }
+    .featured-card { animation-delay: 150ms; }
+    .controls-card { animation-delay: 210ms; }
+    .status-card { animation-delay: 270ms; }
+    .saved-card { animation-delay: 330ms; }
+    .tool-card { animation-delay: 390ms; }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.28rem;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-subtitle {
+      margin: 7px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      position: relative;
+      z-index: 1;
+    }
+
+    .apod-media {
+      margin-top: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      background:
+        linear-gradient(180deg, rgba(47, 124, 255, 0.055), rgba(255, 255, 255, 0.018)),
+        rgba(0, 8, 20, 0.62);
+      overflow: hidden;
+      min-height: 320px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .apod-media img,
+    .apod-media iframe {
+      width: 100%;
+      min-height: 320px;
+      max-height: 520px;
+      object-fit: cover;
+      border: 0;
+      display: block;
+    }
+
+    .apod-body,
+    .featured-body {
+      margin-top: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .apod-title,
+    .featured-title {
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.3;
+    }
+
+    .apod-text,
+    .featured-text,
+    .article-summary,
+    .saved-summary {
+      color: var(--muted);
+      line-height: 1.62;
+    }
+
+    .controls-form {
+      display: grid;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+      margin-top: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      color: var(--accent-2);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+
+    .input,
+    .select {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background:
+        linear-gradient(180deg, rgba(7, 22, 47, 0.96), rgba(3, 12, 30, 0.96));
+      color: var(--field-text);
+      border-radius: 16px;
+      padding: 13px 14px;
+      outline: none;
+      transition: 160ms ease;
+    }
+
+    .input:focus,
+    .select:focus {
+      border-color: rgba(47, 124, 255, 0.72);
+      box-shadow:
+        0 0 0 3px rgba(11, 61, 145, 0.2),
+        0 0 22px rgba(47, 124, 255, 0.14);
+    }
+
+    .select option {
+      background: #020816;
+      color: var(--field-text);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 180px 160px;
+      gap: 12px;
+    }
+
+    .status-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .status-value {
+      color: var(--field-text);
+      text-align: right;
+    }
+
+    .featured-image {
+      width: 100%;
+      height: 210px;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(11, 61, 145, 0.24), transparent 34%),
+        linear-gradient(180deg, rgba(7, 11, 19, 0.4), rgba(7, 11, 19, 0.72));
+      position: relative;
+      z-index: 1;
+      display: block;
+    }
+
+    .image-fallback {
+      width: 100%;
+      min-height: 190px;
+      border-radius: 18px;
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(11, 61, 145, 0.24), transparent 34%),
+        radial-gradient(circle at 70% 70%, rgba(47, 124, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(7, 11, 19, 0.4), rgba(7, 11, 19, 0.72));
+      display: grid;
+      place-items: center;
+      color: var(--accent-2);
+      text-align: center;
+      padding: 18px;
+    }
+
+    .article-section {
+      display: grid;
+      gap: 16px;
+    }
+
+    .article-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .article-card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100%;
+      animation: cardFloatIn 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        border-color 180ms ease,
+        background 180ms ease;
+    }
+
+    .article-card.saved {
+      border-color: rgba(47, 124, 255, 0.5);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.58),
+        0 0 22px rgba(47, 124, 255, 0.14);
+    }
+
+    .article-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(47, 124, 255, 0.44);
+      box-shadow:
+        0 18px 34px rgba(0, 0, 0, 0.32),
+        0 0 24px rgba(47, 124, 255, 0.12);
+    }
+
+    .article-image {
+      width: 100%;
+      height: 185px;
+      object-fit: cover;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(11, 61, 145, 0.24), transparent 34%),
+        linear-gradient(180deg, rgba(7, 11, 19, 0.4), rgba(7, 11, 19, 0.72));
+      display: block;
+    }
+
+    .article-content {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .article-title {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    .article-summary {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .meta-row {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(47, 124, 255, 0.7);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    .small-btn {
+      font-size: 0.86rem;
+      padding: 9px 12px;
+      border-radius: 12px;
+    }
+
+    .empty-state,
+    .loading-state,
+    .error-state {
+      padding: 20px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      color: var(--muted);
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+    }
+
+    .loading-dots {
+      display: inline-flex;
+      gap: 5px;
+      margin-left: 6px;
+    }
+
+    .loading-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent-2);
+      animation: loadingPulse 900ms ease-in-out infinite;
+    }
+
+    .loading-dots span:nth-child(2) {
+      animation-delay: 140ms;
+    }
+
+    .loading-dots span:nth-child(3) {
+      animation-delay: 280ms;
+    }
+
+    .saved-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .saved-item {
+      padding: 13px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(140, 205, 255, 0.14);
+      display: grid;
+      gap: 8px;
+    }
+
+    .saved-title {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.35;
+    }
+
+    .saved-summary {
+      margin: 0;
+      font-size: 0.84rem;
+    }
+
+    .tool-grid {
+      margin-top: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .tool-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(47, 124, 255, 0.24);
+      color: var(--field-text);
+      transition: 180ms ease;
+    }
+
+    .tool-link:hover {
+      transform: translateY(-2px);
+      border-color: rgba(47, 124, 255, 0.58);
+      background: rgba(11, 61, 145, 0.28);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.2),
+        0 0 18px rgba(47, 124, 255, 0.18);
+    }
+
+    @keyframes glowFloat {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(14px, -12px, 0) scale(1.05); }
+      100% { transform: translate3d(0, 0, 0) scale(1); }
+    }
+
+    @keyframes panelSheen {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(140%); }
+    }
+
+    @keyframes brandPulse {
+      0%, 100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+
+      50% {
+        transform: scale(1.03);
+        filter: brightness(1.05);
+      }
+    }
+
+    @keyframes panelFloatIn {
+      from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.985);
+        filter: blur(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+
+    @keyframes cardFloatIn {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.99);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes badgeGlow {
+      0%, 100% {
+        box-shadow: 0 0 0 rgba(47, 124, 255, 0);
+      }
+
+      50% {
+        box-shadow: 0 0 16px rgba(47, 124, 255, 0.09);
+      }
+    }
+
+    @keyframes loadingPulse {
+      0%, 100% {
+        opacity: 0.35;
+        transform: translateY(0);
+      }
+
+      50% {
+        opacity: 1;
+        transform: translateY(-3px);
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .main-grid,
+      .hero-card {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions {
+        justify-items: start;
+      }
+
+      .article-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .control-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page-shell {
+        padding: 16px;
+      }
+
+      .hero-card,
+      .apod-card,
+      .featured-card,
+      .controls-card,
+      .status-card,
+      .saved-card,
+      .tool-card {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .article-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .moon-wrap {
+        width: 98px;
+        height: 98px;
+        top: 72px;
+        right: 24px;
+        opacity: 0.42;
+      }
+
+      .moon-wrap::after {
+        width: 78px;
+        height: 78px;
+        top: 9px;
+        left: 31px;
+      }
+
+      .apod-media,
+      .apod-media img,
+      .apod-media iframe {
+        min-height: 240px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="starfield"></canvas>
+
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <main class="page-shell">
+    <div class="page-inner">
+      <section class="hero-card">
+        <div class="hero-content">
+          <div class="eyebrow">✦ Live Astronomy Observatory</div>
+          <h1 class="hero-title">Astronomy <span>News</span></h1>
+          <p class="hero-subtitle">
+            Live spaceflight, astronomy discoveries, NASA imagery, and sky updates in one StellaSim dashboard.
+          </p>
+
+          <div class="badge-row" style="margin-top: 18px;">
+            <span class="badge">NASA APOD</span>
+          </div>
+        </div>
+
+        <div class="hero-actions">
+          <div class="mascot-chip">
+          </div>
+
+          <button class="btn primary" id="heroRefreshBtn" type="button">Refresh News</button>
+        </div>
+      </section>
+
+      <section class="main-grid">
+        <div class="left-column" style="display: grid; gap: 22px;">
+          <section class="apod-card">
+            <div class="panel-content">
+              <h2 class="section-title">NASA Astronomy Picture of the Day</h2>
+              <p class="section-subtitle">A live NASA APOD pull. Videos are handled separately from images.</p>
+            </div>
+
+            <div class="apod-media" id="apodMedia">
+              <div class="loading-state">
+                Loading APOD
+                <span class="loading-dots"><span></span><span></span><span></span></span>
+              </div>
+            </div>
+
+            <div class="apod-body" id="apodBody">
+              <p class="section-subtitle">Waiting for NASA APOD...</p>
+            </div>
+          </section>
+
+          <section class="article-section">
+            <div class="controls-card">
+              <div class="panel-content">
+                <h2 class="section-title">Live News Feed</h2>
+                <p class="section-subtitle">Search live sources, filter by astronomy category, and save articles for later.</p>
+              </div>
+
+              <div class="controls-form">
+                <div class="control-grid">
+                  <div class="field">
+                    <label for="searchInput">Search</label>
+                    <input class="input" id="searchInput" type="search" placeholder="Search NASA, exoplanets, JWST, Mars..." />
+                  </div>
+
+                  <div class="field">
+                    <label for="categorySelect">Category</label>
+                    <select class="select" id="categorySelect">
+                      <option value="All">All</option>
+                      <option value="Spaceflight">Spaceflight</option>
+                      <option value="Astronomy">Astronomy</option>
+                      <option value="NASA">NASA</option>
+                      <option value="Exoplanets">Exoplanets</option>
+                      <option value="Telescopes">Telescopes</option>
+                      <option value="Solar System">Solar System</option>
+                      <option value="Cosmology">Cosmology</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="sortSelect">Sort</label>
+                    <select class="select" id="sortSelect">
+                      <option value="newest">Newest</option>
+                      <option value="oldest">Oldest</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="action-row">
+                  <button class="btn primary" id="searchBtn" type="button">Search News</button>
+                  <button class="btn" id="refreshBtn" type="button">Refresh</button>
+                  <button class="btn" id="resetBtn" type="button">Reset</button>
+                </div>
+
+                <div class="section-subtitle" id="newsStatus">Loading live news...</div>
+              </div>
+            </div>
+
+            <div id="articleGrid" class="article-grid">
+              <div class="loading-state">
+                Loading articles
+                <span class="loading-dots"><span></span><span></span><span></span></span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="right-column" style="display: grid; gap: 22px; align-content: start;">
+          <section class="featured-card">
+            <div class="panel-content">
+              <h2 class="section-title">Featured Article</h2>
+              <p class="section-subtitle">The newest or most relevant article from the current feed.</p>
+            </div>
+
+            <div id="featuredArticle" style="margin-top: 16px;">
+              <div class="loading-state">
+                Loading featured article
+                <span class="loading-dots"><span></span><span></span><span></span></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="status-card">
+            <div class="panel-content">
+              <h2 class="section-title">API Status</h2>
+              <p class="section-subtitle">Shows what loaded successfully without pretending disabled APIs are active.</p>
+            </div>
+
+            <div class="status-list">
+              <div class="status-item">
+                <span>Spaceflight News</span>
+                <span class="status-value" id="spaceNewsStatus">Checking...</span>
+              </div>
+
+              <div class="status-item">
+                <span>NASA APOD</span>
+                <span class="status-value" id="apodStatus">Checking...</span>
+              </div>
+
+              <div class="status-item">
+                <span>General Astro News</span>
+                <span class="status-value" id="generalNewsStatus">Checking...</span>
+              </div>
+
+              <div class="status-item">
+                <span>Last Updated</span>
+                <span class="status-value" id="lastUpdated">Not yet</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="saved-card">
+            <div class="panel-content">
+              <h2 class="section-title">Saved Articles</h2>
+              <p class="section-subtitle">Saved articles stay in this browser using localStorage.</p>
+            </div>
+
+            <div class="saved-actions" style="margin-top: 14px; position: relative; z-index: 1;">
+              <button class="btn small-btn" id="clearSavedBtn" type="button">Clear Saved</button>
+            </div>
+
+            <div class="saved-list" id="savedList"></div>
+          </section>
+
+          <section class="tool-card">
+            <div class="panel-content">
+              <h2 class="section-title">Related StellaSim Tools</h2>
+              <p class="section-subtitle">Open the rest of the astronomy ecosystem in new tabs.</p>
+            </div>
+
+            <div class="tool-grid">
+              <a class="tool-link" href="object-database.html" target="_blank" rel="noopener noreferrer">Object Database</a>
+              <a class="tool-link" href="astronomy-lessons.html" target="_blank" rel="noopener noreferrer">Astronomy Lessons</a>
+              <a class="tool-link" href="live-star-map.html" target="_blank" rel="noopener noreferrer">Live Star Map</a>
+              <a class="tool-link" href="observation-planner.html" target="_blank" rel="noopener noreferrer">Observation Planner</a>
+              <a class="tool-link" href="telescope.html" target="_blank" rel="noopener noreferrer">Telescope</a>
+              <a class="tool-link" href="main-sim.html" target="_blank" rel="noopener noreferrer">Main Sim</a>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API_ROUTES = {
+      spaceNews: "/api/space-news",
+      apod: "/api/apod",
+      generalNews: "/api/general-astro-news"
+    };
+
+    const STORAGE_KEY = "stellasimSavedNews";
+    const REFRESH_COOLDOWN_MS = 15000;
+
+    const articleGrid = document.getElementById("articleGrid");
+    const featuredArticle = document.getElementById("featuredArticle");
+    const savedList = document.getElementById("savedList");
+
+    const searchInput = document.getElementById("searchInput");
+    const categorySelect = document.getElementById("categorySelect");
+    const sortSelect = document.getElementById("sortSelect");
+
+    const searchBtn = document.getElementById("searchBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const heroRefreshBtn = document.getElementById("heroRefreshBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const clearSavedBtn = document.getElementById("clearSavedBtn");
+
+    const newsStatus = document.getElementById("newsStatus");
+    const spaceNewsStatus = document.getElementById("spaceNewsStatus");
+    const apodStatus = document.getElementById("apodStatus");
+    const generalNewsStatus = document.getElementById("generalNewsStatus");
+    const lastUpdated = document.getElementById("lastUpdated");
+
+    const apodMedia = document.getElementById("apodMedia");
+    const apodBody = document.getElementById("apodBody");
+
+    let allArticles = [];
+    let savedArticles = loadSavedArticles();
+    let lastRefreshTime = 0;
+
+    // this starts the page
+    initStarfield();
+    renderSavedArticles();
+    loadDashboard();
+
+    searchBtn.addEventListener("click", () => {
+      loadNews(searchInput.value.trim());
+    });
+
+    refreshBtn.addEventListener("click", () => {
+      refreshDashboard();
+    });
+
+    heroRefreshBtn.addEventListener("click", () => {
+      refreshDashboard();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      categorySelect.value = "All";
+      sortSelect.value = "newest";
+      loadNews("");
+    });
+
+    clearSavedBtn.addEventListener("click", () => {
+      savedArticles = [];
+      saveSavedArticles();
+      renderSavedArticles();
+      renderArticles();
+    });
+
+    categorySelect.addEventListener("change", renderArticles);
+    sortSelect.addEventListener("change", renderArticles);
+
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        loadNews(searchInput.value.trim());
+      }
+    });
+
+    // this loads the full dashboard
+    async function loadDashboard() {
+      await Promise.allSettled([
+        loadApod(),
+        loadNews("")
+      ]);
+
+      updateLastUpdated();
+    }
+
+    // this refreshes without spamming the api
+    async function refreshDashboard() {
+      const now = Date.now();
+
+      if (now - lastRefreshTime < REFRESH_COOLDOWN_MS) {
+        const secondsLeft = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastRefreshTime)) / 1000);
+        newsStatus.textContent = `Please wait ${secondsLeft}s before refreshing again.`;
+        return;
+      }
+
+      lastRefreshTime = now;
+      await loadDashboard();
+    }
+
+    // this loads nasa apod
+    async function loadApod() {
+      apodStatus.textContent = "Loading...";
+      apodMedia.innerHTML = createLoadingState("Loading APOD");
+      apodBody.innerHTML = `<p class="section-subtitle">Waiting for NASA APOD...</p>`;
+
+      try {
+        const response = await fetch(API_ROUTES.apod);
+
+        if (!response.ok) {
+          throw new Error(`NASA APOD request failed with status ${response.status}`);
+        }
+
+        const apod = await response.json();
+
+        renderApod(apod);
+        apodStatus.textContent = "Online";
+      } catch (error) {
+        apodStatus.textContent = "Error";
+        apodMedia.innerHTML = createErrorState("Could not load NASA APOD.");
+        apodBody.innerHTML = `<p class="section-subtitle">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    // this renders nasa apod
+    function renderApod(apod) {
+      const title = apod.title || "NASA Astronomy Picture of the Day";
+      const date = apod.date || "";
+      const explanation = apod.explanation || "No explanation was returned.";
+      const sourceUrl = apod.hdurl || apod.url || "https://apod.nasa.gov/apod/";
+
+      if (apod.mediaType === "video") {
+        apodMedia.innerHTML = `
+          <iframe
+            src="${escapeAttribute(apod.url)}"
+            title="${escapeAttribute(title)}"
+            loading="lazy"
+            allowfullscreen
+          ></iframe>
+        `;
+      } else if (apod.url) {
+        apodMedia.innerHTML = `
+          <img src="${escapeAttribute(apod.url)}" alt="${escapeAttribute(title)}" />
+        `;
+      } else {
+        apodMedia.innerHTML = `<div class="image-fallback">No APOD media returned today.</div>`;
+      }
+
+      apodBody.innerHTML = `
+        <h3 class="apod-title">${escapeHtml(title)}</h3>
+        <div class="meta-row" style="margin-top: 10px;">
+          <span>${escapeHtml(date)}</span>
+          ${apod.copyright ? `<span class="dot"></span><span>${escapeHtml(apod.copyright)}</span>` : ""}
+        </div>
+        <p class="apod-text">${escapeHtml(trimText(explanation, 620))}</p>
+        <div class="action-row">
+          <a class="btn primary" href="${escapeAttribute(sourceUrl)}" target="_blank" rel="noopener noreferrer">Open NASA Source</a>
+          <button class="btn" type="button" id="copyApodBtn">Copy APOD Text</button>
+        </div>
+      `;
+
+      const copyApodBtn = document.getElementById("copyApodBtn");
+
+      copyApodBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(`${title}\n${date}\n\n${explanation}`);
+          copyApodBtn.textContent = "Copied";
+        } catch (error) {
+          copyApodBtn.textContent = "Could not copy";
+        }
+      });
+    }
+
+    // this loads live news
+    async function loadNews(query) {
+      setNewsLoading();
+
+      const params = new URLSearchParams();
+      params.set("limit", "24");
+
+      if (query) {
+        params.set("q", query);
+      }
+
+      const spaceUrl = `${API_ROUTES.spaceNews}?${params.toString()}`;
+      const generalUrl = `${API_ROUTES.generalNews}?${params.toString()}`;
+
+      const articles = [];
+
+      try {
+        const spaceResponse = await fetch(spaceUrl);
+
+        if (!spaceResponse.ok) {
+          throw new Error(`Spaceflight News request failed with status ${spaceResponse.status}`);
+        }
+
+        const spaceData = await spaceResponse.json();
+        articles.push(...(spaceData.articles || []));
+        spaceNewsStatus.textContent = `${spaceData.articles?.length || 0} loaded`;
+      } catch (error) {
+        spaceNewsStatus.textContent = "Error";
+        console.error(error);
+      }
+
+      try {
+        const generalResponse = await fetch(generalUrl);
+
+        if (!generalResponse.ok) {
+          throw new Error(`General news request failed with status ${generalResponse.status}`);
+        }
+
+        const generalData = await generalResponse.json();
+
+        if (generalData.enabled) {
+          articles.push(...(generalData.articles || []));
+          generalNewsStatus.textContent = `${generalData.articles?.length || 0} loaded`;
+        } else {
+          generalNewsStatus.textContent = "Disabled";
+        }
+      } catch (error) {
+        generalNewsStatus.textContent = "Error";
+        console.error(error);
+      }
+
+      allArticles = dedupeArticles(articles).map((article) => ({
+        ...article,
+        category: article.category || inferCategory(article)
+      }));
+
+      renderArticles();
+      updateLastUpdated();
+
+      if (allArticles.length === 0) {
+        newsStatus.textContent = query
+          ? `No live results found for "${query}".`
+          : "No live articles returned.";
+      } else {
+        newsStatus.textContent = query
+          ? `Showing live results for "${query}".`
+          : "Updated just now.";
+      }
+    }
+
+    // this shows loading ui while news loads
+    function setNewsLoading() {
+      newsStatus.textContent = "Loading live news...";
+      articleGrid.innerHTML = createLoadingState("Loading articles");
+      featuredArticle.innerHTML = createLoadingState("Loading featured article");
+    }
+
+    // this renders article cards
+    function renderArticles() {
+      const category = categorySelect.value;
+      const sort = sortSelect.value;
+
+      let visibleArticles = [...allArticles];
+
+      if (category !== "All") {
+        visibleArticles = visibleArticles.filter((article) => article.category === category);
+      }
+
+      visibleArticles.sort((a, b) => {
+        const dateA = new Date(a.publishedAt || 0).getTime();
+        const dateB = new Date(b.publishedAt || 0).getTime();
+
+        return sort === "oldest" ? dateA - dateB : dateB - dateA;
+      });
+
+      renderFeaturedArticle(visibleArticles[0]);
+
+      if (visibleArticles.length === 0) {
+        articleGrid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            No articles match this filter yet. Try All or search another astronomy topic.
+          </div>
+        `;
+        return;
+      }
+
+      articleGrid.innerHTML = visibleArticles.map((article, index) => {
+        const isSaved = isArticleSaved(article.id);
+        const imageHtml = article.imageUrl
+          ? `<img class="article-image" src="${escapeAttribute(article.imageUrl)}" alt="${escapeAttribute(article.title)}" loading="lazy" />`
+          : `<div class="image-fallback">StellaSim News</div>`;
+
+        return `
+          <article class="article-card ${isSaved ? "saved" : ""}" style="animation-delay: ${Math.min(index * 35, 420)}ms;">
+            ${imageHtml}
+
+            <div class="article-content">
+              <div class="badge-row">
+                <span class="badge">${escapeHtml(article.category || "Astronomy")}</span>
+                <span class="badge">${escapeHtml(article.apiSource || "Live API")}</span>
+              </div>
+
+              <h3 class="article-title">${escapeHtml(article.title || "Untitled article")}</h3>
+
+              <div class="meta-row">
+                <span>${escapeHtml(article.source || "Unknown source")}</span>
+                <span class="dot"></span>
+                <span>${escapeHtml(formatDate(article.publishedAt))}</span>
+              </div>
+
+              <p class="article-summary">${escapeHtml(trimText(article.summary || "No summary was returned.", 190))}</p>
+
+              <div class="card-actions">
+                <a class="btn primary small-btn" href="${escapeAttribute(article.url)}" target="_blank" rel="noopener noreferrer">Open Article</a>
+                <button class="btn small-btn" type="button" data-save-id="${escapeAttribute(article.id)}">
+                  ${isSaved ? "Saved" : "Save"}
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      document.querySelectorAll("[data-save-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const article = allArticles.find((item) => item.id === button.dataset.saveId);
+
+          if (article) {
+            toggleSaveArticle(article);
+          }
+        });
+      });
+    }
+
+    // this renders the biggest latest article
+    function renderFeaturedArticle(article) {
+      if (!article) {
+        featuredArticle.innerHTML = `<div class="empty-state">No featured article yet.</div>`;
+        return;
+      }
+
+      const imageHtml = article.imageUrl
+        ? `<img class="featured-image" src="${escapeAttribute(article.imageUrl)}" alt="${escapeAttribute(article.title)}" loading="lazy" />`
+        : `<div class="image-fallback">Featured StellaSim News</div>`;
+
+      featuredArticle.innerHTML = `
+        ${imageHtml}
+
+        <div class="featured-body">
+          <div class="badge-row">
+            <span class="badge">${escapeHtml(article.category || "Astronomy")}</span>
+            <span class="badge">${escapeHtml(article.apiSource || "Live API")}</span>
+          </div>
+
+          <h3 class="featured-title" style="margin-top: 13px;">${escapeHtml(article.title || "Untitled article")}</h3>
+
+          <div class="meta-row" style="margin-top: 10px;">
+            <span>${escapeHtml(article.source || "Unknown source")}</span>
+            <span class="dot"></span>
+            <span>${escapeHtml(formatDate(article.publishedAt))}</span>
+          </div>
+
+          <p class="featured-text">${escapeHtml(trimText(article.summary || "No summary was returned.", 300))}</p>
+
+          <div class="action-row">
+            <a class="btn primary" href="${escapeAttribute(article.url)}" target="_blank" rel="noopener noreferrer">Open Article</a>
+            <button class="btn" type="button" id="saveFeaturedBtn">${isArticleSaved(article.id) ? "Saved" : "Save"}</button>
+          </div>
+        </div>
+      `;
+
+      const saveFeaturedBtn = document.getElementById("saveFeaturedBtn");
+
+      saveFeaturedBtn.addEventListener("click", () => {
+        toggleSaveArticle(article);
+      });
+    }
+
+    // this saves or unsaves an article
+    function toggleSaveArticle(article) {
+      if (isArticleSaved(article.id)) {
+        savedArticles = savedArticles.filter((item) => item.id !== article.id);
+      } else {
+        savedArticles.unshift(article);
+      }
+
+      saveSavedArticles();
+      renderSavedArticles();
+      renderArticles();
+    }
+
+    // this renders the saved article panel
+    function renderSavedArticles() {
+      if (savedArticles.length === 0) {
+        savedList.innerHTML = `<div class="empty-state">No saved articles yet.</div>`;
+        return;
+      }
+
+      savedList.innerHTML = savedArticles.map((article) => `
+        <div class="saved-item">
+          <h3 class="saved-title">${escapeHtml(article.title || "Untitled article")}</h3>
+          <div class="meta-row">
+            <span>${escapeHtml(article.source || "Unknown source")}</span>
+            <span class="dot"></span>
+            <span>${escapeHtml(formatDate(article.publishedAt))}</span>
+          </div>
+          <p class="saved-summary">${escapeHtml(trimText(article.summary || "No summary was returned.", 120))}</p>
+          <div class="card-actions">
+            <a class="btn primary small-btn" href="${escapeAttribute(article.url)}" target="_blank" rel="noopener noreferrer">Open</a>
+            <button class="btn small-btn" type="button" data-remove-saved="${escapeAttribute(article.id)}">Remove</button>
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll("[data-remove-saved]").forEach((button) => {
+        button.addEventListener("click", () => {
+          savedArticles = savedArticles.filter((article) => article.id !== button.dataset.removeSaved);
+          saveSavedArticles();
+          renderSavedArticles();
+          renderArticles();
+        });
+      });
+    }
+
+    // this guesses a clean category from title and summary
+    function inferCategory(article) {
+      const text = `${article.title || ""} ${article.summary || ""}`.toLowerCase();
+
+      if (text.includes("launch") || text.includes("rocket") || text.includes("mission") || text.includes("spacecraft") || text.includes("crew")) {
+        return "Spaceflight";
+      }
+
+      if (text.includes("exoplanet") || text.includes("planet outside") || text.includes("habitable")) {
+        return "Exoplanets";
+      }
+
+      if (text.includes("telescope") || text.includes("jwst") || text.includes("webb") || text.includes("hubble") || text.includes("observatory")) {
+        return "Telescopes";
+      }
+
+      if (text.includes("mars") || text.includes("jupiter") || text.includes("saturn") || text.includes("moon") || text.includes("asteroid") || text.includes("comet")) {
+        return "Solar System";
+      }
+
+      if (text.includes("galaxy") || text.includes("black hole") || text.includes("dark matter") || text.includes("cosmic") || text.includes("universe")) {
+        return "Cosmology";
+      }
+
+      if (text.includes("nasa")) {
+        return "NASA";
+      }
+
+      return "Astronomy";
+    }
+
+    // this removes duplicate articles from merged feeds
+    function dedupeArticles(articles) {
+      const seen = new Set();
+
+      return articles.filter((article) => {
+        const key = article.url || article.id || article.title;
+
+        if (!key || seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      });
+    }
+
+    // this checks if an article is saved
+    function isArticleSaved(id) {
+      return savedArticles.some((article) => article.id === id);
+    }
+
+    // this loads saved articles from localstorage
+    function loadSavedArticles() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    // this writes saved articles to localstorage
+    function saveSavedArticles() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedArticles));
+    }
+
+    // this updates the last updated label
+    function updateLastUpdated() {
+      lastUpdated.textContent = new Date().toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    function createLoadingState(text) {
+      return `
+        <div class="loading-state">
+          ${escapeHtml(text)}
+          <span class="loading-dots"><span></span><span></span><span></span></span>
+        </div>
+      `;
+    }
+
+    function createErrorState(text) {
+      return `<div class="error-state">${escapeHtml(text)}</div>`;
+    }
+
+    function trimText(text, maxLength) {
+      const cleanText = String(text || "").replace(/\s+/g, " ").trim();
+
+      if (cleanText.length <= maxLength) {
+        return cleanText;
+      }
+
+      return cleanText.slice(0, maxLength).trim() + "...";
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) {
+        return "No date";
+      }
+
+      const date = new Date(dateString);
+
+      if (Number.isNaN(date.getTime())) {
+        return dateString;
+      }
+
+      return date.toLocaleDateString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+
+    // this makes the animated starfield background
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let constellationLines = [];
+      let shootingStars = [];
+
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+      let lastMeteorTime = 0;
+
+      function resizeStarfield() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+        createStars();
+        createConstellations();
+      }
+
+      function createStars() {
+        stars = [];
+
+        const starCount = Math.min(330, Math.floor((width * height) / 6400));
+
+        for (let i = 0; i < starCount; i++) {
+          const roll = Math.random();
+
+          let behavior = "static";
+          if (roll < 0.34) behavior = "static";
+          else if (roll < 0.58) behavior = "twinkle";
+          else if (roll < 0.8) behavior = "drift";
+          else if (roll < 0.94) behavior = "driftTwinkle";
+          else behavior = "bright";
+
+          const depth = Math.random();
+
+          const radius =
+            behavior === "bright"
+              ? 1.4 + Math.random() * 1.6
+              : 0.5 + Math.random() * (depth > 0.7 ? 1.4 : 1.0);
+
+          let color = "255,255,255";
+          const cRoll = Math.random();
+
+          if (cRoll < 0.62) color = "255,255,255";
+          else if (cRoll < 0.87) color = "47,124,255";
+          else color = "11,61,145";
+
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: radius,
+            behavior,
+            color,
+            baseAlpha:
+              behavior === "bright"
+                ? 0.6 + Math.random() * 0.35
+                : 0.18 + Math.random() * 0.65,
+            alpha: 0,
+            twinkleSpeed:
+              behavior === "twinkle" || behavior === "driftTwinkle"
+                ? 0.008 + Math.random() * 0.028
+                : behavior === "bright"
+                ? 0.002 + Math.random() * 0.006
+                : 0,
+            twinkleOffset: Math.random() * Math.PI * 2,
+            driftX:
+              behavior === "drift" || behavior === "driftTwinkle"
+                ? (Math.random() - 0.5) * 0.08
+                : 0,
+            driftY:
+              behavior === "drift" || behavior === "driftTwinkle"
+                ? (Math.random() - 0.5) * 0.08
+                : 0,
+            parallax: 0.15 + depth * 0.85
+          });
+        }
+      }
+
+      function createConstellations() {
+        constellationLines = [];
+
+        const anchors = stars
+          .filter((star) => star.r > 1.25 && star.behavior !== "drift" && star.behavior !== "driftTwinkle")
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 18);
+
+        const usedPairs = new Set();
+
+        for (const a of anchors) {
+          const nearest = anchors
+            .filter((b) => b !== a)
+            .map((b) => ({
+              star: b,
+              distance: Math.hypot(b.x - a.x, b.y - a.y)
+            }))
+            .filter((item) => item.distance > 60 && item.distance < 180)
+            .sort((p, q) => p.distance - q.distance)
+            .slice(0, 2);
+
+          for (const item of nearest) {
+            const b = item.star;
+            const pairKey = [stars.indexOf(a), stars.indexOf(b)].sort((m, n) => m - n).join("-");
+
+            if (!usedPairs.has(pairKey)) {
+              usedPairs.add(pairKey);
+              constellationLines.push({
+                a,
+                b,
+                alpha: 0.06 + Math.random() * 0.08
+              });
+            }
+          }
+        }
+      }
+
+      function maybeSpawnShootingStar(time) {
+        if (time - lastMeteorTime < 2200) return;
+        if (Math.random() > 0.012) return;
+
+        lastMeteorTime = time;
+
+        const startX = Math.random() * width * 0.85;
+        const startY = Math.random() * height * 0.28;
+        const length = 90 + Math.random() * 110;
+        const speed = 11 + Math.random() * 6;
+        const angle = Math.PI / 4 + Math.random() * 0.28;
+
+        shootingStars.push({
+          x: startX,
+          y: startY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          length,
+          life: 0,
+          maxLife: 34 + Math.floor(Math.random() * 16)
+        });
+      }
+
+      function drawSpaceMist() {
+        const g1 = ctx.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 260);
+        g1.addColorStop(0, "rgba(47,124,255,0.07)");
+        g1.addColorStop(1, "rgba(47,124,255,0)");
+
+        const g2 = ctx.createRadialGradient(width * 0.82, height * 0.24, 0, width * 0.82, height * 0.24, 300);
+        g2.addColorStop(0, "rgba(11,61,145,0.06)");
+        g2.addColorStop(1, "rgba(11,61,145,0)");
+
+        const g3 = ctx.createRadialGradient(width * 0.56, height * 0.8, 0, width * 0.56, height * 0.8, 280);
+        g3.addColorStop(0, "rgba(47,124,255,0.05)");
+        g3.addColorStop(1, "rgba(47,124,255,0)");
+
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = g3;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      function drawConstellations(time) {
+        for (const line of constellationLines) {
+          const ax = line.a.x + mouseX * line.a.parallax * 0.012;
+          const ay = line.a.y + mouseY * line.a.parallax * 0.012;
+          const bx = line.b.x + mouseX * line.b.parallax * 0.012;
+          const by = line.b.y + mouseY * line.b.parallax * 0.012;
+
+          const pulse = 0.75 + 0.25 * Math.sin(time * 0.001 + ax * 0.01 + ay * 0.01);
+
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `rgba(47, 124, 255, ${line.alpha * pulse})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      function drawStars(time) {
+        for (const star of stars) {
+          if (star.behavior === "drift" || star.behavior === "driftTwinkle") {
+            star.x += star.driftX;
+            star.y += star.driftY;
+
+            if (star.x < -4) star.x = width + 4;
+            if (star.x > width + 4) star.x = -4;
+            if (star.y < -4) star.y = height + 4;
+            if (star.y > height + 4) star.y = -4;
+          }
+
+          if (star.behavior === "twinkle" || star.behavior === "driftTwinkle") {
+            const twinkle = 0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * twinkle;
+          } else if (star.behavior === "bright") {
+            const pulse = 0.85 + 0.15 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * pulse;
+          } else {
+            star.alpha = star.baseAlpha;
+          }
+
+          const px = star.x + mouseX * star.parallax * 0.015;
+          const py = star.y + mouseY * star.parallax * 0.015;
+
+          ctx.beginPath();
+          ctx.arc(px, py, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${star.color}, ${star.alpha})`;
+          ctx.shadowBlur = star.r * 6;
+          ctx.shadowColor = `rgba(${star.color}, ${star.alpha * 0.55})`;
+          ctx.fill();
+
+          if (star.r > 1.35) {
+            ctx.beginPath();
+            ctx.arc(px, py, star.r * 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${star.color}, ${star.alpha * 0.08})`;
+            ctx.shadowBlur = 0;
+            ctx.fill();
+          }
+        }
+
+        ctx.shadowBlur = 0;
+      }
+
+      function drawShootingStars() {
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const meteor = shootingStars[i];
+
+          const tailX = meteor.x - meteor.vx * (meteor.length / 18);
+          const tailY = meteor.y - meteor.vy * (meteor.length / 18);
+
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.15, "rgba(200,225,255,0.8)");
+          gradient.addColorStop(1, "rgba(47,124,255,0)");
+
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(meteor.x, meteor.y, 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fill();
+
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+
+          if (
+            meteor.life > meteor.maxLife ||
+            meteor.x > width + 120 ||
+            meteor.y > height + 120
+          ) {
+            shootingStars.splice(i, 1);
+          }
+        }
+      }
+
+      function animate(time) {
+        ctx.clearRect(0, 0, width, height);
+
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+
+        drawSpaceMist();
+        drawConstellations(time);
+        drawStars(time);
+        maybeSpawnShootingStar(time);
+        drawShootingStars();
+
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+
+      window.addEventListener("resize", resizeStarfield);
+
+      resizeStarfield();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Astronomy Lessons</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  <style>
+    :root {
+      --panel-bg: rgba(5, 14, 32, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #07162f;
+      --field-border: rgba(47, 124, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c8e8;
+      --accent: #0b3d91;
+      --accent-2: #2f7cff;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.58);
+      --sidebar-width: 240px;
+      --radius-lg: 22px;
+      --success: #7fb7ff;
+      --warning: #ffe0a8;
+      --danger: #ffb6c1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.22), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(47, 124, 255, 0.12), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(11, 61, 145, 0.14), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #020816 42%, #000000 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+      user-select: none;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 {
+      width: 360px;
+      height: 360px;
+      top: 6%;
+      left: 10%;
+      background: radial-gradient(circle, rgba(47, 124, 255, 0.2), transparent 72%);
+    }
+
+    .glow-2 {
+      width: 430px;
+      height: 430px;
+      right: 7%;
+      top: 14%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.17), transparent 72%);
+      animation-delay: -6s;
+    }
+
+    .glow-3 {
+      width: 380px;
+      height: 380px;
+      left: 48%;
+      bottom: 4%;
+      background: radial-gradient(circle, rgba(61, 145, 255, 0.12), transparent 74%);
+      animation-delay: -11s;
+    }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle at 35% 35%,
+          rgba(255, 255, 255, 0.96),
+          rgba(211, 228, 255, 0.93) 36%,
+          rgba(130, 176, 255, 0.28) 62%,
+          rgba(47, 124, 255, 0) 76%
+        );
+      box-shadow:
+        0 0 40px rgba(61, 145, 255, 0.18),
+        0 0 95px rgba(47, 124, 255, 0.11);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #000814;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .page-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .main-inner {
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }
+
+    .hero-card,
+    .path-card,
+    .side-card,
+    .modal-card,
+    .mini-card,
+    .lesson-node,
+    .tool-link,
+    .activity-item,
+    .achievement-card,
+    .slide-card,
+    .choice-btn {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(5, 14, 32, 0.96), rgba(2, 8, 20, 0.94));
+      border: 1px solid rgba(47, 124, 255, 0.2);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(47, 124, 255, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-card::after,
+    .path-card::after,
+    .side-card::after,
+    .modal-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 32%,
+        rgba(255, 255, 255, 0.05) 40%,
+        transparent 49%,
+        transparent 100%
+      );
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+      gap: 22px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -150px;
+      top: -160px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(47, 124, 255, 0.14), transparent 65%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.04), transparent 22%);
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .hero-copy,
+    .hero-dashboard,
+    .path-card > *,
+    .side-card > *,
+    .modal-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .brand-icon {
+      width: 62px;
+      height: 62px;
+      display: grid;
+      place-items: center;
+      animation: brandPulse 4.6s ease-in-out infinite;
+    }
+
+    .brand-icon img {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      filter:
+        drop-shadow(0 0 8px rgba(255, 255, 255, 0.12))
+        drop-shadow(0 0 16px rgba(47, 124, 255, 0.2));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(47, 124, 255, 0.08);
+      border: 1px solid rgba(47, 124, 255, 0.18);
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      margin-bottom: 14px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4.35rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      font-weight: 800;
+    }
+
+    .hero-title .glow {
+      color: var(--accent-2);
+      text-shadow:
+        0 0 24px rgba(47, 124, 255, 0.2),
+        0 0 44px rgba(47, 124, 255, 0.12);
+    }
+
+    .hero-subtitle {
+      margin: 15px 0 0;
+      max-width: 78ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      border: 1px solid rgba(47, 124, 255, 0.2);
+      background: rgba(61, 145, 255, 0.06);
+      color: var(--field-text);
+      border-radius: 999px;
+      padding: 10px 13px;
+      font-size: 0.86rem;
+      animation: chipFloatIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-dashboard {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini-card {
+      padding: 15px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.035);
+      transition: 180ms ease;
+    }
+
+    .mini-label {
+      color: var(--accent-2);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .mini-value {
+      margin-top: 7px;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .mini-note {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .level-progress {
+      padding: 16px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(47, 124, 255, 0.08), rgba(47, 124, 255, 0.03));
+      border: 1px solid rgba(47, 124, 255, 0.18);
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 9px;
+    }
+
+    .progress-track {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(5, 10, 18, 0.45);
+      border: 1px solid rgba(47, 124, 255, 0.13);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(47, 124, 255, 0.78), rgba(61, 145, 255, 0.95));
+      box-shadow: 0 0 18px rgba(47, 124, 255, 0.35);
+      transition: width 360ms ease;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .path-card,
+    .side-card {
+      padding: 22px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 120ms;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 18px;
+      position: sticky;
+      top: 22px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .section-head h2,
+    .side-card h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 750;
+    }
+
+    .section-head p,
+    .side-card p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(47, 124, 255, 0.22);
+      border-radius: 14px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.04);
+      transition: 180ms ease;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(47, 124, 255, 0.26), rgba(47, 124, 255, 0.14));
+      border-color: rgba(47, 124, 255, 0.7);
+      color: white;
+    }
+
+    .btn.danger {
+      border-color: rgba(255, 182, 193, 0.38);
+      color: #ffe6eb;
+      background: rgba(255, 182, 193, 0.055);
+    }
+
+    .btn:hover,
+    .chip:hover,
+    .tool-link:hover,
+    .choice-btn:hover,
+    .lesson-node:not(.locked):hover {
+      transform: translateY(-2px);
+      border-color: rgba(47, 124, 255, 0.42);
+      background: rgba(47, 124, 255, 0.12);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.2),
+        0 0 18px rgba(47, 124, 255, 0.14);
+    }
+
+    .btn:disabled,
+    .choice-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+      transform: none;
+    }
+
+    .unit-block {
+      margin-top: 18px;
+    }
+
+    .unit-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 12px;
+      color: var(--accent-2);
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .unit-title::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 16px rgba(47, 124, 255, 0.65);
+    }
+
+    .lesson-path {
+      position: relative;
+      display: grid;
+      gap: 16px;
+      padding-left: 18px;
+    }
+
+    .lesson-path::before {
+      content: "";
+      position: absolute;
+      left: 38px;
+      top: 14px;
+      bottom: 14px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(61, 145, 255, 0.08), rgba(47, 124, 255, 0.32), rgba(61, 145, 255, 0.08));
+      border-radius: 999px;
+    }
+
+    .lesson-node {
+      width: min(680px, 100%);
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 15px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.035);
+      cursor: pointer;
+      transition: 180ms ease;
+      animation: nodeFloatIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .lesson-node:nth-child(even) {
+      margin-left: clamp(0px, 7vw, 82px);
+    }
+
+    .lesson-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-size: 1.45rem;
+      background:
+        linear-gradient(180deg, rgba(61, 145, 255, 0.08), rgba(47, 124, 255, 0.04));
+      border: 1px solid rgba(47, 124, 255, 0.16);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 4px 10px rgba(0,0,0,0.12);
+    }
+
+    .lesson-copy h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 750;
+    }
+
+    .lesson-copy p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.86rem;
+    }
+
+    .lesson-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 9px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: var(--accent-2);
+      background: rgba(47, 124, 255, 0.08);
+      border: 1px solid rgba(47, 124, 255, 0.16);
+      font-size: 0.72rem;
+    }
+
+    .status-pill {
+      justify-self: end;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border: 1px solid rgba(47, 124, 255, 0.16);
+      background: rgba(255, 255, 255, 0.035);
+      white-space: nowrap;
+    }
+
+    .lesson-node.available {
+      border-color: rgba(47, 124, 255, 0.7);
+      box-shadow:
+        0 0 0 1px rgba(47, 124, 255, 0.12),
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        0 0 22px rgba(47, 124, 255, 0.18);
+      animation: nodePulse 2.8s ease-in-out infinite;
+    }
+
+    .lesson-node.completed {
+      border-color: rgba(61, 145, 255, 0.55);
+      box-shadow:
+        0 0 0 1px rgba(61, 145, 255, 0.1),
+        0 14px 34px rgba(0, 0, 0, 0.35),
+        0 0 20px rgba(61, 145, 255, 0.12);
+    }
+
+    .lesson-node.locked {
+      opacity: 0.45;
+      filter: grayscale(0.65);
+      cursor: not-allowed;
+      border-color: rgba(47, 124, 255, 0.09);
+    }
+
+    .lesson-node.locked:hover {
+      transform: none;
+      box-shadow: var(--shadow);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .achievement-grid,
+    .tool-grid,
+    .activity-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .achievement-card,
+    .activity-item,
+    .tool-link {
+      border-radius: 15px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.035);
+      box-shadow: none;
+      transition: 180ms ease;
+    }
+
+    .achievement-card {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      opacity: 0.54;
+    }
+
+    .achievement-card.earned {
+      opacity: 1;
+      border-color: rgba(61, 145, 255, 0.45);
+      animation: badgeGlow 3.2s ease-in-out infinite;
+    }
+
+    .achievement-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(47, 124, 255, 0.08);
+      border: 1px solid rgba(47, 124, 255, 0.15);
+    }
+
+    .achievement-card h3,
+    .activity-item h3,
+    .tool-link h3 {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 720;
+    }
+
+    .achievement-card p,
+    .activity-item p,
+    .tool-link p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .tool-link {
+      display: block;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(120px);
+      z-index: 80;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(5, 14, 32, 0.97);
+      border: 1px solid rgba(47, 124, 255, 0.35);
+      box-shadow: var(--shadow), 0 0 18px rgba(47, 124, 255, 0.12);
+      color: var(--field-text);
+      transition: 220ms ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      place-items: center;
+      padding: 22px;
+      background: rgba(0, 5, 13, 0.68);
+      backdrop-filter: blur(12px);
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal-card {
+      width: min(880px, 100%);
+      max-height: min(86vh, 860px);
+      overflow: auto;
+      padding: 22px;
+      animation: modalIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .modal-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .modal-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modal-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-size: 1.45rem;
+      color: var(--accent-2);
+      background: rgba(47, 124, 255, 0.08);
+      border: 1px solid rgba(47, 124, 255, 0.18);
+    }
+
+    .modal-top h2 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+
+    .modal-top p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+
+    .close-btn {
+      appearance: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      border: 1px solid rgba(47, 124, 255, 0.22);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--field-text);
+      cursor: pointer;
+      transition: 180ms ease;
+    }
+
+    .lesson-progress-line {
+      margin: 15px 0;
+    }
+
+    .slide-card {
+      border-radius: 18px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.035);
+      min-height: 270px;
+    }
+
+    .slide-card h3 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+      color: var(--field-text);
+    }
+
+    .slide-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 1rem;
+    }
+
+    .fact-box {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 15px;
+      background: rgba(47, 124, 255, 0.07);
+      border: 1px solid rgba(47, 124, 255, 0.18);
+      color: var(--accent-2);
+      line-height: 1.55;
+      font-size: 0.9rem;
+    }
+
+    .quiz-question {
+      margin: 0 0 14px;
+      font-size: 1.15rem;
+      line-height: 1.5;
+      font-weight: 720;
+    }
+
+    .choice-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .choice-btn {
+      width: 100%;
+      text-align: left;
+      border-radius: 15px;
+      padding: 13px 14px;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.035);
+      cursor: pointer;
+      transition: 180ms ease;
+    }
+
+    .choice-btn.correct {
+      border-color: rgba(191, 230, 255, 0.76);
+      background: rgba(47, 124, 255, 0.16);
+      box-shadow: 0 0 18px rgba(47, 124, 255, 0.18);
+    }
+
+    .choice-btn.incorrect {
+      border-color: rgba(255, 182, 193, 0.55);
+      background: rgba(255, 182, 193, 0.08);
+    }
+
+    .feedback-box {
+      display: none;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 15px;
+      border: 1px solid rgba(47, 124, 255, 0.18);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--muted);
+      line-height: 1.55;
+      animation: feedbackIn 180ms ease both;
+    }
+
+    .feedback-box.show {
+      display: block;
+    }
+
+    .feedback-box strong {
+      color: var(--field-text);
+    }
+
+    .completion-screen {
+      text-align: center;
+      padding: 22px 12px 10px;
+    }
+
+    .completion-screen .big-icon {
+      font-size: 4rem;
+      filter: drop-shadow(0 0 18px rgba(47, 124, 255, 0.28));
+    }
+
+    .completion-screen h3 {
+      margin: 10px 0 8px;
+      font-size: 1.65rem;
+    }
+
+    .completion-screen p {
+      margin: 0 auto;
+      max-width: 58ch;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .lesson-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    @keyframes glowFloat {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(14px, -12px, 0) scale(1.05); }
+      100% { transform: translate3d(0, 0, 0) scale(1); }
+    }
+
+    @keyframes panelSheen {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(140%); }
+    }
+
+    @keyframes brandPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.03); filter: brightness(1.05); }
+    }
+
+    @keyframes panelFloatIn {
+      from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    @keyframes chipFloatIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes nodeFloatIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes nodePulse {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(47, 124, 255, 0.1), 0 14px 34px rgba(0,0,0,0.42), 0 0 16px rgba(47,124,255,0.13); }
+      50% { box-shadow: 0 0 0 1px rgba(47, 124, 255, 0.18), 0 14px 34px rgba(0,0,0,0.42), 0 0 30px rgba(47,124,255,0.24); }
+    }
+
+    @keyframes badgeGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(47,124,255,0); }
+      50% { box-shadow: 0 0 18px rgba(47,124,255,0.12); }
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes feedbackIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1180px) {
+      .hero-card,
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .side-stack {
+        position: relative;
+        top: auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .page-shell {
+        padding: 18px;
+      }
+
+      .hero-card,
+      .path-card,
+      .side-card,
+      .modal-card {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .stat-grid,
+      .side-stack {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: grid;
+      }
+
+      .controls-row {
+        justify-content: start;
+      }
+
+      .lesson-node,
+      .lesson-node:nth-child(even) {
+        margin-left: 0;
+      }
+
+      .lesson-node {
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .status-pill {
+        grid-column: 1 / -1;
+        justify-self: start;
+      }
+
+      .lesson-path {
+        padding-left: 0;
+      }
+
+      .lesson-path::before {
+        display: none;
+      }
+
+      .moon-wrap {
+        width: 98px;
+        height: 98px;
+        top: 72px;
+        right: 24px;
+        opacity: 0.42;
+      }
+
+      .moon-wrap::after {
+        width: 78px;
+        height: 78px;
+        top: 9px;
+        left: 31px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .page-shell {
+        padding: 12px;
+      }
+
+      .brand-row {
+        align-items: start;
+      }
+
+      .hero-title {
+        font-size: 2.25rem;
+      }
+
+      .modal-backdrop {
+        padding: 10px;
+      }
+
+      .modal-top,
+      .modal-actions {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <main class="page-shell">
+    <div class="main-inner">
+      <section class="hero-card">
+        <div class="hero-copy">
+          <div class="brand-row">
+            <div class="brand-icon" aria-hidden="true">
+              <img src="/assets/stellasim-mascot.png" alt="" />
+            </div>
+            <div>
+              <div class="eyebrow">✦ StellaSim Learning Path</div>
+              <h1 class="hero-title">Astronomy <span class="glow">Lessons</span></h1>
+            </div>
+          </div>
+
+          <p class="hero-subtitle">
+            Learn the universe step by step through short guided lessons, quizzes, XP, streaks, and unlockable paths.
+            Start with the night sky, then move into stars, gravity, deep sky objects, telescopes, and modern astrophysics.
+          </p>
+
+          <div class="chip-row" aria-label="Lesson features">
+          </div>
+        </div>
+
+        <div class="hero-dashboard">
+          <div class="stat-grid">
+            <div class="mini-card">
+              <div class="mini-label">XP</div>
+              <div class="mini-value" id="xpValue">0</div>
+              <div class="mini-note">Earned from completed lessons</div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-label">Streak</div>
+              <div class="mini-value" id="streakValue">0</div>
+              <div class="mini-note">Days with at least one lesson</div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-label">Level</div>
+              <div class="mini-value" id="levelValue">1</div>
+              <div class="mini-note">Every 100 XP adds a level</div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-label">Completed</div>
+              <div class="mini-value" id="completedValue">0/30</div>
+              <div class="mini-note">Lessons finished</div>
+            </div>
+          </div>
+
+          <div class="level-progress">
+            <div class="progress-meta">
+              <span id="levelProgressLabel">0 XP toward next level</span>
+              <span id="overallProgressLabel">0%</span>
+            </div>
+            <div class="progress-track" aria-label="Learning progress">
+              <div class="progress-fill" id="levelProgressFill"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="main-layout">
+        <section class="path-card">
+          <div class="section-head">
+            <div>
+              <h2>Lesson Path</h2>
+              <p>Complete lessons in order to unlock the next node. Completed lessons can be reviewed anytime.</p>
+            </div>
+            <div class="controls-row">
+              <button class="btn" id="reviewBtn" type="button">Review Completed</button>
+              <button class="btn danger" id="resetBtn" type="button">Reset Progress</button>
+            </div>
+          </div>
+
+          <div id="lessonPath"></div>
+        </section>
+
+        <aside class="side-stack">
+          <section class="side-card">
+            <h2>Achievements</h2>
+            <p>Badges update automatically as you learn.</p>
+            <div class="achievement-grid" id="achievementGrid"></div>
+          </section>
+
+          <section class="side-card">
+            <h2>Related Tools</h2>
+            <p>Open StellaSim tools that connect to the lesson topics.</p>
+            <div class="tool-grid" id="toolGrid"></div>
+          </section>
+
+          <section class="side-card">
+            <h2>Recent Activity</h2>
+            <p>Your lesson history is saved in this browser.</p>
+            <div class="activity-list" id="activityList"></div>
+          </section>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="lessonModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <section class="modal-card">
+      <div class="modal-top">
+        <div class="modal-title-row">
+          <div class="modal-icon" id="modalIcon">✦</div>
+          <div>
+            <h2 id="modalTitle">Lesson</h2>
+            <p id="modalSubtitle">Guided lesson</p>
+          </div>
+        </div>
+        <button class="close-btn" id="closeModalBtn" type="button" aria-label="Close lesson">✕</button>
+      </div>
+
+      <div class="lesson-progress-line">
+        <div class="progress-meta">
+          <span id="modalStepLabel">Step 1</span>
+          <span id="modalScoreLabel">Quiz score: 0/0</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="modalProgressFill"></div>
+        </div>
+      </div>
+
+      <div id="lessonContent"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="backBtn" type="button">Back</button>
+        <div class="controls-row">
+          <button class="btn" id="toolHintBtn" type="button">Open Related Tools</button>
+          <button class="btn primary" id="nextBtn" type="button">Next</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    // this stores the lesson data
+    const lessons = [
+      makeLesson("what-is-astronomy", "Sky Basics", "What Is Astronomy?", "✦", "Learn what astronomy studies and why it connects many sciences.", "Beginner", 20, ["Object Database"], [
+        ["Astronomy studies the universe", "Astronomy is the science of objects and events beyond Earth. It includes planets, stars, galaxies, light, gravity, and the history of the universe.", "Astronomy is observational, but it also uses physics, chemistry, math, and computer models."],
+        ["Light is the messenger", "Most objects in space are too far to touch directly, so astronomers study the light they emit, reflect, or block.", "A telescope is basically a light collector before it is a magnifier."],
+        ["Questions become measurements", "Astronomers ask questions like how hot a star is, how far away a galaxy is, or whether a planet might have an atmosphere. Then they use evidence to test ideas.", "Good astronomy avoids fake precision when the data is uncertain."]
+      ], [
+        ["What does astronomy mainly study?", ["Weather inside Earth", "Objects and events beyond Earth", "Only astronauts", "Only the Moon"], 1, "Astronomy studies the universe beyond Earth, including stars, planets, galaxies, and cosmic events."],
+        ["Why is light so important in astronomy?", ["It makes planets heavier", "It tells us information from distant objects", "It stops gravity", "It creates constellations"], 1, "Light carries information about temperature, motion, composition, and distance."]
+      ]),
+      makeLesson("night-sky", "Sky Basics", "The Night Sky", "☄", "Understand motion in the sky, horizon, zenith, and cardinal directions.", "Beginner", 20, ["Live Star Map", "Observation Planner"], [
+        ["The sky is a dome from your point of view", "When you observe, the sky looks like a dome around you. The horizon is the edge of that dome, and the zenith is straight overhead.", "Altitude measures height above the horizon. Azimuth measures direction around the horizon."],
+        ["Earth’s rotation moves the sky", "Stars appear to rise and set because Earth rotates. The sky seems to turn once per day, even though Earth is the object rotating.", "Near the poles, some stars can be circumpolar and never set."],
+        ["Your location matters", "A star’s altitude depends on your latitude and the time. The sky in California is not exactly the same as the sky in Australia.", "This is why a live sky map needs location and time." ]
+      ], [
+        ["What is the zenith?", ["North on the horizon", "Straight overhead", "A type of telescope", "The path of the Moon"], 1, "The zenith is the point directly above the observer."],
+        ["Why do stars appear to move across the sky?", ["Earth rotates", "Stars orbit Earth every night", "The Moon pushes them", "Telescopes magnify them"], 0, "The apparent daily motion comes from Earth’s rotation." ]
+      ]),
+      makeLesson("stars-constellations", "Sky Basics", "Stars and Constellations", "★", "Learn what constellations are and why star patterns are useful.", "Beginner", 20, ["Live Star Map", "Object Database"], [
+        ["Constellations are sky regions", "A constellation is not just a connect-the-dots drawing. Modern astronomy defines constellations as official regions of the sky.", "There are 88 official constellations."],
+        ["Stars in a pattern may not be close", "Two stars can appear near each other in the sky but be very different distances from Earth. Constellations are line-of-sight patterns.", "Orion’s bright stars are not all physically next to each other."],
+        ["Patterns help navigation", "Constellations help observers describe where objects are. They also make the night sky easier to learn.", "Astronomers use coordinates for precision, but constellation names are still useful." ]
+      ], [
+        ["What is a modern constellation?", ["Only a mythological drawing", "An official region of the sky", "A group of planets", "A galaxy cluster"], 1, "Modern constellations are official sky regions with boundaries."],
+        ["Are all stars in a constellation physically close together?", ["Always", "Usually no", "Only red stars", "Only in winter"], 1, "Many constellation stars only look close from our viewpoint." ]
+      ]),
+      makeLesson("moon", "Sky Basics", "The Moon", "☾", "Learn phases, reflected sunlight, and why the Moon changes shape.", "Beginner", 20, ["Live Star Map", "Observation Planner"], [
+        ["The Moon reflects sunlight", "The Moon does not make its own visible light. It shines because sunlight reflects from its surface.", "The same side of the Moon mostly faces Earth because it is tidally locked."],
+        ["Phases are geometry", "Moon phases happen because we see different portions of the Moon’s sunlit half as it orbits Earth.", "A new Moon is near the Sun in the sky, while a full Moon is opposite the Sun."],
+        ["The Moon affects observing", "A bright Moon can wash out faint nebulae and galaxies. Dark-sky observing is usually best near new Moon.", "The Moon itself is often best viewed near quarter phases because shadows reveal surface detail." ]
+      ], [
+        ["What causes Moon phases?", ["Earth’s shadow every night", "Changing geometry between Sun, Moon, and Earth", "Clouds covering the Moon", "The Moon cooling down"], 1, "Phases are caused by the changing view of the Moon’s sunlit half."],
+        ["When is deep-sky observing usually darkest?", ["Near new Moon", "During full Moon", "At sunrise", "Only during eclipses"], 0, "Near new Moon, moonlight interferes less with faint objects." ]
+      ]),
+      makeLesson("planets-sky", "Sky Basics", "Planets in the Sky", "♄", "See why planets wander and how they differ from stars in the sky.", "Beginner", 20, ["Live Star Map", "Observation Planner"], [
+        ["Planets move against the stars", "Planets usually appear near the ecliptic and slowly shift position compared with background stars.", "The word planet comes from an idea meaning wanderer."],
+        ["Planets reflect sunlight", "Most planets visible to the eye shine by reflecting sunlight. They are much closer than stars, so they can look bright without producing their own light.", "Venus can be brighter than any star in the night sky."],
+        ["Not every bright point is a star", "A steady bright point near the ecliptic might be a planet. A live sky map helps identify it by date and time.", "Planets can show disks or phases through a telescope." ]
+      ], [
+        ["Why do planets seem to wander compared with stars?", ["They orbit the Sun at different distances", "They are painted on the sky", "They are all comets", "They do not reflect light"], 0, "Planets and Earth all orbit the Sun, so their positions shift against the background stars."],
+        ["Which tool would help identify a planet tonight?", ["Live Star Map", "A calculator only", "A microscope", "A weather radar"], 0, "A live star map can show planet positions for your location and time." ]
+      ]),
+
+      makeLesson("stars-made-of", "Stars", "What Stars Are Made Of", "☀", "Learn why stars are hot plasma powered by nuclear fusion.", "Beginner", 25, ["Object Database"], [
+        ["Stars are mostly hydrogen and helium", "Most stars are made mainly of hydrogen and helium gas in a plasma state, where particles are extremely hot and electrically charged.", "The Sun is not burning like fire. It is powered by nuclear fusion."],
+        ["Fusion releases energy", "In a star’s core, hydrogen nuclei can fuse into helium. This releases energy that slowly works outward and eventually leaves as light.", "A photon made in the core may take a very long path before escaping."],
+        ["Gravity holds the star together", "Gravity pulls a star inward, while pressure from hot gas and radiation pushes outward. A stable star balances these forces.", "This balance is called hydrostatic equilibrium." ]
+      ], [
+        ["What powers most of a star’s life?", ["Chemical fire", "Nuclear fusion", "Reflected moonlight", "Electric batteries"], 1, "Stars like the Sun are powered by nuclear fusion in their cores."],
+        ["What are stars mostly made of?", ["Iron and rock", "Hydrogen and helium", "Liquid water", "Dark matter only"], 1, "Most normal stars are mostly hydrogen and helium." ]
+      ]),
+      makeLesson("star-color-temperature", "Stars", "Star Color and Temperature", "✦", "Learn why blue-white stars are hotter than red stars.", "Beginner", 25, ["Object Database", "Live Star Map"], [
+        ["Color is temperature", "A star’s color depends mostly on its surface temperature. Hotter stars look blue-white, while cooler stars look orange or red.", "The Sun is roughly white-yellow because its surface is about 5,800 K."],
+        ["Blue does not mean cold here", "On Earth, blue can feel like a cold color, but in stellar physics blue-white stars are hotter than yellow, orange, or red stars.", "Very hot O-type stars can be tens of thousands of kelvin."],
+        ["Color helps classify stars", "Astronomers classify stars with spectral types from hot to cool: O, B, A, F, G, K, M.", "A common memory order is OBAFGKM." ]
+      ], [
+        ["Which star color usually means the hottest surface?", ["Red", "Orange", "Blue-white", "Dark gray"], 2, "Blue-white stars are usually hotter than yellow, orange, or red stars."],
+        ["What spectral type is hotter than G?", ["M", "K", "A", "None of them"], 2, "A-type stars are hotter than G-type stars like the Sun." ]
+      ]),
+      makeLesson("stellar-brightness", "Stars", "Stellar Brightness", "✧", "Separate apparent brightness from true luminosity.", "Beginner", 25, ["Object Database", "Live Star Map"], [
+        ["Brightness depends on distance", "A star can look bright because it is truly powerful or because it is close to Earth. Apparent brightness is what we see from here.", "Sirius looks very bright partly because it is nearby."],
+        ["Luminosity is true power", "Luminosity describes how much energy a star emits per second. It is an intrinsic property, not just how bright it looks from Earth.", "A distant supergiant can be extremely luminous but still look modest in the sky."],
+        ["Magnitude is backwards", "In astronomy, smaller magnitude numbers mean brighter objects. Negative magnitudes are very bright.", "The Sun has a much lower apparent magnitude number than any night star because it is so close." ]
+      ], [
+        ["What is apparent brightness?", ["How bright an object looks from Earth", "A star’s mass only", "Its age", "Its chemical formula"], 0, "Apparent brightness is the brightness seen by an observer."],
+        ["In the magnitude scale, smaller numbers mean...", ["Fainter", "Brighter", "Farther", "Colder"], 1, "The magnitude scale is backward: smaller or negative numbers are brighter." ]
+      ]),
+      makeLesson("stellar-life-cycles", "Stars", "Stellar Life Cycles", "✺", "Understand how mass controls a star’s life and death.", "Intermediate", 30, ["Main Sim", "Object Database"], [
+        ["Mass is the key", "A star’s mass strongly controls how hot it gets, how fast it burns fuel, and how it ends its life.", "Massive stars live shorter lives because they use fuel very quickly."],
+        ["Low and Sun-like stars", "Stars like the Sun eventually expand into red giants, shed outer layers, and leave behind white dwarfs.", "The glowing gas around the remnant can form a planetary nebula."],
+        ["Massive stars", "Very massive stars can explode as supernovae and leave neutron stars or black holes behind.", "The exact outcome depends on mass and details of the star’s evolution." ]
+      ], [
+        ["What property most strongly shapes a star’s life cycle?", ["Mass", "Name", "Constellation", "Calendar month"], 0, "Mass controls core temperature, fusion rate, lifetime, and final remnant."],
+        ["What can a Sun-like star leave behind?", ["White dwarf", "Spiral galaxy", "New Moon", "Quasar immediately"], 0, "Sun-like stars can leave white dwarfs after their outer layers are shed." ]
+      ]),
+      makeLesson("supernovae-remnants", "Stars", "Supernovae and Remnants", "✹", "Learn how massive stars explode and enrich space.", "Intermediate", 30, ["Main Sim", "Object Database"], [
+        ["A supernova is a stellar explosion", "Some supernovae happen when massive stars collapse after exhausting core fuel. Others involve white dwarfs in special systems.", "Supernovae can briefly outshine entire galaxies."],
+        ["Heavy elements spread out", "Supernovae help spread elements made in stars into space. These materials can later become part of new stars, planets, and life.", "Elements heavier than helium are often called metals in astronomy."],
+        ["Remnants remain", "After a supernova, expanding gas and a compact remnant may remain. The compact remnant can be a neutron star or black hole.", "The Crab Nebula is a famous supernova remnant." ]
+      ], [
+        ["What can a massive star supernova leave behind?", ["Neutron star or black hole", "Only a rainbow", "A normal planet", "A weather system"], 0, "A massive star collapse can leave a neutron star or black hole."],
+        ["Why are supernovae important for later planets?", ["They spread heavy elements", "They remove all gravity", "They turn stars green", "They stop galaxies rotating"], 0, "Supernovae help enrich space with heavier elements." ]
+      ]),
+
+      makeLesson("gravity", "Gravity and Orbits", "Gravity", "⬤", "Learn gravity as the force that shapes motion in space.", "Beginner", 25, ["Main Sim"], [
+        ["Gravity attracts mass", "Gravity is the attraction between objects with mass. It acts across space and is responsible for orbits, tides, planets, stars, and galaxies.", "Gravity gets weaker with distance."],
+        ["Gravity changes motion", "Gravity does not just pull objects into each other. It changes their velocity, which means it can curve motion into an orbit.", "Not quite. Think about what gravity changes: motion, not just position."],
+        ["Gravity is universal", "The same basic gravitational ideas apply to falling objects, moons orbiting planets, and stars orbiting inside galaxies.", "General relativity gives a deeper explanation as curved spacetime." ]
+      ], [
+        ["What does gravity do to an object’s motion?", ["It can change velocity", "It only changes color", "It removes mass", "It stops time in all cases"], 0, "Gravity changes velocity, which can curve a path into an orbit."],
+        ["Gravity becomes weaker when distance...", ["Increases", "Turns blue", "Becomes a star", "Is measured in meters"], 0, "Gravitational attraction weakens as objects get farther apart." ]
+      ]),
+      makeLesson("why-orbits-happen", "Gravity and Orbits", "Why Orbits Happen", "◌", "See orbits as falling around an object instead of straight down.", "Beginner", 25, ["Main Sim"], [
+        ["An orbit is continuous falling", "An orbiting object is falling under gravity, but it also has sideways motion. It keeps missing the object it falls around.", "This is why satellites need sideways speed."],
+        ["Too slow, too fast, or just right", "If an object moves too slowly, it can fall inward. If it moves very fast, it may escape. In between, it can stay bound in an orbit.", "Escape velocity depends on mass and distance."],
+        ["Real orbits are often ellipses", "Circular orbits are a special case. Many real orbits are ellipses, with the central mass near one focus.", "Comets often have very stretched elliptical orbits." ]
+      ], [
+        ["Why does a satellite stay in orbit?", ["It has sideways motion while gravity pulls it", "There is no gravity in space", "It is tied to Earth", "It floats because it is light"], 0, "A satellite is falling while moving sideways fast enough to keep missing Earth."],
+        ["A circular orbit is...", ["The only possible orbit", "A special case", "Never possible", "A type of nebula"], 1, "Circular orbits are a special case of bound orbital motion." ]
+      ]),
+      makeLesson("keplers-laws", "Gravity and Orbits", "Kepler’s Laws", "☉", "Learn the three rules that describe planetary orbits.", "Intermediate", 30, ["Main Sim"], [
+        ["First law: ellipses", "Planets orbit the Sun in ellipses, with the Sun near one focus rather than exactly at the center.", "A circle is an ellipse with zero eccentricity."],
+        ["Second law: equal areas", "A planet sweeps out equal areas in equal times. This means it moves faster when closer to the Sun and slower when farther away.", "This is why comets speed up near perihelion."],
+        ["Third law: period and distance", "A planet farther from the Sun takes longer to orbit. For objects orbiting the same mass, orbital period is related to orbital size.", "In solar-system units, P² ≈ a³ for planets around the Sun." ]
+      ], [
+        ["Kepler’s first law says planets move in...", ["Perfect squares", "Ellipses", "Random zigzags", "Only straight lines"], 1, "Kepler’s first law describes elliptical orbits."],
+        ["A planet moves fastest when it is...", ["Closest to the Sun", "Farthest from the Sun", "At midnight", "Invisible"], 0, "Kepler’s second law means orbital speed is higher near the Sun." ]
+      ]),
+      makeLesson("tides-roche-limits", "Gravity and Orbits", "Tides and Roche Limits", "≈", "Understand stretching forces and when objects can break apart.", "Intermediate", 30, ["Main Sim", "Object Database"], [
+        ["Tides come from gravity differences", "Tidal forces happen because gravity is stronger on the near side of an object than the far side. This stretches objects along the direction of gravity.", "Earth’s ocean tides are caused mainly by the Moon, with help from the Sun."],
+        ["Roche limits mark danger zones", "The Roche limit is an approximate distance where tidal forces can pull a weaker object apart if it gets too close to a massive body.", "The exact limit depends on density, strength, and whether the object behaves like fluid or solid rock."],
+        ["Rings can form from disruption", "Material torn apart near a planet can spread into rings. Saturn’s rings are a famous example of orbiting debris.", "Roche limits are approximate, not magic walls." ]
+      ], [
+        ["What causes tidal forces?", ["Gravity being different across an object", "The object’s name", "A telescope lens", "Only sunlight"], 0, "Tides come from differences in gravitational pull across an object."],
+        ["What can happen inside a Roche limit?", ["A weak body may be pulled apart", "Gravity turns off", "Stars become planets", "All light disappears"], 0, "Strong tidal forces can disrupt weak objects within the Roche limit." ]
+      ]),
+      makeLesson("black-holes", "Gravity and Orbits", "Black Holes", "●", "Learn what black holes are without the movie myths.", "Intermediate", 30, ["Main Sim", "Object Database"], [
+        ["A black hole is extremely compact", "A black hole is a region where gravity is so strong that inside the event horizon, light cannot escape outward.", "The event horizon is a boundary, not a physical surface."],
+        ["Black holes do not vacuum everything", "From far away, a black hole’s gravity acts like the gravity of any object with the same mass. It does not magically suck in the whole galaxy.", "A stable orbit around a black hole is possible outside dangerous inner regions."],
+        ["We detect black holes indirectly", "Astronomers infer black holes by watching gas, stars, light, and gravitational waves affected by compact massive objects.", "The first black hole image showed glowing material around a supermassive black hole." ]
+      ], [
+        ["What is the event horizon?", ["A boundary beyond which light cannot escape", "A solid metal shell", "A moon phase", "A type of comet tail"], 0, "The event horizon marks where escape outward is no longer possible."],
+        ["Do black holes automatically suck in everything in a galaxy?", ["No", "Yes, instantly", "Only blue stars", "Only planets"], 0, "Black holes have gravity like any mass; distance and motion still matter." ]
+      ]),
+
+      makeLesson("nebulae", "Deep Sky Objects", "Nebulae", "☁", "Learn about glowing gas, dust clouds, and star-forming regions.", "Beginner", 25, ["Object Database", "Observation Planner"], [
+        ["Nebulae are clouds in space", "A nebula is a cloud of gas and dust. Some glow, some reflect starlight, and some block light behind them.", "Nebulae can be emission, reflection, dark, planetary, or supernova remnants."],
+        ["Some nebulae form stars", "Dense regions of gas and dust can collapse under gravity and form new stars. These are stellar nurseries.", "The Orion Nebula is one of the closest major star-forming regions."],
+        ["Nebulae can be faint", "Many nebulae require dark skies or long-exposure images to see clearly. Through a telescope, they may look gray or subtle to the eye.", "Photos often reveal colors your eye cannot see well in dim light." ]
+      ], [
+        ["What is a nebula?", ["A cloud of gas and dust", "A planet with rings", "A telescope mount", "A type of calendar"], 0, "Nebulae are clouds of gas and dust in space."],
+        ["Why do telescope views often look less colorful than photos?", ["Eyes are less color-sensitive in dim light", "Nebulae have no light at all", "Photos erase color", "Telescopes remove color"], 0, "Human night vision has limited color sensitivity." ]
+      ]),
+      makeLesson("open-clusters", "Deep Sky Objects", "Open Clusters", "✶", "Learn about young groups of stars born together.", "Beginner", 25, ["Object Database", "Live Star Map"], [
+        ["Open clusters are loose star groups", "An open cluster is a group of stars that formed from the same cloud and remain loosely bound by gravity.", "The Pleiades is a famous open cluster."],
+        ["They are often young", "Open clusters usually contain young stars compared with globular clusters. Many still include hot blue stars.", "Over time, encounters can spread an open cluster apart."],
+        ["They help study stellar evolution", "Because cluster stars formed around the same time and distance, astronomers can compare them to understand how mass affects stellar aging.", "Clusters are natural laboratories for star life cycles." ]
+      ], [
+        ["The Pleiades is an example of...", ["Open cluster", "Black hole", "Planetary ring", "Quasar"], 0, "The Pleiades is a famous open cluster."],
+        ["Why are open clusters useful?", ["Their stars formed around the same time", "They are all planets", "They contain no gravity", "They are invisible"], 0, "Shared age and distance make clusters useful for comparing stars." ]
+      ]),
+      makeLesson("globular-clusters", "Deep Sky Objects", "Globular Clusters", "✷", "Learn about ancient dense star swarms around galaxies.", "Intermediate", 25, ["Object Database"], [
+        ["Globular clusters are dense", "A globular cluster is a nearly spherical, tightly packed group of many old stars bound by gravity.", "Some contain hundreds of thousands of stars."],
+        ["They orbit galaxies", "Globular clusters often orbit in the halos of galaxies, outside the main disk. They are among the oldest objects in a galaxy.", "The Milky Way has many globular clusters."],
+        ["They reveal galactic history", "Because globular clusters are old, they help astronomers study the early history and formation of galaxies.", "Their stars usually contain fewer heavy elements than younger disk stars." ]
+      ], [
+        ["Globular clusters are usually...", ["Old and dense", "Young and loose", "Single planets", "Clouds in Earth’s sky"], 0, "Globular clusters are old, dense star systems."],
+        ["Where are many globular clusters found?", ["Galaxy halos", "Inside Earth", "Only on the Moon", "Under oceans"], 0, "Many globular clusters orbit in galaxy halos." ]
+      ]),
+      makeLesson("galaxies", "Deep Sky Objects", "Galaxies", "◎", "Learn what galaxies are and how the Milky Way fits in.", "Beginner", 25, ["Object Database"], [
+        ["Galaxies are star systems", "A galaxy is a huge system of stars, gas, dust, dark matter, and sometimes a central supermassive black hole.", "The Milky Way is our home galaxy."],
+        ["Galaxies have types", "Common galaxy types include spiral, elliptical, and irregular. Shape often relates to a galaxy’s history and star formation.", "The Milky Way is a barred spiral galaxy."],
+        ["Galaxies are not isolated", "Galaxies can interact, merge, and form groups or clusters. Gravity shapes their long-term evolution.", "The Milky Way and Andromeda are moving toward an eventual merger." ]
+      ], [
+        ["What is the Milky Way?", ["Our home galaxy", "A nearby asteroid", "A moon phase", "A telescope lens"], 0, "The Milky Way is the galaxy containing our Solar System."],
+        ["Which is a common galaxy type?", ["Spiral", "Triangle planet", "Blue comet only", "Atmospheric"], 0, "Spiral galaxies are one major galaxy type." ]
+      ]),
+      makeLesson("quasars", "Deep Sky Objects", "Quasars", "◇", "Meet some of the brightest active galaxy cores.", "Advanced", 30, ["Object Database"], [
+        ["Quasars are active galactic nuclei", "A quasar is an extremely bright active galaxy core powered by material falling toward a supermassive black hole.", "The black hole itself is dark; the glowing material around it releases enormous energy."],
+        ["They are often very distant", "Many quasars are seen across billions of light-years, so their light shows the universe when it was younger.", "Looking far away in space also means looking back in time."],
+        ["They help probe the universe", "Quasar light passing through gas between galaxies can reveal information about the early universe and intergalactic matter.", "Quasars can act like cosmic flashlights." ]
+      ], [
+        ["What powers a quasar’s brightness?", ["Material falling near a supermassive black hole", "A giant solid surface", "Moonlight", "A planet’s ring"], 0, "Quasars are powered by accretion around supermassive black holes."],
+        ["Why can distant quasars show the young universe?", ["Their light took billions of years to reach us", "They are inside Earth", "They move backward in time", "They have no distance"], 0, "Because light travels at a finite speed, distant objects are seen as they were long ago." ]
+      ]),
+
+      makeLesson("telescopes-light", "Observing and Telescopes", "How Telescopes Gather Light", "⌕", "Learn why aperture matters more than just zoom.", "Beginner", 25, ["Telescope", "Observation Planner"], [
+        ["Telescopes collect light", "The main job of a telescope is to gather more light than your eye can. More light makes faint objects easier to detect.", "Aperture is the diameter of the main lens or mirror."],
+        ["Bigger aperture helps resolution", "A larger aperture can also improve angular resolution, meaning finer detail may be separated under good conditions.", "Atmospheric seeing can still limit detail."],
+        ["Magnification is not everything", "High magnification can make an image dimmer and blurrier if the telescope, target, or sky conditions cannot support it.", "A sharp low-power view is often better than a blurry high-power view." ]
+      ], [
+        ["What is a telescope’s main light-gathering measure?", ["Aperture", "Paint color", "Tripod height only", "File name"], 0, "Aperture controls how much light the telescope collects."],
+        ["Is maximum magnification always best?", ["No", "Yes", "Only for clouds", "Only without lenses"], 0, "Too much magnification can make views dim and blurry." ]
+      ]),
+      makeLesson("magnification-aperture", "Observing and Telescopes", "Magnification and Aperture", "◍", "Connect eyepieces, focal length, brightness, and realistic views.", "Beginner", 25, ["Telescope"], [
+        ["Magnification depends on focal lengths", "Magnification is telescope focal length divided by eyepiece focal length. Shorter eyepiece focal length usually gives higher magnification.", "A 1000 mm telescope with a 10 mm eyepiece gives about 100×."],
+        ["Aperture sets the light budget", "A larger aperture gathers more light, which helps faint objects and supports more useful magnification under good conditions.", "A small scope can still give beautiful views of the Moon and bright planets."],
+        ["The sky sets limits", "Atmospheric turbulence, target height, thermal currents, and focus all affect sharpness. Real observing is not only about the telescope specs.", "Good seeing can matter as much as equipment." ]
+      ], [
+        ["How do you estimate telescope magnification?", ["Telescope focal length ÷ eyepiece focal length", "Aperture + weather", "Mass ÷ color", "Moon phase × star name"], 0, "Magnification is telescope focal length divided by eyepiece focal length."],
+        ["What can limit useful magnification?", ["Atmospheric seeing", "The alphabet", "Constellation myths", "Only the calendar year"], 0, "Seeing can blur fine detail even with a good telescope." ]
+      ]),
+      makeLesson("finding-objects", "Observing and Telescopes", "Finding Objects", "⌖", "Learn how observers locate targets with maps, coordinates, and guide stars.", "Beginner", 25, ["Live Star Map", "Telescope", "Object Database"], [
+        ["Start with bright references", "Observers often use bright stars, planets, or familiar constellations to orient themselves before searching for fainter targets.", "This is called star hopping when you move from known stars to a target."],
+        ["Coordinates help precision", "Right ascension and declination locate objects on the celestial sphere, while altitude and azimuth describe where to point from your location right now.", "Alt-az coordinates change with time."],
+        ["Use the right tool", "A live star map helps with current sky position. An object database gives target facts. A telescope page helps match target size and brightness to equipment.", "Planning saves time in the dark." ]
+      ], [
+        ["What is star hopping?", ["Moving from known stars toward a target", "Stars jumping physically", "A type of supernova", "Only using satellites"], 0, "Star hopping uses recognizable stars as stepping stones."],
+        ["Which coordinates change with time for an observer?", ["Altitude and azimuth", "Object name", "Chemical element", "Constellation boundary"], 0, "Altitude and azimuth depend on location and time." ]
+      ]),
+      makeLesson("observing-conditions", "Observing and Telescopes", "Observing Conditions", "◒", "Learn seeing, transparency, light pollution, and target altitude.", "Beginner", 25, ["Observation Planner", "Live Star Map"], [
+        ["Transparency affects faint objects", "Transparency describes how clear the air is. Haze, smoke, humidity, and clouds reduce transparency and make faint deep-sky targets harder.", "Dark skies help galaxies and nebulae."],
+        ["Seeing affects sharp detail", "Seeing describes atmospheric steadiness. Poor seeing makes planets and close double stars shimmer or blur.", "A night can be transparent but have bad seeing, or the reverse."],
+        ["Altitude matters", "Objects higher above the horizon are usually clearer because their light passes through less atmosphere.", "Avoid observing faint targets very low in the sky when possible." ]
+      ], [
+        ["Which condition matters a lot for faint galaxies?", ["Transparency and dark skies", "Keyboard size", "Planet color", "Telescope brand only"], 0, "Good transparency and low light pollution help faint deep-sky objects."],
+        ["What does poor seeing hurt most?", ["Sharp planetary detail", "The names of stars", "The calendar", "The speed of light"], 0, "Poor seeing blurs fine detail." ]
+      ]),
+      makeLesson("planning-night", "Observing and Telescopes", "Planning an Observing Night", "▣", "Build a realistic session plan with targets, timing, and conditions.", "Beginner", 25, ["Observation Planner", "Live Star Map", "Object Database"], [
+        ["Pick targets for the night", "Choose targets that are visible from your location, high enough above the horizon, and suited to your telescope or binoculars.", "The best target is not always the most famous one."],
+        ["Check Moon and weather", "Moon phase, clouds, transparency, and seeing all affect what is worth observing. Plan bright targets when the Moon is bright.", "Lunar observing can be amazing when deep-sky conditions are poor."],
+        ["Make notes", "Record time, equipment, sky conditions, magnification, and what you actually saw. Notes make you a better observer over time.", "Sketching helps train your eye." ]
+      ], [
+        ["Why plan targets before observing?", ["To match visibility, timing, and equipment", "To make stars brighter", "To change the Moon phase", "To stop Earth rotating"], 0, "Planning helps you choose realistic targets for the night."],
+        ["What should observing notes include?", ["Conditions and what you saw", "Only your favorite color", "Nothing", "Random coordinates only"], 0, "Useful notes include conditions, equipment, time, and observations." ]
+      ]),
+
+      makeLesson("exoplanets", "Modern Astrophysics", "Exoplanets", "◐", "Learn how planets around other stars are detected.", "Intermediate", 30, ["Object Database"], [
+        ["Exoplanets orbit other stars", "An exoplanet is a planet outside our Solar System. Thousands have been confirmed, and many more candidates are being studied.", "Most known exoplanets were not directly photographed."],
+        ["Transits block a little light", "The transit method finds planets when they pass in front of their star and slightly dim the starlight we see.", "The dip is usually tiny, so repeated measurements matter."],
+        ["Spectra can reveal atmospheres", "When starlight passes through or reflects from an exoplanet atmosphere, spectroscopy may reveal molecules, clouds, or temperature clues.", "Atmosphere studies are difficult and require careful evidence." ]
+      ], [
+        ["What is an exoplanet?", ["A planet outside our Solar System", "A comet inside Earth", "A galaxy center", "A telescope part"], 0, "Exoplanets are planets orbiting stars beyond the Sun."],
+        ["What does a transit planet do?", ["Blocks a tiny amount of starlight", "Turns its star off", "Becomes a moon", "Stops orbiting"], 0, "A transit causes a small dip in the star’s observed brightness." ]
+      ]),
+      makeLesson("redshift", "Modern Astrophysics", "Redshift", "↗", "Understand stretched light and cosmic motion.", "Intermediate", 30, ["Object Database"], [
+        ["Redshift means longer wavelength", "Redshift happens when light is shifted toward longer wavelengths. This can happen from motion, gravity, or cosmic expansion.", "Blueshift is a shift toward shorter wavelengths."],
+        ["Galaxy redshift and expansion", "Distant galaxies usually show cosmological redshift because space itself has expanded while their light traveled to us.", "This is evidence that the universe is expanding."],
+        ["Redshift is measured from spectra", "Astronomers compare known spectral lines to where those lines appear in observed light. The shift gives information about motion or expansion.", "Spectral lines are like fingerprints for atoms and molecules." ]
+      ], [
+        ["Redshift usually means light shifts toward...", ["Longer wavelengths", "No wavelength", "Only green", "Sound waves"], 0, "Redshift is a shift toward longer wavelengths."],
+        ["What does cosmological redshift help show?", ["The universe is expanding", "Stars are painted red", "Earth is flat", "Telescopes create galaxies"], 0, "Distant galaxy redshift is key evidence for cosmic expansion." ]
+      ]),
+      makeLesson("dark-matter", "Modern Astrophysics", "Dark Matter", "◉", "Learn the evidence and what remains unknown.", "Advanced", 30, ["Object Database"], [
+        ["Dark matter is inferred from gravity", "Dark matter is unseen matter inferred because galaxies, clusters, and light behave as if more mass exists than visible matter alone can explain.", "It is called dark because it does not emit or reflect ordinary light in an obvious way."],
+        ["Evidence comes from many places", "Galaxy rotation curves, gravitational lensing, galaxy clusters, and cosmic background patterns all support the need for extra gravitating matter.", "Multiple lines of evidence make the case stronger."],
+        ["Its nature is unknown", "Scientists have strong evidence that dark matter acts gravitationally, but the exact particle or nature is still unknown.", "A good explanation should not pretend we already know what it is made of." ]
+      ], [
+        ["Dark matter is mainly inferred because of its...", ["Gravity", "Color", "Sound", "Smell"], 0, "Dark matter is inferred from gravitational effects."],
+        ["Do scientists know the exact particle nature of dark matter?", ["Not yet", "Yes, completely", "It is definitely water", "It is only dust"], 0, "The evidence is strong, but the exact nature is still unknown." ]
+      ]),
+      makeLesson("cosmic-expansion", "Modern Astrophysics", "Cosmic Expansion", "⇄", "Learn what it means for space to expand.", "Advanced", 30, ["Object Database"], [
+        ["Space itself expands", "Cosmic expansion means distances between very distant galaxies generally grow over time because the scale of space changes.", "This is not the same as galaxies flying through pre-existing empty space from one center."],
+        ["There is no central explosion point", "The Big Bang model does not say the universe exploded from one point into empty space. It describes a hot, dense early universe expanding everywhere.", "Every distant observer would see other distant galaxies receding on large scales."],
+        ["Expansion history matters", "By measuring expansion, astronomers study the universe’s age, contents, and future behavior. Dark energy is the name for the unknown cause of accelerated expansion.", "Dark energy is a major open question." ]
+      ], [
+        ["Cosmic expansion means...", ["Space itself changes scale", "Earth is the center", "Stars stop moving", "Only planets expand"], 0, "On large scales, the scale of space grows over time."],
+        ["Does the Big Bang mean an explosion from one point into empty space?", ["No", "Yes, exactly", "Only inside the Milky Way", "Only during eclipses"], 0, "The model describes expansion of the universe itself, not an explosion into empty space." ]
+      ]),
+      makeLesson("big-picture", "Modern Astrophysics", "The Big Picture", "✺", "Connect sky observing to physics, history, and the future of astronomy.", "Advanced", 35, ["Main Sim", "Live Star Map", "Object Database", "Observation Planner", "Telescope"], [
+        ["Astronomy connects scales", "The same universe contains dust grains, moons, planets, stars, galaxies, black holes, and the cosmic web. Astronomy links them through gravity, light, and time.", "A backyard observation and a space telescope image are part of the same story."],
+        ["Models and observations work together", "Simulations help test ideas, but observations keep the science anchored to evidence. Good astronomy needs both.", "StellaSim’s tools mirror this: simulate, observe, search, plan, and learn."],
+        ["The universe is still an open question", "Astronomy has answered a lot, but dark matter, dark energy, planet formation, black holes, and life beyond Earth remain active research areas.", "The best scientists stay curious and careful." ]
+      ], [
+        ["What keeps astronomy scientific?", ["Evidence and testable models", "Guessing only", "Choosing cool names", "Avoiding measurements"], 0, "Astronomy uses observations and models that can be tested against evidence."],
+        ["Which StellaSim tool connects best to planning real observations?", ["Observation Planner", "Only the title text", "A printer", "The reset button"], 0, "The Observation Planner is meant for target planning and observing notes." ]
+      ])
+    ];
+
+    const toolLinks = {
+      "Main Sim": { href: "main-sim.html", text: "Experiment with gravity, orbits, collisions, and space systems." },
+      "Live Star Map": { href: "live-star-map.html", text: "Find real sky objects and learn where they appear tonight." },
+      "Object Database": { href: "object-database.html", text: "Read detailed pages about stars, galaxies, nebulae, and concepts." },
+      "Observation Planner": { href: "observation-planner.html", text: "Plan observing sessions, targets, and notes." },
+      "Telescope": { href: "telescope.html", text: "Explore realistic telescope views and equipment choices." }
+    };
+
+    const achievements = [
+      { id: "first-light", icon: "✦", title: "First Light", text: "Complete your first lesson.", earned: (s) => s.completed.length >= 1 },
+      { id: "sky-student", icon: "☄", title: "Sky Student", text: "Earn 100 XP.", earned: (s) => s.xp >= 100 },
+      { id: "star-scholar", icon: "★", title: "Star Scholar", text: "Complete all Stars lessons.", earned: (s) => unitComplete(s, "Stars") },
+      { id: "orbit-builder", icon: "◌", title: "Orbit Builder", text: "Complete all Gravity and Orbits lessons.", earned: (s) => unitComplete(s, "Gravity and Orbits") },
+      { id: "deep-sky", icon: "◎", title: "Deep Sky Explorer", text: "Complete five Deep Sky Objects lessons.", earned: (s) => lessons.filter((l) => l.unit === "Deep Sky Objects" && s.completed.includes(l.id)).length >= 5 },
+      { id: "week-wonder", icon: "☾", title: "Week of Wonder", text: "Reach a 7-day streak.", earned: (s) => s.streak >= 7 },
+      { id: "universe-learner", icon: "✺", title: "Universe Learner", text: "Complete every lesson.", earned: (s) => s.completed.length === lessons.length }
+    ];
+
+    const storageKey = "stellasimAstronomyLessonsProgress";
+
+    let state = loadState();
+    let activeLesson = null;
+    let activeStep = 0;
+    let quizIndex = 0;
+    let quizScore = 0;
+    let answered = false;
+    let reviewFilter = false;
+
+    const lessonPath = document.getElementById("lessonPath");
+    const achievementGrid = document.getElementById("achievementGrid");
+    const toolGrid = document.getElementById("toolGrid");
+    const activityList = document.getElementById("activityList");
+    const lessonModal = document.getElementById("lessonModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalIcon = document.getElementById("modalIcon");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSubtitle = document.getElementById("modalSubtitle");
+    const modalStepLabel = document.getElementById("modalStepLabel");
+    const modalScoreLabel = document.getElementById("modalScoreLabel");
+    const modalProgressFill = document.getElementById("modalProgressFill");
+    const lessonContent = document.getElementById("lessonContent");
+    const backBtn = document.getElementById("backBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const toolHintBtn = document.getElementById("toolHintBtn");
+    const reviewBtn = document.getElementById("reviewBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const toast = document.getElementById("toast");
+
+    closeModalBtn.addEventListener("click", closeLesson);
+    backBtn.addEventListener("click", previousStep);
+    nextBtn.addEventListener("click", nextStep);
+    toolHintBtn.addEventListener("click", scrollToolsIntoView);
+    reviewBtn.addEventListener("click", toggleReviewFilter);
+    resetBtn.addEventListener("click", resetProgress);
+
+    lessonModal.addEventListener("click", (event) => {
+      if (event.target === lessonModal) closeLesson();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && lessonModal.classList.contains("open")) closeLesson();
+    });
+
+    renderAll();
+    initStarfield();
+
+    // this makes lesson objects easier to read
+    function makeLesson(id, unit, title, icon, description, difficulty, xp, relatedTools, slideRows, quizRows) {
+      return {
+        id,
+        unit,
+        title,
+        icon,
+        description,
+        difficulty,
+        xp,
+        relatedTools,
+        slides: slideRows.map(([heading, body, fact]) => ({ heading, body, fact })),
+        quiz: quizRows.map(([question, choices, answer, explanation]) => ({ question, choices, answer, explanation }))
+      };
+    }
+
+    // this loads saved progress
+    function loadState() {
+      const fallback = {
+        xp: 0,
+        streak: 0,
+        lastCompletedDate: "",
+        completed: [],
+        activity: []
+      };
+
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        return {
+          xp: Number(parsed.xp || 0),
+          streak: Number(parsed.streak || 0),
+          lastCompletedDate: parsed.lastCompletedDate || "",
+          completed: Array.isArray(parsed.completed) ? parsed.completed : [],
+          activity: Array.isArray(parsed.activity) ? parsed.activity : []
+        };
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    // this saves xp and streak
+    function saveState() {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    }
+
+    function renderAll() {
+      renderStats();
+      renderPath();
+      renderAchievements();
+      renderTools();
+      renderActivity();
+    }
+
+    function renderStats() {
+      const level = Math.floor(state.xp / 100) + 1;
+      const levelXp = state.xp % 100;
+      const completed = state.completed.length;
+      const percent = Math.round((completed / lessons.length) * 100);
+
+      document.getElementById("xpValue").textContent = state.xp;
+      document.getElementById("streakValue").textContent = state.streak;
+      document.getElementById("levelValue").textContent = level;
+      document.getElementById("completedValue").textContent = `${completed}/${lessons.length}`;
+      document.getElementById("levelProgressLabel").textContent = `${levelXp} XP toward next level`;
+      document.getElementById("overallProgressLabel").textContent = `${percent}% complete`;
+      document.getElementById("levelProgressFill").style.width = `${levelXp}%`;
+    }
+
+    function renderPath() {
+      lessonPath.innerHTML = "";
+      const units = [...new Set(lessons.map((lesson) => lesson.unit))];
+
+      for (const unit of units) {
+        const unitLessons = lessons.filter((lesson) => lesson.unit === unit);
+        const unitBlock = document.createElement("section");
+        unitBlock.className = "unit-block";
+
+        const title = document.createElement("h3");
+        title.className = "unit-title";
+        title.textContent = `Unit ${units.indexOf(unit) + 1}: ${unit}`;
+        unitBlock.appendChild(title);
+
+        const path = document.createElement("div");
+        path.className = "lesson-path";
+
+        for (const lesson of unitLessons) {
+          if (reviewFilter && !state.completed.includes(lesson.id)) continue;
+          path.appendChild(createLessonNode(lesson));
+        }
+
+        unitBlock.appendChild(path);
+        lessonPath.appendChild(unitBlock);
+      }
+    }
+
+    function createLessonNode(lesson) {
+      const index = lessons.findIndex((item) => item.id === lesson.id);
+      const completed = state.completed.includes(lesson.id);
+      const unlocked = isUnlocked(index);
+      const available = unlocked && !completed;
+
+      const node = document.createElement("article");
+      node.className = `lesson-node ${completed ? "completed" : available ? "available" : "locked"}`;
+      node.style.animationDelay = `${Math.min(index * 32, 620)}ms`;
+      node.tabIndex = unlocked ? 0 : 0;
+      node.setAttribute("role", "button");
+      node.setAttribute("aria-label", `${lesson.title}, ${completed ? "completed" : unlocked ? "available" : "locked"}`);
+
+      node.innerHTML = `
+        <div class="lesson-icon" aria-hidden="true">${completed ? "✓" : lesson.icon}</div>
+        <div class="lesson-copy">
+          <h3>${index + 1}. ${lesson.title}</h3>
+          <p>${lesson.description}</p>
+          <div class="lesson-meta">
+            <span class="pill">${lesson.difficulty}</span>
+            <span class="pill">${lesson.xp} XP</span>
+            <span class="pill">${lesson.unit}</span>
+          </div>
+        </div>
+        <div class="status-pill">${completed ? "Completed" : available ? "Start" : "Locked"}</div>
+      `;
+
+      node.addEventListener("click", () => {
+        if (!unlocked) {
+          showToast("Complete the previous lesson to unlock this.");
+          return;
+        }
+        openLesson(lesson);
+      });
+
+      node.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          node.click();
+        }
+      });
+
+      return node;
+    }
+
+    function isUnlocked(index) {
+      if (index === 0) return true;
+      return state.completed.includes(lessons[index - 1].id);
+    }
+
+    function renderAchievements() {
+      achievementGrid.innerHTML = "";
+
+      for (const achievement of achievements) {
+        const earned = achievement.earned(state);
+        const card = document.createElement("article");
+        card.className = `achievement-card ${earned ? "earned" : ""}`;
+        card.innerHTML = `
+          <div class="achievement-icon">${earned ? achievement.icon : "○"}</div>
+          <div>
+            <h3>${achievement.title}</h3>
+            <p>${achievement.text}</p>
+          </div>
+        `;
+        achievementGrid.appendChild(card);
+      }
+    }
+
+    function renderTools() {
+      toolGrid.innerHTML = "";
+
+      Object.entries(toolLinks).forEach(([name, data]) => {
+        const link = document.createElement("a");
+        link.className = "tool-link";
+        link.href = data.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.innerHTML = `
+          <h3>${name}</h3>
+          <p>${data.text}</p>
+        `;
+        toolGrid.appendChild(link);
+      });
+    }
+
+    function renderActivity() {
+      activityList.innerHTML = "";
+
+      const items = state.activity.slice(0, 5);
+      if (!items.length) {
+        const empty = document.createElement("article");
+        empty.className = "activity-item";
+        empty.innerHTML = `<h3>No activity yet</h3><p>Complete your first lesson to start your log.</p>`;
+        activityList.appendChild(empty);
+        return;
+      }
+
+      for (const item of items) {
+        const card = document.createElement("article");
+        card.className = "activity-item";
+        card.innerHTML = `<h3>${item.title}</h3><p>${item.text}</p>`;
+        activityList.appendChild(card);
+      }
+    }
+
+    function unitComplete(s, unit) {
+      const unitLessons = lessons.filter((lesson) => lesson.unit === unit);
+      return unitLessons.every((lesson) => s.completed.includes(lesson.id));
+    }
+
+    // this starts the quiz lesson flow
+    function openLesson(lesson) {
+      activeLesson = lesson;
+      activeStep = 0;
+      quizIndex = 0;
+      quizScore = 0;
+      answered = false;
+
+      modalIcon.textContent = lesson.icon;
+      modalTitle.textContent = lesson.title;
+      modalSubtitle.textContent = `${lesson.unit} • ${lesson.difficulty} • ${lesson.xp} XP`;
+      lessonModal.classList.add("open");
+      document.body.style.overflow = "hidden";
+      renderLessonStep();
+    }
+
+    function closeLesson() {
+      lessonModal.classList.remove("open");
+      document.body.style.overflow = "";
+      activeLesson = null;
+    }
+
+    function renderLessonStep() {
+      if (!activeLesson) return;
+
+      const slideCount = activeLesson.slides.length;
+      const quizCount = activeLesson.quiz.length;
+      const totalSteps = slideCount + quizCount + 1;
+      const percent = Math.min(100, Math.round(((activeStep + 1) / totalSteps) * 100));
+
+      modalProgressFill.style.width = `${percent}%`;
+      modalScoreLabel.textContent = `Quiz score: ${quizScore}/${quizCount}`;
+      backBtn.disabled = activeStep === 0;
+      toolHintBtn.style.display = "inline-block";
+
+      if (activeStep < slideCount) {
+        renderSlide(activeStep, totalSteps);
+        return;
+      }
+
+      if (activeStep < slideCount + quizCount) {
+        quizIndex = activeStep - slideCount;
+        renderQuiz(quizIndex, totalSteps);
+        return;
+      }
+
+      renderCompletion(totalSteps);
+    }
+
+    function renderSlide(index, totalSteps) {
+      const slide = activeLesson.slides[index];
+      modalStepLabel.textContent = `Teaching card ${index + 1} of ${activeLesson.slides.length}`;
+      nextBtn.textContent = index === activeLesson.slides.length - 1 ? "Start Quiz" : "Next";
+      nextBtn.disabled = false;
+
+      lessonContent.innerHTML = `
+        <article class="slide-card">
+          <h3>${slide.heading}</h3>
+          <p>${slide.body}</p>
+          ${slide.fact ? `<div class="fact-box">✦ ${slide.fact}</div>` : ""}
+          <div class="lesson-tools">${activeLesson.relatedTools.map((tool) => `<span class="pill">${tool}</span>`).join("")}</div>
+        </article>
+      `;
+    }
+
+    function renderQuiz(index) {
+      const question = activeLesson.quiz[index];
+      answered = false;
+      modalStepLabel.textContent = `Quiz question ${index + 1} of ${activeLesson.quiz.length}`;
+      nextBtn.textContent = index === activeLesson.quiz.length - 1 ? "Finish Lesson" : "Next Question";
+      nextBtn.disabled = true;
+
+      lessonContent.innerHTML = `
+        <article class="slide-card">
+          <h3>Check your understanding</h3>
+          <p class="quiz-question">${question.question}</p>
+          <div class="choice-list" id="choiceList">
+            ${question.choices.map((choice, choiceIndex) => `
+              <button class="choice-btn" type="button" data-choice="${choiceIndex}">${choice}</button>
+            `).join("")}
+          </div>
+          <div class="feedback-box" id="feedbackBox"></div>
+        </article>
+      `;
+
+      document.querySelectorAll(".choice-btn").forEach((button) => {
+        button.addEventListener("click", () => checkAnswer(button, question));
+      });
+    }
+
+    // this checks the answer
+    function checkAnswer(button, question) {
+      if (answered) return;
+      answered = true;
+
+      const selected = Number(button.dataset.choice);
+      const correct = selected === question.answer;
+      const feedbackBox = document.getElementById("feedbackBox");
+
+      if (correct) quizScore++;
+
+      document.querySelectorAll(".choice-btn").forEach((choiceButton) => {
+        const choiceIndex = Number(choiceButton.dataset.choice);
+        choiceButton.disabled = true;
+        if (choiceIndex === question.answer) choiceButton.classList.add("correct");
+        if (choiceIndex === selected && !correct) choiceButton.classList.add("incorrect");
+      });
+
+      feedbackBox.classList.add("show");
+      feedbackBox.innerHTML = `<strong>${correct ? "Correct." : "Not quite."}</strong> ${question.explanation}`;
+      modalScoreLabel.textContent = `Quiz score: ${quizScore}/${activeLesson.quiz.length}`;
+      nextBtn.disabled = false;
+    }
+
+    function renderCompletion() {
+      const alreadyCompleted = state.completed.includes(activeLesson.id);
+      modalStepLabel.textContent = "Lesson complete";
+      modalProgressFill.style.width = "100%";
+      nextBtn.textContent = "Continue Path";
+      nextBtn.disabled = false;
+      backBtn.disabled = false;
+
+      lessonContent.innerHTML = `
+        <article class="completion-screen">
+          <div class="big-icon">${alreadyCompleted ? "✓" : "✦"}</div>
+          <h3>Nice work — lesson complete.</h3>
+          <p>
+            You scored ${quizScore}/${activeLesson.quiz.length}. ${alreadyCompleted ? "This was review mode, so XP was already awarded earlier." : `You earned ${activeLesson.xp} XP and unlocked the next lesson.`}
+          </p>
+          <div class="chip-row" style="justify-content:center;">
+            <span class="chip">${activeLesson.unit}</span>
+            <span class="chip">${activeLesson.difficulty}</span>
+            <span class="chip">${alreadyCompleted ? "Review complete" : "+" + activeLesson.xp + " XP"}</span>
+          </div>
+        </article>
+      `;
+
+      if (!alreadyCompleted) completeLesson(activeLesson);
+    }
+
+    function nextStep() {
+      if (!activeLesson) return;
+
+      const slideCount = activeLesson.slides.length;
+      const quizCount = activeLesson.quiz.length;
+      const completionStep = slideCount + quizCount;
+
+      if (activeStep >= completionStep) {
+        closeLesson();
+        renderAll();
+        return;
+      }
+
+      activeStep++;
+      renderLessonStep();
+    }
+
+    function previousStep() {
+      if (!activeLesson || activeStep === 0) return;
+      activeStep--;
+      renderLessonStep();
+    }
+
+    // this completes a lesson once
+    function completeLesson(lesson) {
+      state.completed.push(lesson.id);
+      state.xp += lesson.xp;
+      updateStreak();
+      state.activity.unshift({
+        title: lesson.title,
+        text: `Completed for ${lesson.xp} XP • ${new Date().toLocaleDateString()}`
+      });
+      state.activity = state.activity.slice(0, 8);
+      saveState();
+      renderAll();
+      showToast(`+${lesson.xp} XP saved.`);
+    }
+
+    function updateStreak() {
+      const today = getDateKey(new Date());
+      const yesterday = getDateKey(new Date(Date.now() - 86400000));
+
+      if (state.lastCompletedDate === today) return;
+      if (state.lastCompletedDate === yesterday) state.streak += 1;
+      else state.streak = 1;
+
+      state.lastCompletedDate = today;
+    }
+
+    function getDateKey(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function toggleReviewFilter() {
+      reviewFilter = !reviewFilter;
+      reviewBtn.textContent = reviewFilter ? "Show Full Path" : "Review Completed";
+      renderPath();
+      showToast(reviewFilter ? "Showing completed lessons only." : "Showing full lesson path.");
+    }
+
+    function resetProgress() {
+      const confirmed = confirm("Reset all Astronomy Lessons progress on this browser?");
+      if (!confirmed) return;
+
+      state = {
+        xp: 0,
+        streak: 0,
+        lastCompletedDate: "",
+        completed: [],
+        activity: []
+      };
+      saveState();
+      reviewFilter = false;
+      reviewBtn.textContent = "Review Completed";
+      renderAll();
+      showToast("Progress reset.");
+    }
+
+    function scrollToolsIntoView() {
+      closeLesson();
+      document.querySelector(".side-stack").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2100);
+    }
+
+    // this draws the animated background
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let constellationLines = [];
+      let shootingStars = [];
+
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+      let lastMeteorTime = 0;
+
+      function resizeStarfield() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+        createStars();
+        createConstellations();
+      }
+
+      function createStars() {
+        stars = [];
+        const starCount = Math.min(360, Math.floor((width * height) / 6200));
+
+        for (let i = 0; i < starCount; i++) {
+          const roll = Math.random();
+          let behavior = "static";
+          if (roll < 0.34) behavior = "static";
+          else if (roll < 0.58) behavior = "twinkle";
+          else if (roll < 0.8) behavior = "drift";
+          else if (roll < 0.94) behavior = "driftTwinkle";
+          else behavior = "bright";
+
+          const depth = Math.random();
+          const radius = behavior === "bright" ? 1.4 + Math.random() * 1.6 : 0.5 + Math.random() * (depth > 0.7 ? 1.4 : 1.0);
+          const cRoll = Math.random();
+          let color = "255,255,255";
+          if (cRoll < 0.62) color = "255,255,255";
+          else if (cRoll < 0.87) color = "157,200,255";
+          else color = "111,176,255";
+
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: radius,
+            behavior,
+            color,
+            baseAlpha: behavior === "bright" ? 0.6 + Math.random() * 0.35 : 0.18 + Math.random() * 0.65,
+            alpha: 0,
+            twinkleSpeed: behavior === "twinkle" || behavior === "driftTwinkle" ? 0.008 + Math.random() * 0.028 : behavior === "bright" ? 0.002 + Math.random() * 0.006 : 0,
+            twinkleOffset: Math.random() * Math.PI * 2,
+            driftX: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            driftY: behavior === "drift" || behavior === "driftTwinkle" ? (Math.random() - 0.5) * 0.08 : 0,
+            parallax: 0.15 + depth * 0.85
+          });
+        }
+      }
+
+      function createConstellations() {
+        constellationLines = [];
+        const anchors = stars
+          .filter((star) => star.r > 1.25 && star.behavior !== "drift" && star.behavior !== "driftTwinkle")
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 20);
+        const usedPairs = new Set();
+
+        for (const a of anchors) {
+          const nearest = anchors
+            .filter((b) => b !== a)
+            .map((b) => ({ star: b, distance: Math.hypot(b.x - a.x, b.y - a.y) }))
+            .filter((item) => item.distance > 60 && item.distance < 190)
+            .sort((p, q) => p.distance - q.distance)
+            .slice(0, 2);
+
+          for (const item of nearest) {
+            const b = item.star;
+            const pairKey = [stars.indexOf(a), stars.indexOf(b)].sort((m, n) => m - n).join("-");
+            if (!usedPairs.has(pairKey)) {
+              usedPairs.add(pairKey);
+              constellationLines.push({ a, b, alpha: 0.055 + Math.random() * 0.075 });
+            }
+          }
+        }
+      }
+
+      function maybeSpawnShootingStar(time) {
+        if (time - lastMeteorTime < 2200) return;
+        if (Math.random() > 0.012) return;
+        lastMeteorTime = time;
+
+        const startX = Math.random() * width * 0.85;
+        const startY = Math.random() * height * 0.28;
+        const length = 90 + Math.random() * 110;
+        const speed = 11 + Math.random() * 6;
+        const angle = Math.PI / 4 + Math.random() * 0.28;
+
+        shootingStars.push({
+          x: startX,
+          y: startY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          length,
+          life: 0,
+          maxLife: 34 + Math.floor(Math.random() * 16)
+        });
+      }
+
+      function drawSpaceMist() {
+        const g1 = ctx.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 260);
+        g1.addColorStop(0, "rgba(47,124,255,0.07)");
+        g1.addColorStop(1, "rgba(47,124,255,0)");
+
+        const g2 = ctx.createRadialGradient(width * 0.82, height * 0.24, 0, width * 0.82, height * 0.24, 300);
+        g2.addColorStop(0, "rgba(11,61,145,0.06)");
+        g2.addColorStop(1, "rgba(11,61,145,0)");
+
+        const g3 = ctx.createRadialGradient(width * 0.56, height * 0.8, 0, width * 0.56, height * 0.8, 280);
+        g3.addColorStop(0, "rgba(61,145,255,0.05)");
+        g3.addColorStop(1, "rgba(61,145,255,0)");
+
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = g3;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      function drawConstellations(time) {
+        for (const line of constellationLines) {
+          const ax = line.a.x + mouseX * line.a.parallax * 0.012;
+          const ay = line.a.y + mouseY * line.a.parallax * 0.012;
+          const bx = line.b.x + mouseX * line.b.parallax * 0.012;
+          const by = line.b.y + mouseY * line.b.parallax * 0.012;
+          const pulse = 0.75 + 0.25 * Math.sin(time * 0.001 + ax * 0.01 + ay * 0.01);
+
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `rgba(61, 145, 255, ${line.alpha * pulse})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      function drawStars(time) {
+        for (const star of stars) {
+          if (star.behavior === "drift" || star.behavior === "driftTwinkle") {
+            star.x += star.driftX;
+            star.y += star.driftY;
+            if (star.x < -4) star.x = width + 4;
+            if (star.x > width + 4) star.x = -4;
+            if (star.y < -4) star.y = height + 4;
+            if (star.y > height + 4) star.y = -4;
+          }
+
+          if (star.behavior === "twinkle" || star.behavior === "driftTwinkle") {
+            const twinkle = 0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * twinkle;
+          } else if (star.behavior === "bright") {
+            const pulse = 0.85 + 0.15 * Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+            star.alpha = star.baseAlpha * pulse;
+          } else {
+            star.alpha = star.baseAlpha;
+          }
+
+          const px = star.x + mouseX * star.parallax * 0.015;
+          const py = star.y + mouseY * star.parallax * 0.015;
+
+          ctx.beginPath();
+          ctx.arc(px, py, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${star.color}, ${star.alpha})`;
+          ctx.shadowBlur = star.r * 6;
+          ctx.shadowColor = `rgba(${star.color}, ${star.alpha * 0.55})`;
+          ctx.fill();
+
+          if (star.r > 1.35) {
+            ctx.beginPath();
+            ctx.arc(px, py, star.r * 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${star.color}, ${star.alpha * 0.08})`;
+            ctx.shadowBlur = 0;
+            ctx.fill();
+          }
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      function drawShootingStars() {
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const meteor = shootingStars[i];
+          const tailX = meteor.x - meteor.vx * (meteor.length / 18);
+          const tailY = meteor.y - meteor.vy * (meteor.length / 18);
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
+
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.15, "rgba(200,225,255,0.8)");
+          gradient.addColorStop(1, "rgba(47,124,255,0)");
+
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(meteor.x, meteor.y, 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fill();
+
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+
+          if (meteor.life > meteor.maxLife || meteor.x > width + 120 || meteor.y > height + 120) {
+            shootingStars.splice(i, 1);
+          }
+        }
+      }
+
+      function animate(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+
+        drawSpaceMist();
+        drawConstellations(time);
+        drawStars(time);
+        maybeSpawnShootingStar(time);
+        drawShootingStars();
+
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+
+      window.addEventListener("resize", resizeStarfield);
+      resizeStarfield();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

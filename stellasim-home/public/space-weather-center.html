@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Space Weather Center</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  
+  <style>
+    /* this keeps the stellasim color system */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --accent-2: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --button-gradient: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --button-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.72));
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+      --danger: #ff9d9d;
+      --quiet: #2c7eff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      background: var(--page-bg);
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+
+    button,
+    input,
+    select,
+    textarea { font: inherit; }
+
+    button { user-select: none; }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* this is the quiet star background */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.92;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 {
+      width: 360px;
+      height: 360px;
+      top: 6%;
+      left: 8%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.22), transparent 72%);
+    }
+
+    .glow-2 {
+      width: 430px;
+      height: 430px;
+      right: 6%;
+      top: 10%;
+      background: radial-gradient(circle, rgba(11, 61, 145, 0.18), transparent 72%);
+      animation-delay: -6s;
+    }
+
+    .glow-3 {
+      width: 380px;
+      height: 380px;
+      left: 48%;
+      bottom: 4%;
+      background: radial-gradient(circle, rgba(44, 126, 255, 0.12), transparent 74%);
+      animation-delay: -11s;
+    }
+
+    /* this keeps the page centered */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .main-inner {
+      max-width: 1480px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    /* this is the glass card style */
+    .card,
+    .hero-card,
+    .toolbar-card {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(11, 61, 145, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .card::after,
+    .hero-card::after,
+    .toolbar-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 32%,
+        rgba(255, 255, 255, 0.05) 40%,
+        transparent 49%,
+        transparent 100%
+      );
+      transform: translateX(-120%);
+      animation: panelSheen 14s linear infinite;
+      opacity: 0.45;
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-card {
+      padding: 28px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 540px;
+      height: 540px;
+      right: -160px;
+      top: -180px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(11, 61, 145, 0.15), transparent 65%),
+        radial-gradient(circle at 42% 42%, rgba(255, 255, 255, 0.04), transparent 22%);
+      pointer-events: none;
+    }
+
+    .top-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      color: var(--accent-light);
+      font-size: 0.84rem;
+    }
+
+    .source-badge,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      color: var(--accent-light);
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      white-space: nowrap;
+    }
+
+    .source-badge.live::before,
+    .source-badge.offline::before,
+    .source-badge.loading::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      box-shadow: 0 0 12px rgba(11, 61, 145, 0.68);
+    }
+
+    .source-badge.offline {
+      color: #ffd8d8;
+      border-color: rgba(255, 157, 157, 0.25);
+      background: rgba(255, 120, 120, 0.055);
+    }
+
+    .source-badge.offline::before { background: #ff9c9c; }
+    .source-badge.loading::before { animation: blink 1.2s ease-in-out infinite; }
+
+    .hero-title {
+      margin: 16px 0 0;
+      font-size: clamp(2.2rem, 4.7vw, 4.1rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      font-weight: 830;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-title .glow {
+      color: #2c7eff;
+      text-shadow:
+        0 0 24px rgba(11, 61, 145, 0.28),
+        0 0 44px rgba(11, 61, 145, 0.16);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 82ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.65fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-top: 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      padding: 14px;
+      border-radius: 17px;
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      background: rgba(3, 8, 20, 0.28);
+      min-width: 0;
+    }
+
+    .metric-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .metric-card strong {
+      display: block;
+      color: var(--field-text);
+      font-size: clamp(1.15rem, 2vw, 1.58rem);
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .metric-card small {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .status-box {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(44, 126, 255, 0.15);
+      background: rgba(3, 8, 20, 0.25);
+      display: grid;
+      gap: 13px;
+    }
+
+    .status-box h2,
+    .section-title h2 {
+      margin: 0;
+      font-size: 1.18rem;
+      font-weight: 760;
+    }
+
+    .status-level {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-level strong {
+      font-size: 1.55rem;
+      letter-spacing: -0.02em;
+    }
+
+    .mini-meter {
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(44,126,255,0.14);
+    }
+
+    .mini-meter > div {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(11,61,145,0.58), rgba(44,126,255,0.95));
+      box-shadow: 0 0 18px rgba(11,61,145,0.18);
+      transition: width 450ms ease;
+    }
+
+    .status-text,
+    .helper-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    /* this is the top control bar */
+    .toolbar-card {
+      padding: 18px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: 90ms;
+    }
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+      position: relative;
+      z-index: 1;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .field label,
+    .toggle-title {
+      color: var(--accent-light);
+      font-size: 0.79rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .input,
+    .select {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.96), rgba(3, 12, 30, 0.96));
+      color: var(--field-text);
+      border-radius: 15px;
+      padding: 11px 12px;
+      outline: none;
+      transition: 160ms ease;
+      color-scheme: dark;
+      min-height: 43px;
+    }
+
+    .input:focus,
+    .select:focus {
+      border-color: rgba(11, 61, 145, 0.62);
+      box-shadow:
+        0 0 0 3px rgba(11, 61, 145, 0.08),
+        0 0 22px rgba(11, 61, 145, 0.1);
+    }
+
+    .input::placeholder { color: rgba(241, 247, 255, 0.7); }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(44, 126, 255, 0.22);
+      border-radius: 14px;
+      min-height: 43px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255, 255, 255, 0.04);
+      transition: 180ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      border-color: rgba(44, 126, 255, 0.76);
+      color: white;
+    }
+
+    .btn.small {
+      padding: 8px 11px;
+      min-height: 36px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+    }
+
+    .btn.danger {
+      border-color: rgba(255, 157, 157, 0.25);
+      color: #ffd8d8;
+      background: rgba(255, 120, 120, 0.055);
+    }
+
+    .btn:hover,
+    .chip:hover,
+    details.term-card:hover,
+    .alert-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(44, 126, 255, 0.55);
+      background: rgba(11, 61, 145, 0.12);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.28),
+        0 0 18px rgba(11, 61, 145, 0.18);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+      transform: none;
+    }
+
+    .switch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding-top: 4px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(44, 126, 255, 0.2);
+      background: rgba(44, 126, 255, 0.06);
+      color: var(--field-text);
+      border-radius: 999px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: 180ms ease;
+      font-size: 0.88rem;
+    }
+
+    .chip input { display: none; }
+
+    .chip:has(input:checked) {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.22), rgba(11, 61, 145, 0.1));
+      border-color: rgba(11, 61, 145, 0.58);
+      box-shadow: 0 0 18px rgba(11, 61, 145, 0.11);
+    }
+
+    /* this is the dashboard grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      padding: 20px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-9 { grid-column: span 9; }
+    .span-12 { grid-column: span 12; }
+
+    .section-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .section-title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 70ch;
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .data-pill {
+      padding: 12px;
+      border-radius: 15px;
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      background: rgba(3, 8, 20, 0.28);
+      min-width: 0;
+    }
+
+    .data-pill span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      margin-bottom: 5px;
+    }
+
+    .data-pill strong {
+      display: block;
+      color: var(--field-text);
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+    }
+
+    .data-pill small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .chart-wrap {
+      margin-top: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(3, 8, 20, 0.26);
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    canvas.chart {
+      display: block;
+      width: 100%;
+      height: 150px;
+    }
+
+    canvas.tall-chart {
+      height: 250px;
+    }
+
+    .ring-layout {
+      display: grid;
+      grid-template-columns: 154px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .score-ring {
+      width: 154px;
+      height: 154px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center, rgba(3, 8, 20, 0.86) 0 57%, transparent 58%),
+        conic-gradient(var(--accent-light) 0deg, rgba(255,255,255,0.08) 0deg);
+      border: 1px solid rgba(44,126,255,0.18);
+      box-shadow:
+        inset 0 0 24px rgba(11,61,145,0.08),
+        0 0 20px rgba(11,61,145,0.08);
+      transition: background 450ms ease;
+    }
+
+    .score-ring strong {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .score-ring span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .recommendation-box {
+      display: grid;
+      gap: 10px;
+    }
+
+    .recommendation {
+      padding: 13px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.15);
+      background: rgba(255,255,255,0.035);
+    }
+
+    .recommendation strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .recommendation p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.48;
+      font-size: 0.9rem;
+    }
+
+    /* this is the solar disk */
+    .sun-stage {
+      display: grid;
+      place-items: center;
+      min-height: 270px;
+      border-radius: 18px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background:
+        radial-gradient(circle at 50% 52%, rgba(255, 205, 111, 0.1), transparent 0 34%),
+        radial-gradient(circle at 50% 52%, rgba(11,61,145,0.08), transparent 0 74%),
+        rgba(7,11,19,0.28);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .solar-disk {
+      width: min(220px, 62vw);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      position: relative;
+      background:
+        radial-gradient(circle at 36% 28%, rgba(255,255,255,0.55), transparent 0 14%),
+        radial-gradient(circle at 45% 42%, #fff6b2 0%, #ffd26d 35%, #f08a36 68%, #b94a19 100%);
+      box-shadow:
+        0 0 28px rgba(255, 190, 90, 0.28),
+        0 0 72px rgba(255, 130, 50, 0.22),
+        0 0 126px rgba(11, 61, 145, 0.08);
+      animation: sunBreathe 5s ease-in-out infinite;
+      overflow: hidden;
+    }
+
+    .solar-disk::before {
+      content: "";
+      position: absolute;
+      inset: -8%;
+      border-radius: 50%;
+      background:
+        repeating-conic-gradient(from 24deg, rgba(255,255,255,0.08) 0 9deg, rgba(255,155,70,0.08) 9deg 18deg),
+        radial-gradient(circle at 65% 38%, rgba(255,255,255,0.18), transparent 0 16%),
+        radial-gradient(circle at 34% 65%, rgba(255,110,30,0.18), transparent 0 18%);
+      mix-blend-mode: soft-light;
+      animation: plasmaDrift 16s linear infinite;
+    }
+
+    .sunspot,
+    .active-region {
+      position: absolute;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .sunspot {
+      background: radial-gradient(circle, rgba(40,18,12,0.9), rgba(75,30,12,0.82), rgba(255,150,70,0.04));
+      box-shadow: 0 0 12px rgba(70,20,10,0.38);
+    }
+
+    .active-region {
+      border: 1px solid rgba(255,255,255,0.45);
+      box-shadow: 0 0 16px rgba(255,235,170,0.28);
+    }
+
+    .solar-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+
+    /* this is the aurora globe */
+    .aurora-layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    .aurora-map {
+      border-radius: 18px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(7,11,19,0.28);
+      padding: 8px;
+    }
+
+    #auroraCanvas {
+      display: block;
+      width: 100%;
+      height: 270px;
+      border-radius: 14px;
+    }
+
+    .impact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .impact-card {
+      padding: 13px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(7,11,19,0.28);
+    }
+
+    .impact-card h3 {
+      margin: 0 0 7px;
+      font-size: 0.96rem;
+    }
+
+    .impact-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .level-pill {
+      display: inline-flex;
+      margin-bottom: 10px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      border: 1px solid rgba(44,126,255,0.16);
+      background: rgba(11,61,145,0.08);
+      color: var(--accent-light);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .timeline-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: rgba(11,61,145,0.18);
+      border: 1px solid rgba(44,126,255,0.28);
+      box-shadow: 0 0 14px rgba(11,61,145,0.14);
+    }
+
+    .timeline-item h3 {
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .timeline-item p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.48;
+    }
+
+    .alert-list,
+    .event-list,
+    .term-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .alert-item,
+    .event-item,
+    details.term-card {
+      border: 1px solid rgba(44,126,255,0.15);
+      border-radius: 16px;
+      background: rgba(7,11,19,0.28);
+      padding: 13px;
+      transition: 180ms ease;
+    }
+
+    .alert-top,
+    .event-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .alert-item h3,
+    .event-item h3 {
+      margin: 0;
+      font-size: 0.98rem;
+      line-height: 1.3;
+    }
+
+    .alert-item p,
+    .event-item p,
+    details.term-card p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.88rem;
+    }
+
+    details.term-card summary {
+      cursor: pointer;
+      color: var(--field-text);
+      font-weight: 700;
+      list-style: none;
+    }
+
+    details.term-card summary::-webkit-details-marker { display: none; }
+
+    .term-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .hidden { display: none !important; }
+
+    /* this handles smaller screens */
+    @media (max-width: 1280px) {
+      .hero-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .toolbar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .span-3 { grid-column: span 6; }
+      .span-4 { grid-column: span 6; }
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8,
+      .span-9 { grid-column: span 12; }
+      .impact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .term-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 920px) {
+      .app-shell { padding: 18px 16px 24px; }
+      .hero-grid,
+      .aurora-layout,
+      .ring-layout { grid-template-columns: 1fr; }
+      .hero-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toolbar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .span-3,
+      .span-4,
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8,
+      .span-9,
+      .span-12 { grid-column: span 12; }
+      .data-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .hero-card,
+      .toolbar-card,
+      .card { padding: 16px; border-radius: 18px; }
+      .hero-summary,
+      .toolbar-grid,
+      .impact-grid,
+      .term-grid { grid-template-columns: 1fr; }
+      .status-level { align-items: flex-start; flex-direction: column; }
+      .score-ring { margin: 0 auto; }
+      canvas.chart { height: 130px; }
+    }
+
+    @keyframes glowFloat {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(14px, -12px, 0) scale(1.05); }
+      100% { transform: translate3d(0, 0, 0) scale(1); }
+    }
+
+    @keyframes panelSheen {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(140%); }
+    }
+
+    @keyframes panelFloatIn {
+      from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes sunBreathe {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.018); filter: brightness(1.06); }
+    }
+
+    @keyframes plasmaDrift {
+      from { transform: rotate(0deg) scale(1.05); }
+      to { transform: rotate(360deg) scale(1.05); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- this is the background canvas -->
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+
+  <!-- this is the main dashboard shell -->
+  <main class="app-shell">
+    <div class="main-inner">
+      <section class="hero-card">
+        <div class="top-line">
+          <div class="eyebrow">✦ Live Solar & Viewing Conditions</div>
+          <div class="btn-row">
+            <span class="source-badge loading" id="liveBadge">Loading live data</span>
+            <span class="badge" id="lastUpdatedText">Last updated: --</span>
+          </div>
+        </div>
+
+        <h1 class="hero-title">Space Weather <span class="glow">Center</span></h1>
+        <p class="hero-subtitle">
+          Monitor solar wind, geomagnetic activity, aurora chances, radio impacts, and tonight’s observing conditions in one StellaSim dashboard.
+          This page uses live sources when available and clearly marks fallback estimates when a service is unavailable.
+        </p>
+
+        <div class="hero-grid">
+          <div class="hero-summary">
+            <div class="metric-card"><span>Current Kp</span><strong id="kpValue">--</strong><small id="kpSubtext">waiting for data</small></div>
+            <div class="metric-card"><span>Geomagnetic Activity</span><strong id="geoStatus">--</strong><small id="geoSubtext">NOAA G-scale estimate</small></div>
+            <div class="metric-card"><span>Solar Flare Level</span><strong id="flareLevel">--</strong><small id="flareSubtext">GOES x-ray flux</small></div>
+            <div class="metric-card"><span>Aurora Chance</span><strong id="auroraChance">--</strong><small id="auroraSubtext">estimated for your latitude</small></div>
+            <div class="metric-card"><span>Viewing Score</span><strong id="viewScoreValue">--</strong><small id="viewScoreSubtext">tonight estimate</small></div>
+          </div>
+
+          <div class="status-box">
+            <div class="status-level">
+              <div>
+                <h2>Overall Status</h2>
+                <strong id="overallStatus">Loading</strong>
+              </div>
+              <span class="badge" id="sourceSummary">NOAA SWPC + NASA DONKI</span>
+            </div>
+            <div class="mini-meter"><div id="overallMeter"></div></div>
+            <p class="status-text" id="overallExplanation">Checking solar wind, Kp, x-ray flux, proton flux, and local viewing conditions.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar-card">
+        <div class="toolbar-grid">
+          <div class="field">
+            <label for="latInput">Latitude</label>
+            <input class="input" id="latInput" type="number" step="0.01" value="34.05" />
+          </div>
+          <div class="field">
+            <label for="lonInput">Longitude</label>
+            <input class="input" id="lonInput" type="number" step="0.01" value="-118.24" />
+          </div>
+          <div class="field">
+            <label for="bortleSelect">Bortle / light pollution</label>
+            <select class="select" id="bortleSelect">
+              <option value="2">Bortle 2 dark sky</option>
+              <option value="3">Bortle 3 rural</option>
+              <option value="4">Bortle 4 rural/suburban</option>
+              <option value="5" selected>Bortle 5 suburban</option>
+              <option value="6">Bortle 6 bright suburban</option>
+              <option value="7">Bortle 7 city edge</option>
+              <option value="8">Bortle 8 city</option>
+              <option value="9">Bortle 9 inner city</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="unitsSelect">Units</label>
+            <select class="select" id="unitsSelect">
+              <option value="metric">Metric</option>
+              <option value="imperial" selected>Imperial</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="refreshInterval">Auto refresh</label>
+            <select class="select" id="refreshInterval">
+              <option value="60000">1 min</option>
+              <option value="300000" selected>5 min</option>
+              <option value="900000">15 min</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="hemisphereSelect">Aurora hemisphere</label>
+            <select class="select" id="hemisphereSelect">
+              <option value="north" selected>Northern</option>
+              <option value="south">Southern</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Modes</label>
+            <div class="switch-row">
+              <label class="chip"><input id="autoRefreshToggle" type="checkbox" checked />Auto</label>
+              <label class="chip"><input id="advancedToggle" type="checkbox" checked />Advanced</label>
+              <label class="chip"><input id="explainToggle" type="checkbox" checked />Explain</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Actions</label>
+            <div class="btn-row">
+              <button class="btn primary" id="refreshBtn" type="button">Refresh Data</button>
+              <button class="btn" id="geoBtn" type="button">Use My Location</button>
+              <button class="btn" id="offlineBtn" type="button">Test Offline</button>
+              <button class="btn danger" id="resetBtn" type="button">Reset</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="card span-7" style="animation-delay: 130ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Real-Time Solar Wind</h2>
+                <p id="solarWindMeaning">Southward Bz with fast, dense solar wind can raise geomagnetic storm and aurora potential.</p>
+              </div>
+              <span class="badge" id="solarWindSource">NOAA SWPC</span>
+            </div>
+            <div class="data-grid">
+              <div class="data-pill"><span>Speed</span><strong id="windSpeed">--</strong><small>higher speed can energize storms</small></div>
+              <div class="data-pill"><span>Density</span><strong id="windDensity">--</strong><small>particles per cubic centimeter</small></div>
+              <div class="data-pill"><span>Bt</span><strong id="btValue">--</strong><small>total magnetic field strength</small></div>
+              <div class="data-pill"><span>Bz</span><strong id="bzValue">--</strong><small>negative Bz is more aurora-friendly</small></div>
+              <div class="data-pill"><span>Temperature</span><strong id="windTemp">--</strong><small>solar wind plasma temperature</small></div>
+              <div class="data-pill"><span>Data Age</span><strong id="windAge">--</strong><small>latest sample age</small></div>
+            </div>
+            <div class="chart-wrap"><canvas class="chart" id="solarWindChart"></canvas></div>
+            <div class="chart-wrap"><canvas class="chart" id="bzChart"></canvas></div>
+          </div>
+        </article>
+
+        <article class="card span-5" style="animation-delay: 160ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Planetary Kp / Storm Level</h2>
+                <p>Kp summarizes global geomagnetic disturbance. Kp 5 starts G1 minor storm conditions.</p>
+              </div>
+              <span class="badge" id="gScaleBadge">G0 Quiet</span>
+            </div>
+            <div class="ring-layout">
+              <div class="score-ring" id="kpRing"><div><strong id="kpRingValue">--</strong><span>Kp index</span></div></div>
+              <div class="recommendation-box">
+                <div class="recommendation"><strong id="stormLabel">Waiting for Kp</strong><p id="stormText">Kp history and storm estimates will appear after data loads.</p></div>
+                <div class="recommendation"><strong>Quick guide</strong><p>G1 starts at Kp 5, G2 at Kp 6, G3 at Kp 7, G4 at Kp 8, and G5 near Kp 9.</p></div>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas class="chart" id="kpChart"></canvas></div>
+          </div>
+        </article>
+
+        <article class="card span-6" style="animation-delay: 190ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Aurora Forecast</h2>
+                <p id="auroraAnswer">Estimated from Kp, latitude, Bz, solar wind, cloud cover, moonlight, and darkness.</p>
+              </div>
+              <span class="badge" id="auroraBadge">Estimated</span>
+            </div>
+            <div class="aurora-layout">
+              <div class="aurora-map"><canvas id="auroraCanvas"></canvas></div>
+              <div class="recommendation-box">
+                <div class="data-grid">
+                  <div class="data-pill"><span>Aurora score</span><strong id="auroraScoreText">--</strong><small id="auroraScoreLabel">waiting</small></div>
+                  <div class="data-pill"><span>Kp needed here</span><strong id="kpNeededText">--</strong><small>rough latitude estimate</small></div>
+                  <div class="data-pill"><span>Visibility latitude</span><strong id="visibleLatText">--</strong><small>approximate equatorward limit</small></div>
+                  <div class="data-pill"><span>Main limiter</span><strong id="auroraLimiter">--</strong><small>weather/darkness still matters</small></div>
+                </div>
+                <p class="helper-text">This is not an official aurora warning. It is a planning estimate for sky watchers.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card span-6" style="animation-delay: 220ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Solar Flare Monitor</h2>
+                <p>GOES x-ray flux is used to classify flare strength from A, B, C, M, to X class.</p>
+              </div>
+              <span class="badge" id="xraySource">NOAA GOES</span>
+            </div>
+            <div class="data-grid">
+              <div class="data-pill"><span>X-ray flux</span><strong id="xrayFluxText">--</strong><small>watts per square meter</small></div>
+              <div class="data-pill"><span>Flare class</span><strong id="flareClassText">--</strong><small id="flareMeaning">waiting for data</small></div>
+              <div class="data-pill"><span>Radio blackout risk</span><strong id="radioRiskText">--</strong><small>based mostly on x-ray flare level</small></div>
+              <div class="data-pill"><span>Radiation storm risk</span><strong id="radiationRiskText">--</strong><small>based on proton flux estimate</small></div>
+            </div>
+            <div class="chart-wrap"><canvas class="chart" id="xrayChart"></canvas></div>
+            <details class="term-card" style="margin-top: 12px;">
+              <summary>What does C / M / X mean?</summary>
+              <p>C flares are small to moderate, M flares can cause limited radio blackouts, and X flares are major eruptions that can create stronger radio and radiation impacts.</p>
+            </details>
+          </div>
+        </article>
+
+        <article class="card span-4" style="animation-delay: 250ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Solar Disk</h2>
+                <p>Stylized solar activity view. Live active region overlays can be connected later.</p>
+              </div>
+              <span class="badge" id="sunVisualBadge">Fallback visual</span>
+            </div>
+            <div class="sun-stage">
+              <div class="solar-disk" id="solarDisk"></div>
+            </div>
+            <div class="solar-labels">
+              <span class="badge">Sunspots</span>
+              <span class="badge">Active regions</span>
+              <span class="badge">Corona</span>
+              <span class="badge">Flares</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card span-8" style="animation-delay: 280ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>CME & Incoming Storm Tracker</h2>
+                <p>Recent NASA DONKI events are shown when available, with a simple Sun-to-Earth timeline.</p>
+              </div>
+              <span class="badge" id="donkiSource">NASA DONKI</span>
+            </div>
+            <div class="timeline" id="cmeTimeline"></div>
+            <div class="event-list" id="donkiEvents" style="margin-top: 14px;"></div>
+          </div>
+        </article>
+
+        <article class="card span-12" style="animation-delay: 310ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Radio / Satellite / GPS Impacts</h2>
+                <p>Plain-English impact estimates from geomagnetic, solar radiation, and radio blackout scales.</p>
+              </div>
+              <span class="badge">Planning estimate</span>
+            </div>
+            <div class="impact-grid" id="impactGrid"></div>
+          </div>
+        </article>
+
+        <article class="card span-7" style="animation-delay: 340ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Local Astronomy Viewing Conditions</h2>
+                <p>Weather, Moon, twilight, and light pollution combine into a practical observing score.</p>
+              </div>
+              <span class="badge" id="weatherSource">Open-Meteo / fallback</span>
+            </div>
+            <div class="ring-layout">
+              <div class="score-ring" id="viewRing"><div><strong id="viewRingValue">--</strong><span>viewing score</span></div></div>
+              <div class="recommendation-box">
+                <div class="recommendation"><strong id="viewingLabel">Waiting for weather</strong><p id="viewingAdvice">Local observing recommendations will appear after conditions load.</p></div>
+                <div class="recommendation"><strong>Tonight’s Best Window</strong><p id="bestWindowText">Estimating sunset, moonlight, clouds, and wind.</p></div>
+              </div>
+            </div>
+            <div class="data-grid" style="margin-top: 14px;">
+              <div class="data-pill"><span>Cloud cover</span><strong id="cloudText">--</strong><small>lower is better</small></div>
+              <div class="data-pill"><span>Transparency</span><strong id="transparencyText">--</strong><small>estimated from humidity and clouds</small></div>
+              <div class="data-pill"><span>Seeing</span><strong id="seeingText">--</strong><small>estimated from wind</small></div>
+              <div class="data-pill"><span>Humidity</span><strong id="humidityText">--</strong><small>dew risk matters for optics</small></div>
+              <div class="data-pill"><span>Wind</span><strong id="windText">--</strong><small>strong wind hurts stability</small></div>
+              <div class="data-pill"><span>Temperature / Dew point</span><strong id="tempText">--</strong><small id="dewText">--</small></div>
+              <div class="data-pill"><span>Moon phase</span><strong id="moonPhaseText">--</strong><small id="moonIllumText">--</small></div>
+              <div class="data-pill"><span>Twilight</span><strong id="twilightText">--</strong><small>astronomical dark window</small></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card span-5" style="animation-delay: 370ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Alerts & Warnings</h2>
+                <p>Newest NOAA and NASA messages. Use official sources for safety-critical decisions.</p>
+              </div>
+              <span class="badge" id="alertCountBadge">0 items</span>
+            </div>
+            <div class="alert-list" id="alertList"></div>
+          </div>
+        </article>
+
+        <article class="card span-12" id="glossaryCard" style="animation-delay: 400ms;">
+          <div class="card-content">
+            <div class="section-title">
+              <div>
+                <h2>Explain Mode Glossary</h2>
+                <p>Short definitions for the science terms used across the dashboard.</p>
+              </div>
+            </div>
+            <div class="term-grid" id="glossaryGrid"></div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // this has the live endpoint urls
+    const ENDPOINTS = {
+      kp: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+      kpForecast: "https://services.swpc.noaa.gov/products/planetary-k-index-forecast.json",
+      plasma: "https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json",
+      mag: "https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json",
+      xray: "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
+      proton: "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-3-day.json",
+      alerts: "https://services.swpc.noaa.gov/products/alerts.json",
+      donkiNotifications: "https://api.nasa.gov/DONKI/notifications",
+      donkiCme: "https://api.nasa.gov/DONKI/CME",
+      donkiFlr: "https://api.nasa.gov/DONKI/FLR",
+      weather: "https://api.open-meteo.com/v1/forecast"
+    };
+
+    // this is fallback data when live sources fail
+    const FALLBACK = {
+      kp: 2.67,
+      windSpeed: 418,
+      density: 5.2,
+      bt: 6.1,
+      bz: -1.7,
+      temp: 94500,
+      xrayFlux: 2.2e-6,
+      protonFlux: 0.8,
+      cloud: 28,
+      humidity: 61,
+      wind: 8,
+      tempC: 18,
+      dewC: 10,
+      moonIllum: 0.44,
+      weatherCode: "fallback",
+      alerts: [
+        { title: "Demo data active", source: "StellaSim fallback", severity: "Info", time: new Date().toISOString(), summary: "Live data could not fully load, so the dashboard is showing safe sample values." }
+      ],
+      donki: [
+        { title: "No major Earth-directed CME in fallback mode", source: "StellaSim fallback", time: new Date().toISOString(), summary: "This placeholder keeps the tracker usable while live DONKI data is unavailable." }
+      ]
+    };
+
+    // this is app state
+    const state = {
+      live: false,
+      loading: false,
+      offlineMode: false,
+      lastUpdated: null,
+      lat: 34.05,
+      lon: -118.24,
+      units: "imperial",
+      bortle: 5,
+      hemisphere: "north",
+      kp: FALLBACK.kp,
+      kpHistory: [],
+      wind: [],
+      mag: [],
+      xray: [],
+      proton: [],
+      weather: null,
+      alerts: [],
+      donki: [],
+      autoTimer: null
+    };
+
+    // this grabs elements once
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      liveBadge: $("liveBadge"), lastUpdatedText: $("lastUpdatedText"), sourceSummary: $("sourceSummary"),
+      kpValue: $("kpValue"), kpSubtext: $("kpSubtext"), geoStatus: $("geoStatus"), geoSubtext: $("geoSubtext"),
+      flareLevel: $("flareLevel"), flareSubtext: $("flareSubtext"), auroraChance: $("auroraChance"), auroraSubtext: $("auroraSubtext"),
+      viewScoreValue: $("viewScoreValue"), viewScoreSubtext: $("viewScoreSubtext"), overallStatus: $("overallStatus"), overallMeter: $("overallMeter"), overallExplanation: $("overallExplanation"),
+      latInput: $("latInput"), lonInput: $("lonInput"), bortleSelect: $("bortleSelect"), unitsSelect: $("unitsSelect"), refreshInterval: $("refreshInterval"), hemisphereSelect: $("hemisphereSelect"),
+      autoRefreshToggle: $("autoRefreshToggle"), advancedToggle: $("advancedToggle"), explainToggle: $("explainToggle"), refreshBtn: $("refreshBtn"), geoBtn: $("geoBtn"), offlineBtn: $("offlineBtn"), resetBtn: $("resetBtn"),
+      windSpeed: $("windSpeed"), windDensity: $("windDensity"), btValue: $("btValue"), bzValue: $("bzValue"), windTemp: $("windTemp"), windAge: $("windAge"), solarWindMeaning: $("solarWindMeaning"), solarWindSource: $("solarWindSource"),
+      gScaleBadge: $("gScaleBadge"), kpRing: $("kpRing"), kpRingValue: $("kpRingValue"), stormLabel: $("stormLabel"), stormText: $("stormText"),
+      auroraAnswer: $("auroraAnswer"), auroraBadge: $("auroraBadge"), auroraScoreText: $("auroraScoreText"), auroraScoreLabel: $("auroraScoreLabel"), kpNeededText: $("kpNeededText"), visibleLatText: $("visibleLatText"), auroraLimiter: $("auroraLimiter"),
+      xraySource: $("xraySource"), xrayFluxText: $("xrayFluxText"), flareClassText: $("flareClassText"), flareMeaning: $("flareMeaning"), radioRiskText: $("radioRiskText"), radiationRiskText: $("radiationRiskText"),
+      solarDisk: $("solarDisk"), sunVisualBadge: $("sunVisualBadge"), cmeTimeline: $("cmeTimeline"), donkiEvents: $("donkiEvents"), donkiSource: $("donkiSource"),
+      impactGrid: $("impactGrid"), weatherSource: $("weatherSource"), viewRing: $("viewRing"), viewRingValue: $("viewRingValue"), viewingLabel: $("viewingLabel"), viewingAdvice: $("viewingAdvice"), bestWindowText: $("bestWindowText"),
+      cloudText: $("cloudText"), transparencyText: $("transparencyText"), seeingText: $("seeingText"), humidityText: $("humidityText"), windText: $("windText"), tempText: $("tempText"), dewText: $("dewText"), moonPhaseText: $("moonPhaseText"), moonIllumText: $("moonIllumText"), twilightText: $("twilightText"),
+      alertList: $("alertList"), alertCountBadge: $("alertCountBadge"), glossaryGrid: $("glossaryGrid"), glossaryCard: $("glossaryCard")
+    };
+
+    // this defines glossary cards
+    const GLOSSARY = [
+      ["Kp index", "A 0 to 9 scale for global geomagnetic disturbance. Higher Kp means more aurora and storm potential."],
+      ["G scale", "NOAA’s geomagnetic storm scale. G1 begins near Kp 5 and G5 is extreme."],
+      ["R scale", "Radio blackout scale linked to strong solar x-ray flares affecting Earth’s sunlit ionosphere."],
+      ["S scale", "Solar radiation storm scale linked to high-energy proton events."],
+      ["Bz", "The north-south part of the solar wind magnetic field. Negative Bz connects better with Earth’s field."],
+      ["Bt", "Total magnetic field strength carried by the solar wind."],
+      ["Solar wind", "A stream of charged particles flowing outward from the Sun."],
+      ["CME", "A coronal mass ejection. It is a huge cloud of solar plasma that can hit Earth days later."],
+      ["Solar flare", "A sudden burst of radiation from the Sun, classified as A, B, C, M, or X."],
+      ["Proton flux", "A measure of energetic protons near Earth. High levels can raise radiation storm risk."],
+      ["Auroral oval", "The ring-shaped region around a magnetic pole where auroras are most likely."],
+      ["Geomagnetic storm", "A disturbance in Earth’s magnetic field caused by solar activity."],
+      ["Coronal hole", "A darker solar region where fast solar wind can escape into space."],
+      ["Astronomical seeing", "How steady the atmosphere is. Better seeing makes planets and stars look sharper."],
+      ["Transparency", "How clear the air is. Better transparency helps faint galaxies and nebulae."],
+      ["Dew point", "The temperature where water condenses. Small temperature-dew point gaps mean dew risk."],
+    ];
+
+    // this starts the app
+    initSettings();
+    initStarfield();
+    renderGlossary();
+    bindControls();
+    refreshAllData();
+
+    // this connects buttons and inputs
+    function bindControls() {
+      els.refreshBtn.addEventListener("click", refreshAllData);
+      els.geoBtn.addEventListener("click", useLocation);
+      els.offlineBtn.addEventListener("click", toggleOfflineMode);
+      els.resetBtn.addEventListener("click", resetDashboard);
+
+      [els.latInput, els.lonInput, els.bortleSelect, els.unitsSelect, els.refreshInterval, els.hemisphereSelect].forEach((element) => {
+        element.addEventListener("change", () => {
+          readSettingsFromForm();
+          saveSettings();
+          renderEverything();
+          setupAutoRefresh();
+          if (element === els.latInput || element === els.lonInput) fetchWeatherOnly();
+        });
+      });
+
+      [els.autoRefreshToggle, els.advancedToggle, els.explainToggle].forEach((element) => {
+        element.addEventListener("change", () => {
+          saveSettings();
+          renderModeVisibility();
+          setupAutoRefresh();
+        });
+      });
+    }
+
+    // this loads saved controls
+    function initSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("stellasimSpaceWeatherSettings") || "{}");
+        state.lat = Number(saved.lat ?? 34.05);
+        state.lon = Number(saved.lon ?? -118.24);
+        state.units = saved.units || "imperial";
+        state.bortle = Number(saved.bortle ?? 5);
+        state.hemisphere = saved.hemisphere || "north";
+        els.latInput.value = state.lat;
+        els.lonInput.value = state.lon;
+        els.unitsSelect.value = state.units;
+        els.bortleSelect.value = String(state.bortle);
+        els.hemisphereSelect.value = state.hemisphere;
+        els.refreshInterval.value = saved.refreshInterval || "300000";
+        els.autoRefreshToggle.checked = saved.autoRefresh ?? true;
+        els.advancedToggle.checked = saved.advanced ?? true;
+        els.explainToggle.checked = saved.explain ?? true;
+      } catch (error) {
+        console.warn("settings load failed", error);
+      }
+      renderModeVisibility();
+    }
+
+    // this saves controls
+    function saveSettings() {
+      const settings = {
+        lat: Number(els.latInput.value),
+        lon: Number(els.lonInput.value),
+        units: els.unitsSelect.value,
+        bortle: Number(els.bortleSelect.value),
+        hemisphere: els.hemisphereSelect.value,
+        refreshInterval: els.refreshInterval.value,
+        autoRefresh: els.autoRefreshToggle.checked,
+        advanced: els.advancedToggle.checked,
+        explain: els.explainToggle.checked
+      };
+      localStorage.setItem("stellasimSpaceWeatherSettings", JSON.stringify(settings));
+    }
+
+    // this reads the form into state
+    function readSettingsFromForm() {
+      state.lat = clamp(Number(els.latInput.value) || 0, -89.9, 89.9);
+      state.lon = clamp(Number(els.lonInput.value) || 0, -180, 180);
+      state.units = els.unitsSelect.value;
+      state.bortle = Number(els.bortleSelect.value) || 5;
+      state.hemisphere = els.hemisphereSelect.value;
+      els.latInput.value = state.lat.toFixed(2);
+      els.lonInput.value = state.lon.toFixed(2);
+    }
+
+    // this refreshes all live sources
+    async function refreshAllData() {
+      if (state.loading) return;
+      state.loading = true;
+      setLiveBadge("loading", "Loading live data");
+      els.refreshBtn.disabled = true;
+      readSettingsFromForm();
+      saveSettings();
+
+      if (state.offlineMode) {
+        applyFallback("Offline test mode is active.");
+        state.loading = false;
+        els.refreshBtn.disabled = false;
+        return;
+      }
+
+      try {
+        const [kp, plasma, mag, xray, proton, alerts, weather, donki] = await Promise.allSettled([
+          fetchKp(), fetchPlasma(), fetchMag(), fetchXray(), fetchProton(), fetchAlerts(), fetchWeather(), fetchDonki()
+        ]);
+
+        let liveParts = 0;
+        if (kp.status === "fulfilled") { state.kpHistory = kp.value; state.kp = latestKp(kp.value); liveParts++; }
+        if (plasma.status === "fulfilled") { state.wind = plasma.value; liveParts++; }
+        if (mag.status === "fulfilled") { state.mag = mag.value; liveParts++; }
+        if (xray.status === "fulfilled") { state.xray = xray.value; liveParts++; }
+        if (proton.status === "fulfilled") { state.proton = proton.value; liveParts++; }
+        if (alerts.status === "fulfilled") { state.alerts = alerts.value; liveParts++; }
+        if (weather.status === "fulfilled") { state.weather = weather.value; liveParts++; }
+        if (donki.status === "fulfilled") { state.donki = donki.value; liveParts++; }
+
+        if (liveParts < 3) {
+          applyFallback("Most live sources failed, so fallback estimates are shown.");
+        } else {
+          state.live = true;
+          state.lastUpdated = new Date();
+          setLiveBadge("live", liveParts < 8 ? "Partial live data" : "Live data active");
+          renderEverything();
+        }
+      } catch (error) {
+        console.warn("refresh failed", error);
+        applyFallback("Live data failed, so fallback estimates are shown.");
+      } finally {
+        state.loading = false;
+        els.refreshBtn.disabled = false;
+        setupAutoRefresh();
+      }
+    }
+
+    // this only refreshes local weather
+    async function fetchWeatherOnly() {
+      try {
+        state.weather = await fetchWeather();
+        renderEverything();
+      } catch (error) {
+        console.warn("weather refresh failed", error);
+      }
+    }
+
+    // this sets fallback values
+    function applyFallback(reason) {
+      state.live = false;
+      state.lastUpdated = new Date();
+      state.kp = FALLBACK.kp;
+      state.kpHistory = makeFallbackKp();
+      state.wind = makeFallbackPlasma();
+      state.mag = makeFallbackMag();
+      state.xray = makeFallbackXray();
+      state.proton = makeFallbackProton();
+      state.weather = makeFallbackWeather();
+      state.alerts = FALLBACK.alerts;
+      state.donki = FALLBACK.donki;
+      setLiveBadge("offline", state.offlineMode ? "Offline test mode" : "Offline fallback");
+      els.sourceSummary.textContent = "Fallback estimates";
+      renderEverything(reason);
+    }
+
+    // this fetches with a timeout
+    async function fetchWithTimeout(url, options = {}, timeout = 8500) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error(`http ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // this parses noaa kp data
+    async function fetchKp() {
+      const data = await fetchWithTimeout(ENDPOINTS.kp);
+      const rows = Array.isArray(data) ? data : [];
+      const parsed = rows
+        .filter((row) => Array.isArray(row) || typeof row === "object")
+        .map((row) => {
+          const time = Array.isArray(row) ? row[0] : (row.time_tag || row.time || row.observation_time);
+          const kp = Number(Array.isArray(row) ? row[1] : (row.kp_index || row.Kp || row.estimated_kp));
+          return { time: new Date(time), value: kp };
+        })
+        .filter((item) => Number.isFinite(item.value) && !Number.isNaN(item.time.getTime()))
+        .slice(-36);
+      if (!parsed.length) throw new Error("kp parse failed");
+      return parsed;
+    }
+
+    // this parses solar wind plasma
+    async function fetchPlasma() {
+      const data = await fetchWithTimeout(ENDPOINTS.plasma);
+      const rows = Array.isArray(data) ? data : [];
+      const parsed = rows.map((row) => {
+        if (Array.isArray(row)) {
+          return { time: new Date(row[0]), density: Number(row[1]), speed: Number(row[2]), temperature: Number(row[3]) };
+        }
+        return { time: new Date(row.time_tag || row.time), density: Number(row.density), speed: Number(row.speed), temperature: Number(row.temperature) };
+      }).filter((item) => Number.isFinite(item.speed) && !Number.isNaN(item.time.getTime())).slice(-90);
+      if (!parsed.length) throw new Error("plasma parse failed");
+      return parsed;
+    }
+
+    // this parses solar wind magnetic field
+    async function fetchMag() {
+      const data = await fetchWithTimeout(ENDPOINTS.mag);
+      const rows = Array.isArray(data) ? data : [];
+      const parsed = rows.map((row) => {
+        if (Array.isArray(row)) {
+          return { time: new Date(row[0]), bt: Number(row[6] ?? row[7]), bz: Number(row[3] ?? row[4]) };
+        }
+        return { time: new Date(row.time_tag || row.time), bt: Number(row.bt), bz: Number(row.bz_gsm ?? row.bz) };
+      }).filter((item) => Number.isFinite(item.bz) && !Number.isNaN(item.time.getTime())).slice(-90);
+      if (!parsed.length) throw new Error("mag parse failed");
+      return parsed;
+    }
+
+    // this parses goes xray flux
+    async function fetchXray() {
+      const data = await fetchWithTimeout(ENDPOINTS.xray);
+      const parsed = (Array.isArray(data) ? data : []).map((row) => ({
+        time: new Date(row.time_tag || row.time),
+        flux: Number(row.flux),
+        energy: row.energy || row.observed_flux || "0.1-0.8nm"
+      })).filter((item) => Number.isFinite(item.flux) && !Number.isNaN(item.time.getTime())).slice(-240);
+      if (!parsed.length) throw new Error("xray parse failed");
+      return parsed;
+    }
+
+    // this parses proton flux
+    async function fetchProton() {
+      const data = await fetchWithTimeout(ENDPOINTS.proton);
+      const parsed = (Array.isArray(data) ? data : []).map((row) => ({
+        time: new Date(row.time_tag || row.time),
+        flux: Number(row.flux),
+        energy: row.energy || "unknown"
+      })).filter((item) => Number.isFinite(item.flux) && !Number.isNaN(item.time.getTime())).slice(-160);
+      if (!parsed.length) throw new Error("proton parse failed");
+      return parsed;
+    }
+
+    // this parses noaa alerts
+    async function fetchAlerts() {
+      const data = await fetchWithTimeout(ENDPOINTS.alerts);
+      const items = Array.isArray(data) ? data : [];
+      return items.slice(-10).reverse().map((item) => ({
+        title: item.product_id || item.message || item.title || "NOAA alert",
+        source: "NOAA SWPC",
+        severity: classifyAlertSeverity(item),
+        time: item.issue_datetime || item.time_tag || item.start_datetime || new Date().toISOString(),
+        summary: item.message || item.summary || item.product_id || "Space weather alert or product update."
+      }));
+    }
+
+    // this fetches open meteo weather and sun times
+    async function fetchWeather() {
+      const params = new URLSearchParams({
+        latitude: state.lat,
+        longitude: state.lon,
+        current: "temperature_2m,relative_humidity_2m,dew_point_2m,cloud_cover,wind_speed_10m",
+        hourly: "cloud_cover,relative_humidity_2m,dew_point_2m,temperature_2m,wind_speed_10m",
+        daily: "sunrise,sunset",
+        timezone: "auto",
+        forecast_days: "2"
+      });
+      const data = await fetchWithTimeout(`${ENDPOINTS.weather}?${params}`);
+      if (!data.current) throw new Error("weather parse failed");
+      return data;
+    }
+
+    // this fetches donki recent events
+    async function fetchDonki() {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 14);
+      const query = `startDate=${toDate(start)}&endDate=${toDate(end)}&api_key=DEMO_KEY`;
+
+      const [notices, cmes, flares] = await Promise.allSettled([
+        fetchWithTimeout(`${ENDPOINTS.donkiNotifications}?${query}`, {}, 9500),
+        fetchWithTimeout(`${ENDPOINTS.donkiCme}?${query}`, {}, 9500),
+        fetchWithTimeout(`${ENDPOINTS.donkiFlr}?${query}`, {}, 9500)
+      ]);
+
+      const events = [];
+      if (notices.status === "fulfilled" && Array.isArray(notices.value)) {
+        events.push(...notices.value.slice(-5).map((item) => ({
+          title: item.messageType || "DONKI notification",
+          source: "NASA DONKI",
+          time: item.messageIssueTime || item.messageID || new Date().toISOString(),
+          summary: trimText(item.messageBody || item.messageType || "Recent DONKI notification.", 260)
+        })));
+      }
+      if (cmes.status === "fulfilled" && Array.isArray(cmes.value)) {
+        events.push(...cmes.value.slice(-5).map((item) => ({
+          title: item.catalog || "CME event",
+          source: "NASA DONKI CME",
+          time: item.startTime || new Date().toISOString(),
+          summary: `CME detected${item.sourceLocation ? ` near ${item.sourceLocation}` : ""}. ${item.note ? trimText(item.note, 180) : "Arrival prediction depends on model analysis."}`
+        })));
+      }
+      if (flares.status === "fulfilled" && Array.isArray(flares.value)) {
+        events.push(...flares.value.slice(-5).map((item) => ({
+          title: item.classType ? `${item.classType} flare` : "Solar flare event",
+          source: "NASA DONKI FLR",
+          time: item.beginTime || new Date().toISOString(),
+          summary: `Solar flare event${item.sourceLocation ? ` from ${item.sourceLocation}` : ""}. Peak time: ${formatMaybeDate(item.peakTime)}.`
+        })));
+      }
+
+      events.sort((a, b) => new Date(b.time) - new Date(a.time));
+      if (!events.length) throw new Error("donki parse failed");
+      return events.slice(0, 9);
+    }
+
+    // this updates every visible section
+    function renderEverything(extraReason = "") {
+      const latestWind = latest(state.wind) || { speed: FALLBACK.windSpeed, density: FALLBACK.density, temperature: FALLBACK.temp, time: new Date() };
+      const latestMag = latest(state.mag) || { bt: FALLBACK.bt, bz: FALLBACK.bz, time: new Date() };
+      const latestXray = latest(state.xray) || { flux: FALLBACK.xrayFlux, time: new Date() };
+      const protonFlux = latestProtonFlux();
+      const weather = getWeatherSummary();
+      const flare = classifyFlare(latestXray.flux);
+      const g = classifyGScale(state.kp);
+      const r = classifyRScale(flare);
+      const s = classifySScale(protonFlux);
+      const aurora = scoreAurora(state.kp, state.lat, latestMag.bz, latestWind.speed, weather.cloud, getMoonInfo().illumination);
+      const viewing = scoreViewing(weather, getMoonInfo().illumination, state.bortle);
+      const overall = classifyOverall(state.kp, flare, protonFlux);
+
+      els.kpValue.textContent = formatNumber(state.kp, 1);
+      els.kpSubtext.textContent = g.label;
+      els.geoStatus.textContent = g.status;
+      els.geoSubtext.textContent = g.description;
+      els.flareLevel.textContent = flare.label;
+      els.flareSubtext.textContent = flare.meaning;
+      els.auroraChance.textContent = aurora.label;
+      els.auroraSubtext.textContent = `${aurora.score}/100 estimate`;
+      els.viewScoreValue.textContent = viewing.score;
+      els.viewScoreSubtext.textContent = viewing.label;
+      els.overallStatus.textContent = overall.status;
+      els.overallMeter.style.width = `${overall.score}%`;
+      els.overallExplanation.textContent = extraReason || overall.text;
+      els.lastUpdatedText.textContent = `Last updated: ${state.lastUpdated ? state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "--"}`;
+      els.sourceSummary.textContent = state.live ? "NOAA SWPC + NASA DONKI" : "Fallback estimates";
+
+      renderSolarWind(latestWind, latestMag);
+      renderKp(g);
+      renderAurora(aurora);
+      renderFlare(latestXray, flare, r, s);
+      renderSolarDisk(flare);
+      renderDonki();
+      renderImpacts(g, r, s, latestWind, latestMag);
+      renderViewing(weather, viewing);
+      renderAlerts();
+      renderCharts();
+      renderModeVisibility();
+    }
+
+    // this renders solar wind numbers
+    function renderSolarWind(wind, mag) {
+      els.windSpeed.textContent = `${formatNumber(wind.speed, 0)} km/s`;
+      els.windDensity.textContent = `${formatNumber(wind.density, 1)} p/cm³`;
+      els.btValue.textContent = `${formatNumber(mag.bt, 1)} nT`;
+      els.bzValue.textContent = `${formatNumber(mag.bz, 1)} nT`;
+      els.windTemp.textContent = `${formatNumber(wind.temperature, 0)} K`;
+      els.windAge.textContent = formatAge(wind.time || mag.time);
+      els.solarWindSource.textContent = state.live ? "NOAA SWPC live" : "Fallback sample";
+
+      if (mag.bz <= -8 && wind.speed >= 500) {
+        els.solarWindMeaning.textContent = "Bz is strongly southward with fast solar wind, so aurora and storm potential are elevated.";
+      } else if (mag.bz < -3) {
+        els.solarWindMeaning.textContent = "Bz is southward, which can help energy enter Earth’s magnetosphere if it persists.";
+      } else {
+        els.solarWindMeaning.textContent = "Solar wind conditions look limited or moderate right now. Watch for sustained negative Bz.";
+      }
+    }
+
+    // this renders kp info
+    function renderKp(g) {
+      els.gScaleBadge.textContent = g.label;
+      els.kpRingValue.textContent = formatNumber(state.kp, 1);
+      setRing(els.kpRing, (state.kp / 9) * 100);
+      els.stormLabel.textContent = `${g.label} — ${g.status}`;
+      els.stormText.textContent = g.longText;
+    }
+
+    // this renders aurora estimate
+    function renderAurora(aurora) {
+      els.auroraScoreText.textContent = `${aurora.score}/100`;
+      els.auroraScoreLabel.textContent = aurora.label;
+      els.kpNeededText.textContent = `Kp ${aurora.kpNeeded}+`;
+      els.visibleLatText.textContent = `${aurora.visibleLat}° ${state.hemisphere === "north" ? "N" : "S"}`;
+      els.auroraLimiter.textContent = aurora.limiter;
+      els.auroraBadge.textContent = state.live ? "Live + estimated" : "Fallback estimate";
+      els.auroraAnswer.textContent = aurora.answer;
+      drawAuroraCanvas(aurora);
+    }
+
+    // this renders flare section
+    function renderFlare(xray, flare, r, s) {
+      els.xrayFluxText.textContent = Number.isFinite(xray.flux) ? xray.flux.toExponential(2) : "--";
+      els.flareClassText.textContent = flare.label;
+      els.flareMeaning.textContent = flare.meaning;
+      els.radioRiskText.textContent = `${r.level} — ${r.label}`;
+      els.radiationRiskText.textContent = `${s.level} — ${s.label}`;
+      els.xraySource.textContent = state.live ? "NOAA GOES live" : "Fallback sample";
+    }
+
+    // this renders the stylized sun
+    function renderSolarDisk(flare) {
+      els.solarDisk.innerHTML = "";
+      const count = flare.rank >= 4 ? 8 : flare.rank >= 3 ? 6 : 4;
+      for (let i = 0; i < count; i++) {
+        const spot = document.createElement("span");
+        spot.className = "sunspot";
+        const size = 8 + Math.random() * (flare.rank >= 4 ? 16 : 10);
+        spot.style.width = `${size}px`;
+        spot.style.height = `${size * (0.72 + Math.random() * 0.5)}px`;
+        spot.style.left = `${24 + Math.random() * 54}%`;
+        spot.style.top = `${22 + Math.random() * 56}%`;
+        els.solarDisk.appendChild(spot);
+      }
+      for (let i = 0; i < Math.max(2, flare.rank); i++) {
+        const region = document.createElement("span");
+        region.className = "active-region";
+        const size = 22 + Math.random() * 34;
+        region.style.width = `${size}px`;
+        region.style.height = `${size}px`;
+        region.style.left = `${24 + Math.random() * 54}%`;
+        region.style.top = `${22 + Math.random() * 56}%`;
+        els.solarDisk.appendChild(region);
+      }
+      els.sunVisualBadge.textContent = state.live ? "Activity visual" : "Fallback visual";
+    }
+
+    // this renders donki events and timeline
+    function renderDonki() {
+      const events = state.donki.length ? state.donki : FALLBACK.donki;
+      els.donkiSource.textContent = state.live ? "NASA DONKI recent" : "Fallback sample";
+      els.cmeTimeline.innerHTML = [
+        ["☀", "Sun eruption", events[0]?.title || "No major eruption loaded", events[0]?.time],
+        ["➜", "CME travel", "Solar material can take roughly one to several days to reach Earth if Earth-directed.", null],
+        ["⊕", "Earth arrival", "Arrival timing needs model confirmation. Check NOAA/NASA alerts for official details.", null],
+        ["✦", "Geomagnetic response", classifyGScale(state.kp).longText, null]
+      ].map(([icon, title, text, time]) => `
+        <div class="timeline-item">
+          <div class="timeline-dot">${icon}</div>
+          <div><h3>${title}</h3><p>${time ? formatMaybeDate(time) + " • " : ""}${text}</p></div>
+        </div>
+      `).join("");
+
+      els.donkiEvents.innerHTML = events.slice(0, 5).map((event) => `
+        <article class="event-item">
+          <div class="event-top">
+            <h3>${escapeHtml(event.title)}</h3>
+            <span class="badge">${escapeHtml(event.source)}</span>
+          </div>
+          <p>${formatMaybeDate(event.time)} • ${escapeHtml(event.summary)}</p>
+        </article>
+      `).join("");
+    }
+
+    // this renders impact cards
+    function renderImpacts(g, r, s, wind, mag) {
+      const satelliteDrag = state.kp >= 7 || wind.speed >= 650 ? "Elevated" : state.kp >= 5 ? "Watch" : "Low";
+      const gps = state.kp >= 7 ? "Possible disturbance" : state.kp >= 5 ? "Minor risk" : "Low";
+      const grid = state.kp >= 8 ? "Elevated watch" : state.kp >= 6 ? "Minor watch" : "Low";
+      const aviation = s.rank >= 2 || r.rank >= 3 ? "Polar route watch" : "Low";
+
+      const cards = [
+        ["HF Radio", `${r.level} ${r.label}`, r.effect, "radio operators, aviation, emergency comms"],
+        ["Satellite Drag", satelliteDrag, state.kp >= 5 ? "Upper-atmosphere heating can increase drag on low-orbit satellites." : "No major drag signal from current estimate.", "satellite teams"],
+        ["GPS", gps, state.kp >= 5 ? "Geomagnetic storms can disturb precise positioning and timing." : "Navigation impacts look limited right now.", "surveying, aviation, timing systems"],
+        ["Radiation", `${s.level} ${s.label}`, s.effect, "satellites, polar aviation, astronauts"],
+        ["Power Grid", grid, state.kp >= 7 ? "Strong storms can induce currents in long conductors." : "Grid effects look limited from current estimate.", "grid operators"],
+        ["Polar Aviation", aviation, aviation === "Low" ? "No major polar route signal from current estimate." : "Radio/radiation conditions may need monitoring.", "high-latitude flights"]
+      ];
+
+      els.impactGrid.innerHTML = cards.map(([title, level, text, cares]) => `
+        <div class="impact-card">
+          <span class="level-pill">${escapeHtml(level)}</span>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(text)}</p>
+          <p style="margin-top: 8px;"><strong style="color: var(--accent-light);">Who cares:</strong> ${escapeHtml(cares)}</p>
+        </div>
+      `).join("");
+    }
+
+    // this renders local viewing conditions
+    function renderViewing(weather, viewing) {
+      const moon = getMoonInfo();
+      const twilight = getTwilightText();
+      els.viewRingValue.textContent = viewing.score;
+      setRing(els.viewRing, viewing.score);
+      els.viewingLabel.textContent = `${viewing.label} observing conditions`;
+      els.viewingAdvice.textContent = viewing.advice;
+      els.bestWindowText.textContent = viewing.bestWindow;
+      els.weatherSource.textContent = state.weather && state.live ? "Open-Meteo live" : "Fallback weather";
+      els.cloudText.textContent = `${formatNumber(weather.cloud, 0)}%`;
+      els.transparencyText.textContent = viewing.transparency;
+      els.seeingText.textContent = viewing.seeing;
+      els.humidityText.textContent = `${formatNumber(weather.humidity, 0)}%`;
+      els.windText.textContent = state.units === "imperial" ? `${formatNumber(kmhToMph(weather.wind), 0)} mph` : `${formatNumber(weather.wind, 0)} km/h`;
+      els.tempText.textContent = state.units === "imperial" ? `${formatNumber(cToF(weather.tempC), 0)}°F / ${formatNumber(cToF(weather.dewC), 0)}°F` : `${formatNumber(weather.tempC, 0)}°C / ${formatNumber(weather.dewC, 0)}°C`;
+      els.dewText.textContent = `Dew spread: ${state.units === "imperial" ? formatNumber(cToF(weather.tempC) - cToF(weather.dewC), 0) + "°F" : formatNumber(weather.tempC - weather.dewC, 0) + "°C"}`;
+      els.moonPhaseText.textContent = moon.phase;
+      els.moonIllumText.textContent = `${Math.round(moon.illumination * 100)}% illuminated`;
+      els.twilightText.textContent = twilight;
+    }
+
+    // this renders alerts
+    function renderAlerts() {
+      const all = [...(state.alerts || []), ...(state.donki || []).slice(0, 3)].slice(0, 8);
+      els.alertCountBadge.textContent = `${all.length} item${all.length === 1 ? "" : "s"}`;
+
+      if (!all.length) {
+        els.alertList.innerHTML = `<div class="alert-item"><h3>No recent alerts loaded</h3><p>Refresh data or check official NOAA/NASA products if you need operational warnings.</p></div>`;
+        return;
+      }
+
+      els.alertList.innerHTML = all.map((item) => `
+        <article class="alert-item">
+          <div class="alert-top">
+            <h3>${escapeHtml(item.title)}</h3>
+            <span class="badge">${escapeHtml(item.severity || item.source || "Info")}</span>
+          </div>
+          <p>${formatMaybeDate(item.time)} • ${escapeHtml(item.source || "Space weather source")}</p>
+          <p>${escapeHtml(trimText(item.summary || "No summary available.", 280))}</p>
+        </article>
+      `).join("");
+    }
+
+    // this renders glossary
+    function renderGlossary() {
+      els.glossaryGrid.innerHTML = GLOSSARY.map(([term, meaning]) => `
+        <details class="term-card">
+          <summary>${term}</summary>
+          <p>${meaning}</p>
+        </details>
+      `).join("");
+    }
+
+    // this hides advanced and explain sections
+    function renderModeVisibility() {
+      const advanced = els.advancedToggle.checked;
+      const explain = els.explainToggle.checked;
+      document.querySelectorAll(".card").forEach((card) => card.classList.remove("simple-hidden"));
+      els.glossaryCard.classList.toggle("hidden", !explain);
+      document.querySelectorAll(".chart-wrap").forEach((chart) => chart.classList.toggle("hidden", !advanced));
+      els.donkiEvents.classList.toggle("hidden", !advanced);
+    }
+
+    // this draws all charts
+    function renderCharts() {
+      drawLineChart($("solarWindChart"), state.wind.map((d) => ({ x: d.time, y: d.speed })), { label: "Solar wind speed km/s", min: 250, max: 850 });
+      drawLineChart($("bzChart"), state.mag.map((d) => ({ x: d.time, y: d.bz })), { label: "Bz nT", min: -20, max: 20, zeroLine: true });
+      drawLineChart($("kpChart"), state.kpHistory.map((d) => ({ x: d.time, y: d.value })), { label: "Kp history", min: 0, max: 9 });
+      const xraySeries = state.xray.slice(-160).map((d) => ({ x: d.time, y: Math.log10(Math.max(d.flux, 1e-9)) }));
+      drawLineChart($("xrayChart"), xraySeries, { label: "GOES x-ray log flux", min: -9, max: -3 });
+    }
+
+    // this draws a simple canvas chart
+    function drawLineChart(canvas, points, options = {}) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const width = rect.width;
+      const height = rect.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(3, 8, 20, 0.15)";
+      ctx.fillRect(0, 0, width, height);
+
+      const pad = { left: 38, right: 14, top: 18, bottom: 24 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const values = points.map((p) => p.y).filter(Number.isFinite);
+      const min = Number.isFinite(options.min) ? options.min : Math.min(...values, 0);
+      const max = Number.isFinite(options.max) ? options.max : Math.max(...values, 1);
+
+      ctx.strokeStyle = "rgba(44,126,255,0.12)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.top + (plotH * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+      }
+
+      if (options.zeroLine && min < 0 && max > 0) {
+        const zy = pad.top + plotH - ((0 - min) / (max - min)) * plotH;
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.beginPath();
+        ctx.moveTo(pad.left, zy);
+        ctx.lineTo(width - pad.right, zy);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(184,199,230,0.9)";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.fillText(options.label || "chart", pad.left, 12);
+
+      if (!points.length) {
+        ctx.fillStyle = "rgba(184,199,230,0.75)";
+        ctx.fillText("No chart data loaded", pad.left, height / 2);
+        return;
+      }
+
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = pad.left + (index / Math.max(1, points.length - 1)) * plotW;
+        const y = pad.top + plotH - ((point.y - min) / Math.max(0.000001, max - min)) * plotH;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = "rgba(44, 126, 255, 0.95)";
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(11,61,145,0.28)";
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // this draws the aurora map
+    function drawAuroraCanvas(aurora) {
+      const canvas = $("auroraCanvas");
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const gradient = ctx.createRadialGradient(w * 0.5, h * 0.5, 8, w * 0.5, h * 0.5, Math.min(w, h) * 0.6);
+      gradient.addColorStop(0, "rgba(11,61,145,0.22)");
+      gradient.addColorStop(0.55, "rgba(6,26,64,0.82)");
+      gradient.addColorStop(1, "rgba(0,0,0,0.95)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "rgba(44,126,255,0.12)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const y = (h * i) / 5;
+        ctx.beginPath();
+        ctx.moveTo(18, y);
+        ctx.lineTo(w - 18, y);
+        ctx.stroke();
+      }
+      for (let i = 1; i < 6; i++) {
+        const x = (w * i) / 6;
+        ctx.beginPath();
+        ctx.moveTo(x, 18);
+        ctx.lineTo(x, h - 18);
+        ctx.stroke();
+      }
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const poleY = state.hemisphere === "north" ? h * 0.25 : h * 0.75;
+      const ovalRadiusX = w * (0.18 + state.kp * 0.018);
+      const ovalRadiusY = h * (0.07 + state.kp * 0.01);
+      const glow = ctx.createRadialGradient(cx, poleY, 4, cx, poleY, ovalRadiusX * 1.7);
+      glow.addColorStop(0, "rgba(157,255,210,0.08)");
+      glow.addColorStop(0.45, "rgba(11,61,145,0.16)");
+      glow.addColorStop(1, "rgba(11,61,145,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.beginPath();
+      ctx.ellipse(cx, poleY, ovalRadiusX, ovalRadiusY, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(157, 255, 210, ${0.28 + aurora.score / 160})`;
+      ctx.lineWidth = 4;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = "rgba(157,255,210,0.32)";
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const userY = latToY(state.lat, h);
+      const userX = lonToX(state.lon, w);
+      ctx.beginPath();
+      ctx.arc(userX, userY, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(11,61,145,0.95)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(244,248,255,0.92)";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.fillText("your location", Math.min(w - 95, userX + 10), Math.max(18, userY - 8));
+      ctx.fillStyle = "rgba(184,199,230,0.82)";
+      ctx.fillText(`${state.hemisphere === "north" ? "northern" : "southern"} auroral oval • estimated`, 14, h - 14);
+    }
+
+    // this scores aurora chance
+    function scoreAurora(kp, lat, bz, speed, cloud, moonIllum) {
+      const absLat = Math.abs(lat);
+      const visibleLat = kpToVisibleLatitude(kp);
+      const kpNeeded = latitudeToKpNeeded(absLat);
+      let score = 0;
+      score += clamp((kp / Math.max(1, kpNeeded)) * 45, 0, 50);
+      score += bz < 0 ? clamp(Math.abs(bz) * 3, 0, 20) : -8;
+      score += speed > 450 ? clamp((speed - 400) / 18, 0, 15) : 0;
+      score += absLat >= visibleLat ? 20 : -Math.min(22, (visibleLat - absLat) * 1.2);
+      score -= cloud * 0.18;
+      score -= moonIllum * 8;
+      score = clamp(Math.round(score), 0, 100);
+
+      const label = score <= 20 ? "Very unlikely" : score <= 40 ? "Low" : score <= 60 ? "Possible" : score <= 80 ? "Likely" : "Strong chance";
+      const limiter = cloud > 65 ? "Cloud cover" : moonIllum > 0.75 ? "Bright Moon" : Math.abs(lat) < visibleLat ? "Latitude" : bz >= 0 ? "Bz not southward" : "Darkness/weather";
+      const answer = score >= 61
+        ? "Aurora may be possible if your northern/southern horizon is dark and clouds stay low."
+        : score >= 41
+        ? "Aurora is possible but not guaranteed. Watch Bz, clouds, and updated Kp."
+        : "Aurora is not favored for this location right now unless activity increases.";
+      return { score, label, limiter, visibleLat, kpNeeded, answer };
+    }
+
+    // this scores astronomy viewing
+    function scoreViewing(weather, moonIllum, bortle) {
+      let score = 100;
+      score -= weather.cloud * 0.45;
+      score -= Math.max(0, weather.humidity - 55) * 0.22;
+      score -= Math.max(0, weather.wind - 12) * 1.5;
+      score -= moonIllum * 18;
+      score -= (bortle - 2) * 5.2;
+      score -= Math.max(0, 5 - (weather.tempC - weather.dewC)) * 3;
+      score = clamp(Math.round(score), 0, 100);
+
+      const label = score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 55 ? "Okay" : score >= 35 ? "Poor" : "Bad";
+      const transparency = weather.cloud < 25 && weather.humidity < 60 ? "Good" : weather.cloud < 55 ? "Fair" : "Poor";
+      const seeing = weather.wind < 8 ? "Good" : weather.wind < 18 ? "Fair" : "Poor";
+      const moon = getMoonInfo();
+      const advice = score >= 75
+        ? `Best tonight for deep sky and planets. Main issue: ${Math.round(moon.illumination * 100)}% Moon illumination.`
+        : score >= 55
+        ? `Best tonight for Moon, planets, and bright clusters. Faint galaxies may suffer.`
+        : `Not ideal for faint deep-sky observing. Try Moon, planets, or wait for clearer darker conditions.`;
+      const bestWindow = moon.illumination > 0.7
+        ? "Deep sky window is limited by moonlight. Try after astronomical twilight and aim away from the Moon."
+        : "Deep sky window: about 90 minutes after sunset until moonlight or clouds become the main issue.";
+
+      return { score, label, transparency, seeing, advice, bestWindow };
+    }
+
+    // this classifies overall status
+    function classifyOverall(kp, flare, protonFlux) {
+      if (kp >= 9 || flare.rank >= 5 || protonFlux >= 100) return { status: "Extreme", score: 100, text: "Extreme space weather signals are present or estimated. Check official NOAA alerts." };
+      if (kp >= 8) return { status: "Severe Storm", score: 88, text: "Severe geomagnetic storm conditions are possible from the current Kp estimate." };
+      if (kp >= 7 || flare.rank >= 4) return { status: "Strong", score: 76, text: "Strong activity is present. Aurora odds and radio impacts may be elevated." };
+      if (kp >= 6) return { status: "Moderate Storm", score: 64, text: "Moderate geomagnetic storm conditions are estimated." };
+      if (kp >= 5) return { status: "Minor Storm", score: 52, text: "Minor storm conditions are possible. Aurora may expand toward lower latitudes." };
+      if (kp >= 4) return { status: "Active", score: 42, text: "Geomagnetic activity is active but below storm level." };
+      if (kp >= 3) return { status: "Unsettled", score: 30, text: "Space weather is unsettled. Watch for changes in Bz and solar wind speed." };
+      return { status: "Quiet", score: 18, text: "Space weather looks mostly quiet right now." };
+    }
+
+    // this classifies g scale
+    function classifyGScale(kp) {
+      if (kp >= 9) return { level: "G5", label: "G5 Extreme", status: "Extreme storm", description: "Kp 9", longText: "Extreme geomagnetic storm conditions. Widespread aurora and infrastructure impacts are possible." };
+      if (kp >= 8) return { level: "G4", label: "G4 Severe", status: "Severe storm", description: "Kp 8", longText: "Severe geomagnetic storm conditions. Aurora may reach much lower latitudes." };
+      if (kp >= 7) return { level: "G3", label: "G3 Strong", status: "Strong storm", description: "Kp 7", longText: "Strong geomagnetic storm conditions. Aurora can move far beyond polar regions." };
+      if (kp >= 6) return { level: "G2", label: "G2 Moderate", status: "Moderate storm", description: "Kp 6", longText: "Moderate geomagnetic storm conditions. Aurora may be visible at mid-high latitudes." };
+      if (kp >= 5) return { level: "G1", label: "G1 Minor", status: "Minor storm", description: "Kp 5", longText: "Minor geomagnetic storm conditions. Aurora expands equatorward compared with quiet nights." };
+      if (kp >= 4) return { level: "G0", label: "G0 Active", status: "Active", description: "Below storm level", longText: "Active conditions, but not a NOAA geomagnetic storm level." };
+      return { level: "G0", label: "G0 Quiet", status: "Quiet", description: "Below storm level", longText: "Quiet to unsettled geomagnetic conditions." };
+    }
+
+    // this classifies flare strength
+    function classifyFlare(flux) {
+      const f = Number(flux) || 0;
+      if (f >= 1e-4) return { label: `X${formatNumber(f / 1e-4, 1)}`, rank: 5, meaning: "major flare level" };
+      if (f >= 1e-5) return { label: `M${formatNumber(f / 1e-5, 1)}`, rank: 4, meaning: "moderate to strong flare level" };
+      if (f >= 1e-6) return { label: `C${formatNumber(f / 1e-6, 1)}`, rank: 3, meaning: "common small flare level" };
+      if (f >= 1e-7) return { label: `B${formatNumber(f / 1e-7, 1)}`, rank: 2, meaning: "low x-ray activity" };
+      return { label: `A${formatNumber(Math.max(f, 1e-9) / 1e-8, 1)}`, rank: 1, meaning: "very low x-ray activity" };
+    }
+
+    // this classifies radio risk
+    function classifyRScale(flare) {
+      if (flare.rank >= 5) return { level: "R3+", rank: 3, label: "Strong", effect: "Major x-ray flares can cause wide-area HF radio blackouts on the sunlit side." };
+      if (flare.rank >= 4) return { level: "R1-R2", rank: 2, label: "Possible", effect: "M-class flares can create limited to moderate HF radio disruptions." };
+      return { level: "R0", rank: 0, label: "Low", effect: "No major x-ray radio blackout signal from current flux." };
+    }
+
+    // this classifies radiation risk
+    function classifySScale(protonFlux) {
+      if (protonFlux >= 1000) return { level: "S3+", rank: 3, label: "Strong", effect: "High proton flux can affect satellites, aviation, and radiation-sensitive operations." };
+      if (protonFlux >= 100) return { level: "S2", rank: 2, label: "Moderate", effect: "Moderate solar radiation storm conditions may be possible." };
+      if (protonFlux >= 10) return { level: "S1", rank: 1, label: "Minor", effect: "Minor proton enhancement may be present." };
+      return { level: "S0", rank: 0, label: "Low", effect: "No major solar radiation storm signal from current estimate." };
+    }
+
+    // this gets weather summary
+    function getWeatherSummary() {
+      if (!state.weather || !state.weather.current) return makeFallbackWeather().currentSummary;
+      const c = state.weather.current;
+      return {
+        cloud: Number(c.cloud_cover ?? FALLBACK.cloud),
+        humidity: Number(c.relative_humidity_2m ?? FALLBACK.humidity),
+        wind: Number(c.wind_speed_10m ?? FALLBACK.wind),
+        tempC: Number(c.temperature_2m ?? FALLBACK.tempC),
+        dewC: Number(c.dew_point_2m ?? FALLBACK.dewC)
+      };
+    }
+
+    // this estimates moon phase
+    function getMoonInfo(date = new Date()) {
+      const synodic = 29.530588853;
+      const knownNewMoon = new Date("2000-01-06T18:14:00Z").getTime();
+      const days = (date.getTime() - knownNewMoon) / 86400000;
+      const phase = ((days % synodic) + synodic) % synodic;
+      const illumination = (1 - Math.cos((2 * Math.PI * phase) / synodic)) / 2;
+      let name = "New Moon";
+      if (phase < 1.85) name = "New Moon";
+      else if (phase < 5.54) name = "Waxing crescent";
+      else if (phase < 9.23) name = "First quarter";
+      else if (phase < 12.92) name = "Waxing gibbous";
+      else if (phase < 16.61) name = "Full Moon";
+      else if (phase < 20.30) name = "Waning gibbous";
+      else if (phase < 23.99) name = "Last quarter";
+      else if (phase < 27.68) name = "Waning crescent";
+      return { phase: name, illumination };
+    }
+
+    // this gives a simple twilight display
+    function getTwilightText() {
+      if (state.weather?.daily?.sunset?.[0] && state.weather?.daily?.sunrise?.[1]) {
+        const sunset = new Date(state.weather.daily.sunset[0]);
+        const sunrise = new Date(state.weather.daily.sunrise[1]);
+        const astroStart = new Date(sunset.getTime() + 90 * 60000);
+        const astroEnd = new Date(sunrise.getTime() - 90 * 60000);
+        return `${formatTime(astroStart)} - ${formatTime(astroEnd)}`;
+      }
+      return "about 90 min after sunset to 90 min before sunrise";
+    }
+
+    // this sets ring fill
+    function setRing(element, percent) {
+      const deg = clamp(percent, 0, 100) * 3.6;
+      element.style.background = `radial-gradient(circle at center, rgba(3, 8, 20, 0.86) 0 57%, transparent 58%), conic-gradient(var(--accent-light) ${deg}deg, rgba(255,255,255,0.08) ${deg}deg)`;
+    }
+
+    // this uses browser geolocation
+    function useLocation() {
+      if (!navigator.geolocation) {
+        els.overallExplanation.textContent = "Geolocation is not available in this browser.";
+        return;
+      }
+      navigator.geolocation.getCurrentPosition((position) => {
+        state.lat = position.coords.latitude;
+        state.lon = position.coords.longitude;
+        els.latInput.value = state.lat.toFixed(2);
+        els.lonInput.value = state.lon.toFixed(2);
+        saveSettings();
+        refreshAllData();
+      }, () => {
+        els.overallExplanation.textContent = "Could not access your location. You can still type latitude and longitude manually.";
+      }, { enableHighAccuracy: true, timeout: 9000 });
+    }
+
+    // this toggles fallback testing
+    function toggleOfflineMode() {
+      state.offlineMode = !state.offlineMode;
+      els.offlineBtn.textContent = state.offlineMode ? "Use Live Data" : "Test Offline";
+      refreshAllData();
+    }
+
+    // this resets dashboard controls
+    function resetDashboard() {
+      state.offlineMode = false;
+      els.offlineBtn.textContent = "Test Offline";
+      els.latInput.value = "34.05";
+      els.lonInput.value = "-118.24";
+      els.bortleSelect.value = "5";
+      els.unitsSelect.value = "imperial";
+      els.refreshInterval.value = "300000";
+      els.hemisphereSelect.value = "north";
+      els.autoRefreshToggle.checked = true;
+      els.advancedToggle.checked = true;
+      els.explainToggle.checked = true;
+      readSettingsFromForm();
+      saveSettings();
+      refreshAllData();
+    }
+
+    // this controls auto refresh
+    function setupAutoRefresh() {
+      clearInterval(state.autoTimer);
+      if (!els.autoRefreshToggle.checked) return;
+      const interval = Number(els.refreshInterval.value) || 300000;
+      state.autoTimer = setInterval(refreshAllData, interval);
+    }
+
+    // this sets the top data badge
+    function setLiveBadge(mode, text) {
+      els.liveBadge.className = `source-badge ${mode}`;
+      els.liveBadge.textContent = text;
+    }
+
+    // this creates fallback kp history
+    function makeFallbackKp() {
+      const now = Date.now();
+      return Array.from({ length: 24 }, (_, i) => ({ time: new Date(now - (23 - i) * 3 * 3600000), value: clamp(2.3 + Math.sin(i / 3) * 0.9 + Math.random() * 0.45, 0, 9) }));
+    }
+
+    // this creates fallback plasma
+    function makeFallbackPlasma() {
+      const now = Date.now();
+      return Array.from({ length: 80 }, (_, i) => ({ time: new Date(now - (79 - i) * 90000), speed: 400 + Math.sin(i / 8) * 35 + Math.random() * 22, density: 4.5 + Math.random() * 2.1, temperature: 85000 + Math.random() * 42000 }));
+    }
+
+    // this creates fallback mag data
+    function makeFallbackMag() {
+      const now = Date.now();
+      return Array.from({ length: 80 }, (_, i) => ({ time: new Date(now - (79 - i) * 90000), bt: 5.4 + Math.random() * 2.2, bz: -1.7 + Math.sin(i / 6) * 2.5 + Math.random() * 1.2 }));
+    }
+
+    // this creates fallback xray data
+    function makeFallbackXray() {
+      const now = Date.now();
+      return Array.from({ length: 160 }, (_, i) => ({ time: new Date(now - (159 - i) * 300000), flux: 2e-6 + Math.sin(i / 11) * 4e-7 + Math.random() * 2e-7 }));
+    }
+
+    // this creates fallback proton data
+    function makeFallbackProton() {
+      const now = Date.now();
+      return Array.from({ length: 80 }, (_, i) => ({ time: new Date(now - (79 - i) * 300000), flux: 0.6 + Math.random() * 0.35, energy: ">10 MeV" }));
+    }
+
+    // this creates fallback weather
+    function makeFallbackWeather() {
+      return {
+        current: {
+          cloud_cover: FALLBACK.cloud,
+          relative_humidity_2m: FALLBACK.humidity,
+          wind_speed_10m: FALLBACK.wind,
+          temperature_2m: FALLBACK.tempC,
+          dew_point_2m: FALLBACK.dewC
+        },
+        currentSummary: {
+          cloud: FALLBACK.cloud,
+          humidity: FALLBACK.humidity,
+          wind: FALLBACK.wind,
+          tempC: FALLBACK.tempC,
+          dewC: FALLBACK.dewC
+        },
+        daily: {}
+      };
+    }
+
+    // this finds latest item
+    function latest(items) {
+      return Array.isArray(items) && items.length ? items[items.length - 1] : null;
+    }
+
+    // this gets latest kp
+    function latestKp(items) {
+      const item = latest(items);
+      return item ? item.value : FALLBACK.kp;
+    }
+
+    // this gets latest proton flux
+    function latestProtonFlux() {
+      const protons = state.proton || [];
+      const preferred = [...protons].reverse().find((item) => String(item.energy).includes(">=10") || String(item.energy).includes(">10"));
+      return Number((preferred || latest(protons) || { flux: FALLBACK.protonFlux }).flux) || FALLBACK.protonFlux;
+    }
+
+    // this approximates aurora latitude by kp
+    function kpToVisibleLatitude(kp) {
+      if (kp >= 9) return 30;
+      if (kp >= 8) return 35;
+      if (kp >= 7) return 40;
+      if (kp >= 6) return 45;
+      if (kp >= 5) return 50;
+      if (kp >= 4) return 55;
+      if (kp >= 3) return 60;
+      return 66;
+    }
+
+    // this estimates needed kp for latitude
+    function latitudeToKpNeeded(absLat) {
+      if (absLat >= 66) return 1;
+      if (absLat >= 60) return 3;
+      if (absLat >= 55) return 4;
+      if (absLat >= 50) return 5;
+      if (absLat >= 45) return 6;
+      if (absLat >= 40) return 7;
+      if (absLat >= 35) return 8;
+      return 9;
+    }
+
+    // this converts coords to map space
+    function latToY(lat, height) { return height * (0.5 - lat / 180); }
+    function lonToX(lon, width) { return width * ((lon + 180) / 360); }
+
+    // this classifies alert severity
+    function classifyAlertSeverity(item) {
+      const text = JSON.stringify(item).toUpperCase();
+      if (text.includes("WARNING")) return "Warning";
+      if (text.includes("WATCH")) return "Watch";
+      if (text.includes("ALERT")) return "Alert";
+      return "Info";
+    }
+
+    // this formats utility values
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function cToF(c) { return (c * 9) / 5 + 32; }
+    function kmhToMph(kmh) { return kmh * 0.621371; }
+    function formatNumber(value, digits = 0) { return Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "--"; }
+    function formatTime(date) { return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+    function toDate(date) { return date.toISOString().slice(0, 10); }
+    function trimText(text, length) { return String(text || "").replace(/\s+/g, " ").trim().slice(0, length) + (String(text || "").length > length ? "..." : ""); }
+    function formatMaybeDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value || "recent");
+      return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+    function formatAge(date) {
+      const d = new Date(date);
+      if (Number.isNaN(d.getTime())) return "unknown";
+      const mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins} min`;
+      return `${Math.round(mins / 60)} hr`;
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+    }
+
+    // this redraws charts on resize
+    window.addEventListener("resize", () => {
+      renderCharts();
+      drawAuroraCanvas(scoreAurora(state.kp, state.lat, latest(state.mag)?.bz ?? FALLBACK.bz, latest(state.wind)?.speed ?? FALLBACK.windSpeed, getWeatherSummary().cloud, getMoonInfo().illumination));
+    });
+
+    // this makes the background stars
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const count = Math.min(280, Math.floor((width * height) / 7200));
+        stars = Array.from({ length: count }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: 0.5 + Math.random() * 1.6,
+          a: 0.18 + Math.random() * 0.72,
+          pulse: Math.random() * Math.PI * 2,
+          parallax: 0.15 + Math.random() * 0.85
+        }));
+      }
+
+      function draw(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.035;
+        mouseY += (targetMouseY - mouseY) * 0.035;
+        const mist = ctx.createRadialGradient(width * 0.22, height * 0.2, 0, width * 0.22, height * 0.2, 320);
+        mist.addColorStop(0, "rgba(11,61,145,0.055)");
+        mist.addColorStop(1, "rgba(11,61,145,0)");
+        ctx.fillStyle = mist;
+        ctx.fillRect(0, 0, width, height);
+        stars.forEach((star) => {
+          const alpha = star.a * (0.72 + 0.28 * Math.sin(time * 0.0015 + star.pulse));
+          const x = star.x + mouseX * star.parallax * 0.015;
+          const y = star.y + mouseY * star.parallax * 0.015;
+          ctx.beginPath();
+          ctx.arc(x, y, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(244, 248, 255, ${alpha})`;
+          ctx.shadowBlur = star.r * 5;
+          ctx.shadowColor = `rgba(11,61,145,${alpha * 0.4})`;
+          ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 24;
+        targetMouseY = ((event.clientY - height / 2) / height) * 24;
+      });
+      window.addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(draw);
+    }
+  </script>
+</body>
+</html>

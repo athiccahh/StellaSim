@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Moon Atlas</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <!-- all the css for the moon atlas lives here -->
+  <style>
+    /* core theme vars for the whole ui */
+    :root {
+      --panel-bg: rgba(2, 8, 22, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.9);
+      --field-bg: #06142d;
+      --field-border: rgba(30, 136, 255, 0.42);
+      --field-text: #edf4ff;
+      --muted: #b9c8e8;
+      --accent: #1e88ff;
+      --accent-light: #7bb7ff;
+      --text: #edf4ff;
+      --page-bg: #000000;
+      --shadow: 0 18px 38px rgba(0, 0, 0, 0.62), 0 0 28px rgba(11, 61, 145, 0.16);
+      --btn: linear-gradient(180deg, #0b3d91, #061a40);
+      --btn-hover: linear-gradient(180deg, #1e88ff, #0b3d91);
+      --btn-disabled: linear-gradient(180deg, #071225, #020816);
+      --danger: #ffb4b4;
+      --good: #bde8ff;
+      --warn: #ffe2a6;
+    }
+
+    /* base page layout n render layers */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+      color: var(--text);
+      font-family: Inter, system-ui, Arial, sans-serif;
+    }
+    #app { position: fixed; inset: 0; background: #000000; }
+    #moonCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+    #moonCanvas.dragging { cursor: grabbing; }
+    #labelLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+    /* subtle starfield behind the moon */
+    .starfield {
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,0.8) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 33% 82%, rgba(123,183,255,0.75) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 62% 26%, rgba(255,255,255,0.72) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 78% 70%, rgba(123,183,255,0.65) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 92% 42%, rgba(255,255,255,0.65) 0 1px, transparent 1.5px);
+      opacity: 0.52;
+      pointer-events: none;
+    }
+
+    /* shared glass panel style used by every hud panel */
+    .hud-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.055);
+    }
+
+    /* floating labels that sit over the moon */
+    .moon-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      color: rgba(235, 243, 255, 0.92);
+      font-size: 12px;
+      white-space: nowrap;
+      text-shadow: 0 0 6px rgba(30, 136, 255, 0.95), 0 0 16px rgba(11, 61, 145, 0.86);
+      opacity: 0.96;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .moon-label.selected {
+      color: #7bb7ff;
+      text-shadow: 0 0 8px rgba(30, 136, 255, 1), 0 0 20px rgba(11, 61, 145, 0.95), 0 0 34px rgba(123, 183, 255, 0.62);
+      font-weight: 700;
+    }
+
+    /* top title bar */
+    #topHeader {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      z-index: 18;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 15px;
+      max-width: calc(100vw - 40px);
+      white-space: nowrap;
+    }
+    .app-title { font-size: 18px; font-weight: 800; letter-spacing: 0.01em; }
+    .app-badge {
+      color: var(--accent-light);
+      border: 1px solid rgba(30,136,255,0.32);
+      background: rgba(11,61,145,0.18);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* left side control panel layout */
+    #controlPanel {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      width: 372px;
+      max-height: calc(100vh - 36px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      resize: both;
+      min-width: 320px;
+      min-height: 260px;
+      z-index: 22;
+    }
+    #panelHeader {
+      cursor: move;
+      user-select: none;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid rgba(30,136,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.18), rgba(0,0,0,0));
+    }
+    .title-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .panel-title { font-size: 18px; font-weight: 700; letter-spacing: 0.01em; }
+    .panel-subtitle { color: var(--muted); font-size: 12px; }
+    #panelBody { overflow: auto; padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* panel sections */
+    details.section { border: 1px solid rgba(30,136,255,0.16); border-radius: 14px; padding: 8px 10px 10px; background: rgba(2,8,22,0.62); }
+    details.section[open] { background: rgba(11,61,145,0.12); }
+    details.section > summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      color: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .section-inner { margin-top: 10px; display: grid; gap: 10px; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .toggle-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+
+    /* form controls n buttons styling */
+    label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: var(--field-bg);
+      color: var(--field-text);
+      border-radius: 10px;
+      padding: 9px 11px;
+      outline: none;
+      font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
+    }
+    input:focus, select:focus { border-color: rgba(123,183,255,0.68); box-shadow: 0 0 0 3px rgba(11,61,145,0.16), 0 0 18px rgba(30,136,255,0.12); }
+    input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    input[type="range"] { padding: 0; background: transparent; border: none; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
+    button {
+      border: 1px solid rgba(30,136,255,0.28);
+      background: var(--btn);
+      color: white;
+      border-radius: 11px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.34), 0 0 14px rgba(11,61,145,0.12);
+    }
+    button:hover { background: var(--btn-hover); filter: brightness(1.08); box-shadow: 0 10px 24px rgba(0,0,0,0.42), 0 0 18px rgba(30,136,255,0.28); border-color: rgba(123,183,255,0.55); }
+    button:active { transform: translateY(1px); }
+    .small { padding: 7px 9px; font-size: 12px; }
+    .ghost { background: rgba(11,61,145,0.18); }
+
+    /* right side selected feature panel */
+    #infoPanel {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      width: 360px;
+      min-height: 190px;
+      z-index: 20;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .info-title { font-size: 20px; font-weight: 800; color: #edf4ff; }
+    .info-type { color: var(--accent-light); font-size: 13px; font-weight: 700; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; font-size: 12px; }
+    .info-item { display: grid; gap: 2px; }
+    .info-item span:first-child { color: var(--muted); }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .value-strong { color: var(--text); font-weight: 700; }
+    .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
+
+    /* phase stats strip */
+    #phaseStrip {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      z-index: 18;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      max-width: calc(100vw - 40px);
+      white-space: nowrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .phase-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      box-shadow: 0 0 18px rgba(30,136,255,0.82), 0 0 34px rgba(11,61,145,0.45);
+    }
+
+    /* floating search results */
+    #searchResults {
+      display: none;
+      max-height: 170px;
+      overflow: auto;
+      border: 1px solid rgba(30,136,255,0.2);
+      border-radius: 12px;
+      background: rgba(2,8,22,0.72);
+      padding: 6px;
+    }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 9px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .result-row:hover { background: rgba(30,136,255,0.16); }
+    .tag {
+      color: var(--accent-light);
+      border: 1px solid rgba(30,136,255,0.2);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    /* glossary drawer */
+    #glossaryPanel {
+      position: absolute;
+      right: 18px;
+      top: 78px;
+      width: 360px;
+      max-height: calc(100vh - 300px);
+      overflow: auto;
+      z-index: 19;
+      padding: 14px;
+      display: none;
+    }
+    #glossaryPanel.open { display: grid; gap: 10px; }
+    .glossary-item {
+      border: 1px solid rgba(30,136,255,0.14);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(2,8,22,0.68);
+    }
+    .glossary-title { color: var(--accent-light); font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+
+    /* top right status badge */
+    .badge {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      z-index: 19;
+      padding: 10px 14px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+    }
+
+    /* small toast popup */
+    #toast {
+      position: absolute;
+      left: 50%;
+      top: 68px;
+      transform: translateX(-50%);
+      z-index: 40;
+      padding: 10px 14px;
+      display: none;
+      font-size: 12px;
+    }
+
+    /* smaller screen layout tweaks */
+    @media (max-width: 980px) {
+      #controlPanel { width: min(372px, calc(100vw - 20px)); left: 10px; top: 10px; max-height: calc(62vh - 10px); }
+      #topHeader { top: auto; bottom: 72px; }
+      #infoPanel { width: min(360px, calc(100vw - 20px)); right: 10px; bottom: 10px; }
+      .badge { right: 10px; top: 10px; }
+      #phaseStrip { display: none; }
+      #glossaryPanel { right: 10px; top: 70px; width: min(360px, calc(100vw - 20px)); }
+    }
+  </style>
+</head>
+<body>
+<!-- main app shell n render layers -->
+<div id="app">
+  <div class="starfield"></div>
+  <canvas id="moonCanvas"></canvas>
+  <div id="labelLayer"></div>
+
+  <!-- top center title -->
+  <div id="topHeader" class="hud-panel">
+    <div class="app-title">StellaSim Moon Atlas</div>
+    <div class="app-badge">Realistic Lunar Surface Explorer</div>
+  </div>
+
+  <!-- left side control panel -->
+  <div id="controlPanel" class="hud-panel">
+    <div id="panelHeader">
+      <div class="title-wrap">
+        <div class="panel-title">Moon Atlas</div>
+        <div class="panel-subtitle">Craters, maria, landing sites, phases, tonight view</div>
+      </div>
+      <button id="collapseBtn" class="small">−</button>
+    </div>
+
+    <div id="panelBody">
+      <details class="section" open>
+        <!-- time location n live moon view controls -->
+        <summary>View &amp; Time</summary>
+        <div class="section-inner">
+          <div class="field-grid">
+            <label>Date<input id="dateInput" type="date" /></label>
+            <label>Time<input id="timeInput" type="time" step="1" /></label>
+          </div>
+          <div class="field-grid">
+            <label>Latitude<input id="latInput" type="number" min="-90" max="90" step="0.0001" value="34.0689" /></label>
+            <label>Longitude<input id="lonInput" type="number" min="-180" max="180" step="0.0001" value="-118.4452" /></label>
+          </div>
+          <div class="row">
+            <button id="applyDateLocationBtn">Apply Time &amp; Location</button>
+            <button id="liveTimeBtn">Live Time: Off</button>
+            <button id="geolocateBtn">Use Geolocation</button>
+          </div>
+          <div class="row">
+            <button class="small" id="nearSideBtn">Near Side</button>
+            <button class="small" id="eastLimbBtn">East Limb</button>
+            <button class="small" id="westLimbBtn">West Limb</button>
+            <button class="small" id="southPoleBtn">South Pole</button>
+            <button class="small" id="resetViewBtn">Reset View</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- display layer toggles -->
+        <summary>Map Layers</summary>
+        <div class="section-inner">
+          <div class="toggle-row">
+            <label class="check"><input id="toggleLabels" type="checkbox" checked />Feature labels</label>
+            <label class="check"><input id="toggleCraters" type="checkbox" checked />Craters</label>
+            <label class="check"><input id="toggleMaria" type="checkbox" checked />Maria</label>
+            <label class="check"><input id="toggleLandingSites" type="checkbox" checked />Landing sites</label>
+            <label class="check"><input id="toggleArtemis" type="checkbox" checked />Artemis zones</label>
+            <label class="check"><input id="toggleGrid" type="checkbox" checked />Lunar grid</label>
+            <label class="check"><input id="toggleTerminator" type="checkbox" checked />Phase terminator</label>
+            <label class="check"><input id="toggleTerrain" type="checkbox" checked />Relief shading</label>
+          </div>
+          <label>Label density <span id="labelDensityReadout" class="value-strong">0.65</span><input id="labelDensitySlider" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
+          <label>Surface contrast <span id="contrastReadout" class="value-strong">0.82</span><input id="contrastSlider" type="range" min="0.35" max="1.4" step="0.01" value="0.82" /></label>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- filters n search tools -->
+        <summary>Search &amp; Filters</summary>
+        <div class="section-inner">
+          <label>Search lunar feature<input id="searchInput" type="text" placeholder="e.g. Tycho, Copernicus, Apollo 11, Shackleton..." /></label>
+          <div class="row">
+            <button id="searchBtn">Find Feature</button>
+            <button id="clearSelectionBtn">Clear Selection</button>
+          </div>
+          <div id="searchResults"></div>
+          <label>Feature type
+            <select id="featureTypeFilter">
+              <option value="all">All features</option>
+              <option value="crater">Craters</option>
+              <option value="mare">Maria</option>
+              <option value="landing">Apollo landing sites</option>
+              <option value="artemis">Artemis / south pole sites</option>
+              <option value="mountain">Mountains / ranges</option>
+              <option value="rift">Rilles / valleys</option>
+            </select>
+          </label>
+          <label>Visibility filter
+            <select id="visibilityFilter">
+              <option value="all">All near-side features</option>
+              <option value="lit">Sunlit right now</option>
+              <option value="terminator">Near terminator</option>
+              <option value="tonight">Best tonight</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- observation planner settings -->
+        <summary>Tonight Tools</summary>
+        <div class="section-inner">
+          <div class="kv"><span>Moon phase</span><span id="phaseName" class="value-strong">—</span></div>
+          <div class="kv"><span>Illumination</span><span id="illuminationText" class="value-strong">—</span></div>
+          <div class="kv"><span>Moon altitude</span><span id="moonAltText" class="value-strong">—</span></div>
+          <div class="kv"><span>Moon azimuth</span><span id="moonAzText" class="value-strong">—</span></div>
+          <div class="kv"><span>Best features</span><span id="bestFeaturesText" class="value-strong">—</span></div>
+          <div class="row">
+            <button id="visibleTonightBtn">Show Visible Tonight</button>
+            <button id="terminatorBtn">Terminator Tour</button>
+            <button id="glossaryBtn">Glossary</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- top right status badge -->
+  <div class="badge hud-panel" id="statusBadge">Live Moon Mode</div>
+
+  <!-- right glossary drawer -->
+  <div id="glossaryPanel" class="hud-panel">
+    <div class="info-title">Lunar Glossary</div>
+    <div id="glossaryList"></div>
+  </div>
+
+  <!-- right side selected feature info panel -->
+  <div id="infoPanel" class="hud-panel">
+    <div>
+      <div class="info-title" id="infoName">Click a lunar feature</div>
+      <div class="info-type" id="infoType">Craters, maria, Apollo sites, Artemis targets</div>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><span>Latitude</span><span id="infoLat">—</span></div>
+      <div class="info-item"><span>Longitude</span><span id="infoLon">—</span></div>
+      <div class="info-item"><span>Diameter</span><span id="infoDiameter">—</span></div>
+      <div class="info-item"><span>Age</span><span id="infoAge">—</span></div>
+      <div class="info-item"><span>Lighting</span><span id="infoLighting">—</span></div>
+      <div class="info-item"><span>Visibility</span><span id="infoVisibility">—</span></div>
+      <div class="info-item"><span>Best Phase</span><span id="infoBestPhase">—</span></div>
+      <div class="info-item"><span>Difficulty</span><span id="infoDifficulty">—</span></div>
+    </div>
+    <div class="muted" id="infoTips">Drag the Moon to rotate it. Wheel to zoom. Click a label or surface marker for details.</div>
+    <div class="muted" id="infoFact"></div>
+  </div>
+
+  <!-- bottom phase and control hint bar -->
+  <div id="phaseStrip" class="hud-panel">
+    <span class="phase-dot"></span>
+    <span id="bottomPhase">Moon phase loading…</span>
+    <span>drag: rotate atlas</span>
+    <span>wheel: zoom</span>
+    <span>click: inspect feature</span>
+  </div>
+
+  <!-- small toast popup for quick status messages -->
+  <div id="toast" class="hud-panel"></div>
+</div>
+
+<!-- external astronomy lib for moon position when available -->
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+
+<!-- main app logic starts here -->
+<script>
+// wrap the whole app so nothing leaks into global scope
+(() => {
+  'use strict';
+
+  // base math constants n quick helpers
+  const RAD = Math.PI / 180;
+  const DEG = 180 / Math.PI;
+  const SYNODIC_MONTH = 29.530588853;
+  const KNOWN_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14, 0);
+  const MOON_RADIUS_KM = 1737.4;
+
+  // grab all the dom refs once so the rest of the app can reuse em
+  const ui = Object.fromEntries(Array.from(document.querySelectorAll('[id]')).map(el => [el.id, el]));
+  const canvas = ui.moonCanvas;
+  const ctx = canvas.getContext('2d');
+  const labelLayer = ui.labelLayer;
+  const labels = new Map();
+
+  // live app state for camera time filters n interaction
+  const state = {
+    currentDate: new Date(),
+    latitude: parseFloat(ui.latInput.value),
+    longitude: parseFloat(ui.lonInput.value),
+    liveTime: false,
+    centerLon: 0,
+    centerLat: 0,
+    targetLon: 0,
+    targetLat: 0,
+    zoom: 1,
+    targetZoom: 1,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragLon: 0,
+    dragLat: 0,
+    isDragging: false,
+    panelCollapsed: false,
+    labelDensity: 0.65,
+    contrast: 0.82,
+    featureTypeFilter: 'all',
+    visibilityFilter: 'all',
+    selected: null,
+    tourIndex: 0,
+    moonStats: null
+  };
+
+  // realistic lunar feature database for the atlas
+  const FEATURES = [
+    { id:'tycho', name:'Tycho', type:'crater', lat:-43.3, lon:-11.2, diameter:85, age:'~108 million years', best:'First quarter to full Moon', difficulty:'Easy', importance:1, fact:'Tycho is one of the youngest large lunar craters. Its bright ray system spreads across much of the near side.', tips:'Best near full Moon for rays, but its rim shadows are sharper closer to first quarter.' },
+    { id:'copernicus', name:'Copernicus', type:'crater', lat:9.7, lon:-20.1, diameter:93, age:'~800 million years', best:'First quarter', difficulty:'Easy', importance:1, fact:'Copernicus has terraced walls, central peaks, and a wide ejecta blanket. It is one of the classic telescope targets.', tips:'Look for the central mountain peaks and rough ejecta around the rim.' },
+    { id:'kepler', name:'Kepler', type:'crater', lat:8.1, lon:-38.0, diameter:31, age:'Copernican period', best:'Waxing gibbous', difficulty:'Easy', importance:2, fact:'Kepler is small compared with Copernicus, but it has a bright ray system that makes it stand out.', tips:'Use low to medium power first, then zoom in for the sharp rim.' },
+    { id:'aristarchus', name:'Aristarchus', type:'crater', lat:23.7, lon:-47.4, diameter:40, age:'~450 million years', best:'Waxing gibbous', difficulty:'Easy', importance:1, fact:'Aristarchus is one of the brightest features on the Moon and sits near the volcanic Aristarchus Plateau.', tips:'Compare its brightness with the darker plateau around it.' },
+    { id:'plato', name:'Plato', type:'crater', lat:51.6, lon:-9.3, diameter:101, age:'~3.8 billion years', best:'First quarter', difficulty:'Easy', importance:1, fact:'Plato is a dark-floored crater near the lunar Alps. Its smooth floor contrasts with rugged nearby mountains.', tips:'Tiny craterlets on Plato’s floor are a good test of seeing and telescope resolution.' },
+    { id:'clavius', name:'Clavius', type:'crater', lat:-58.4, lon:-14.4, diameter:231, age:'Nectarian period', best:'First quarter to waxing gibbous', difficulty:'Easy', importance:1, fact:'Clavius is one of the largest craters on the near side. It contains a graceful arc of smaller craterlets.', tips:'Look for the chain of smaller craters curving across the floor.' },
+    { id:'grimaldi', name:'Grimaldi', type:'crater', lat:-5.2, lon:-68.3, diameter:173, age:'Pre-Nectarian', best:'Waxing gibbous', difficulty:'Moderate', importance:2, fact:'Grimaldi is a dark-floored basin near the western limb, easy to spot when libration favors it.', tips:'It sits close to the limb, so visibility changes with libration.' },
+    { id:'gassendi', name:'Gassendi', type:'crater', lat:-17.5, lon:-39.9, diameter:110, age:'Nectarian period', best:'Waxing gibbous', difficulty:'Moderate', importance:2, fact:'Gassendi is a fractured-floor crater on the edge of Mare Humorum.', tips:'Search for the fine rille network crossing the crater floor.' },
+    { id:'theophilus', name:'Theophilus', type:'crater', lat:-11.4, lon:26.4, diameter:101, age:'Eratosthenian period', best:'First quarter', difficulty:'Easy', importance:1, fact:'Theophilus has dramatic terraced walls and central peaks. It overlaps older crater Cyrillus.', tips:'A strong terminator angle makes its peaks and wall terraces pop.' },
+    { id:'cyrillus', name:'Cyrillus', type:'crater', lat:-13.2, lon:24.0, diameter:98, age:'Nectarian period', best:'First quarter', difficulty:'Easy', importance:2, fact:'Cyrillus is older and more worn than Theophilus, showing how lunar craters age over time.', tips:'Compare the smoother, more eroded shape with Theophilus next door.' },
+    { id:'catharina', name:'Catharina', type:'crater', lat:-18.0, lon:23.6, diameter:104, age:'Nectarian period', best:'First quarter', difficulty:'Easy', importance:2, fact:'Catharina forms a famous crater trio with Theophilus and Cyrillus.', tips:'The three-crater chain is a great beginner telescope route.' },
+    { id:'langrenus', name:'Langrenus', type:'crater', lat:-8.9, lon:60.9, diameter:132, age:'Eratosthenian period', best:'Thin waxing crescent', difficulty:'Moderate', importance:2, fact:'Langrenus is a large crater near the eastern limb with bright walls and central peaks.', tips:'Best when the Moon is young and the eastern limb is lit.' },
+    { id:'petavius', name:'Petavius', type:'crater', lat:-25.3, lon:60.4, diameter:177, age:'Nectarian period', best:'Waxing crescent', difficulty:'Moderate', importance:2, fact:'Petavius is known for a prominent rille running from its central peaks toward the rim.', tips:'Use higher power when the terminator is nearby to catch the rille.' },
+    { id:'posidonius', name:'Posidonius', type:'crater', lat:31.8, lon:29.9, diameter:95, age:'Nectarian period', best:'First quarter', difficulty:'Moderate', importance:2, fact:'Posidonius is a fractured-floor crater near Mare Serenitatis.', tips:'Look for uneven floor texture and interior ridges.' },
+    { id:'aristoteles', name:'Aristoteles', type:'crater', lat:50.2, lon:17.4, diameter:87, age:'Eratosthenian period', best:'First quarter', difficulty:'Easy', importance:2, fact:'Aristoteles sits near Mare Frigoris and shows a crisp rim with complex terrain nearby.', tips:'Pair it with nearby Eudoxus for a northern highlands tour.' },
+    { id:'eudoxus', name:'Eudoxus', type:'crater', lat:44.3, lon:16.3, diameter:67, age:'Eratosthenian period', best:'First quarter', difficulty:'Easy', importance:3, fact:'Eudoxus is a younger crater near Aristoteles, with rugged walls and bright highland surroundings.', tips:'Compare its structure with larger Aristoteles just north.' },
+    { id:'archimedes', name:'Archimedes', type:'crater', lat:29.7, lon:-4.0, diameter:83, age:'Imbrian period', best:'First quarter', difficulty:'Easy', importance:1, fact:'Archimedes is a large smooth-floored crater on Mare Imbrium.', tips:'Its smooth floor contrasts beautifully against the rough Apennine foothills.' },
+    { id:'eratosthenes', name:'Eratosthenes', type:'crater', lat:14.5, lon:-11.3, diameter:58, age:'~3.2 billion years', best:'First quarter', difficulty:'Easy', importance:2, fact:'Eratosthenes sits at the end of the Apennine Mountains and marks a major lunar geologic period.', tips:'Follow the Apennines toward Archimedes after finding it.' },
+    { id:'ptolemaeus', name:'Ptolemaeus', type:'crater', lat:-9.2, lon:-1.8, diameter:154, age:'Pre-Nectarian', best:'First quarter', difficulty:'Easy', importance:2, fact:'Ptolemaeus is a large walled plain with a smooth floor and subtle ghost craters.', tips:'Low sun reveals its faint floor details.' },
+    { id:'alphonsus', name:'Alphonsus', type:'crater', lat:-13.4, lon:-2.8, diameter:111, age:'Nectarian period', best:'First quarter', difficulty:'Easy', importance:2, fact:'Alphonsus is known for dark halo craters and a central peak.', tips:'Scan the floor for dark volcanic patches.' },
+    { id:'aristillus', name:'Aristillus', type:'crater', lat:33.9, lon:1.2, diameter:55, age:'Copernican period', best:'First quarter', difficulty:'Easy', importance:3, fact:'Aristillus is a bright crater in Mare Imbrium with a small ray system.', tips:'It pairs well with Autolycus and Archimedes.' },
+    { id:'autolycus', name:'Autolycus', type:'crater', lat:30.7, lon:1.5, diameter:39, age:'Copernican period', best:'First quarter', difficulty:'Moderate', importance:3, fact:'Autolycus is a smaller fresh crater near Aristillus and Archimedes.', tips:'Use it to compare crater sizes in the Imbrium region.' },
+    { id:'shackleton', name:'Shackleton', type:'crater', lat:-89.9, lon:0.0, diameter:21, age:'Ancient polar crater', best:'Southern libration / high sun angle', difficulty:'Hard', importance:1, fact:'Shackleton sits near the lunar south pole. Permanently shadowed areas nearby may trap water ice.', tips:'This is difficult visually from Earth because it lies almost exactly at the south pole.' },
+    { id:'malapert', name:'Malapert Massif', type:'artemis', lat:-85.8, lon:0.0, diameter:0, age:'South pole highland', best:'Southern libration', difficulty:'Hard', importance:1, fact:'Malapert Massif is a south polar highland region discussed as a possible communications and exploration area.', tips:'Use this atlas marker as a planning reference, not a guaranteed visual telescope target.' },
+    { id:'nobile', name:'Nobile Region', type:'artemis', lat:-85.3, lon:53.0, diameter:0, age:'South pole region', best:'Southern libration', difficulty:'Hard', importance:2, fact:'The Nobile region is part of the south polar terrain explored by modern lunar mission planning.', tips:'The low viewing angle from Earth makes this a context target more than a crisp visual feature.' },
+    { id:'connecting-ridge', name:'Connecting Ridge', type:'artemis', lat:-89.0, lon:39.0, diameter:0, age:'South pole ridge', best:'Southern libration', difficulty:'Hard', importance:2, fact:'Connecting Ridge lies near the south pole and is relevant to Artemis-era planning because of lighting and access questions.', tips:'South pole features are best treated as atlas targets unless libration is favorable.' },
+    { id:'apollo11', name:'Apollo 11 Landing Site', type:'landing', lat:0.674, lon:23.473, diameter:0, age:'July 20, 1969', best:'Waxing crescent to first quarter', difficulty:'Context target', importance:1, fact:'Apollo 11 landed in Mare Tranquillitatis. The hardware is far too small for backyard telescopes, but the region is easy to locate.', tips:'Find Mare Tranquillitatis first, then look near the southwest portion of the mare.' },
+    { id:'apollo12', name:'Apollo 12 Landing Site', type:'landing', lat:-3.012, lon:-23.421, diameter:0, age:'November 19, 1969', best:'First quarter to waxing gibbous', difficulty:'Context target', importance:2, fact:'Apollo 12 landed in Oceanus Procellarum near Surveyor 3.', tips:'Use nearby crater Lansberg as a regional guide.' },
+    { id:'apollo14', name:'Apollo 14 Landing Site', type:'landing', lat:-3.645, lon:-17.471, diameter:0, age:'February 5, 1971', best:'First quarter', difficulty:'Context target', importance:2, fact:'Apollo 14 landed in the Fra Mauro highlands, a rough region shaped by Imbrium ejecta.', tips:'Look west of the central near-side highlands.' },
+    { id:'apollo15', name:'Apollo 15 Landing Site', type:'landing', lat:26.132, lon:3.634, diameter:0, age:'July 30, 1971', best:'First quarter', difficulty:'Context target', importance:1, fact:'Apollo 15 landed near Hadley Rille and the Apennine Mountains.', tips:'This is one of the best Apollo regions to explore visually because the Apennines and Hadley area are dramatic.' },
+    { id:'apollo16', name:'Apollo 16 Landing Site', type:'landing', lat:-8.973, lon:15.501, diameter:0, age:'April 21, 1972', best:'Waxing crescent to first quarter', difficulty:'Context target', importance:2, fact:'Apollo 16 landed in the Descartes highlands, away from the maria.', tips:'Look between Mare Nectaris and the central highlands.' },
+    { id:'apollo17', name:'Apollo 17 Landing Site', type:'landing', lat:20.190, lon:30.771, diameter:0, age:'December 11, 1972', best:'Waxing crescent to first quarter', difficulty:'Context target', importance:1, fact:'Apollo 17 landed in Taurus-Littrow valley, the last Apollo crewed landing site.', tips:'Find the southeastern edge of Mare Serenitatis, then look toward the Taurus mountains.' },
+    { id:'mare-imbrium', name:'Mare Imbrium', type:'mare', lat:32.8, lon:-15.6, diameter:1145, age:'~3.9 billion years', best:'First quarter to waxing gibbous', difficulty:'Easy', importance:1, fact:'Mare Imbrium is a huge impact basin filled with dark basaltic lava.', tips:'Trace its rim through the Alps, Apennines, and Caucasus mountain arcs.' },
+    { id:'mare-tranquillitatis', name:'Mare Tranquillitatis', type:'mare', lat:8.5, lon:31.4, diameter:873, age:'Imbrian basalt plains', best:'Waxing crescent to first quarter', difficulty:'Easy', importance:1, fact:'Mare Tranquillitatis is the Sea of Tranquility and contains the Apollo 11 landing region.', tips:'Its darker color and irregular shape make it easy to recognize.' },
+    { id:'mare-serenitatis', name:'Mare Serenitatis', type:'mare', lat:28.0, lon:17.5, diameter:674, age:'~3.9 billion years', best:'First quarter', difficulty:'Easy', importance:1, fact:'Mare Serenitatis is a circular basalt plain north of Tranquillitatis.', tips:'Look for the bright rim and the Taurus-Littrow region on its southeast edge.' },
+    { id:'mare-crisium', name:'Mare Crisium', type:'mare', lat:17.0, lon:59.1, diameter:555, age:'Nectarian basin', best:'Thin waxing crescent', difficulty:'Easy', importance:1, fact:'Mare Crisium is an isolated dark oval near the eastern limb.', tips:'It is one of the easiest features to spot on a young crescent Moon.' },
+    { id:'mare-nubium', name:'Mare Nubium', type:'mare', lat:-21.3, lon:-16.6, diameter:715, age:'Pre-Nectarian basin', best:'First quarter', difficulty:'Easy', importance:2, fact:'Mare Nubium is a dark basalt plain south of the central near side.', tips:'Use nearby craters Bullialdus and Pitatus to orient yourself.' },
+    { id:'mare-humorum', name:'Mare Humorum', type:'mare', lat:-24.4, lon:-38.6, diameter:420, age:'Nectarian basin', best:'Waxing gibbous', difficulty:'Easy', importance:2, fact:'Mare Humorum is a compact circular mare surrounded by fractured craters.', tips:'Gassendi on its north edge is the standout telescope target.' },
+    { id:'oceanus-procellarum', name:'Oceanus Procellarum', type:'mare', lat:18.4, lon:-57.4, diameter:2592, age:'Multiple basalt plains', best:'Waxing gibbous', difficulty:'Easy', importance:1, fact:'Oceanus Procellarum is the largest dark plain on the near side of the Moon.', tips:'Scan for bright craters Kepler and Aristarchus embedded within the dark plains.' },
+    { id:'mare-frigoris', name:'Mare Frigoris', type:'mare', lat:56.0, lon:1.4, diameter:1596, age:'Basaltic plain', best:'First quarter to full Moon', difficulty:'Easy', importance:2, fact:'Mare Frigoris is a long northern mare stretching above Mare Imbrium.', tips:'It looks like a dark band near the northern limb.' },
+    { id:'mare-nectaris', name:'Mare Nectaris', type:'mare', lat:-15.2, lon:35.5, diameter:333, age:'Nectarian basin', best:'Waxing crescent', difficulty:'Easy', importance:2, fact:'Mare Nectaris is a small basin near the Theophilus-Cyrillus-Catharina crater chain.', tips:'Excellent early in the lunar cycle when the terminator is nearby.' },
+    { id:'sinus-iridum', name:'Sinus Iridum', type:'mare', lat:44.1, lon:-31.5, diameter:260, age:'Imbrian feature', best:'Waxing gibbous', difficulty:'Easy', importance:1, fact:'Sinus Iridum, the Bay of Rainbows, is a lava-filled crater rim attached to Mare Imbrium.', tips:'Watch for the golden handle effect when sunrise lights the rim before the floor.' },
+    { id:'montes-apenninus', name:'Montes Apenninus', type:'mountain', lat:19.9, lon:0.0, diameter:600, age:'Imbrium basin rim', best:'First quarter', difficulty:'Easy', importance:1, fact:'The Apennine Mountains form a dramatic arc along the southeastern rim of Mare Imbrium.', tips:'Low sun makes the mountain shadows look enormous.' },
+    { id:'montes-alpes', name:'Montes Alpes', type:'mountain', lat:48.4, lon:-1.0, diameter:280, age:'Imbrium basin rim', best:'First quarter', difficulty:'Moderate', importance:2, fact:'The lunar Alps contain Vallis Alpes, a long valley cutting through the range.', tips:'Use steady seeing to look for the thin central rille in Vallis Alpes.' },
+    { id:'vallis-alpes', name:'Vallis Alpes', type:'rift', lat:49.2, lon:3.6, diameter:166, age:'Imbrian valley', best:'First quarter', difficulty:'Moderate', importance:2, fact:'Vallis Alpes is a long straight valley through the lunar Alps.', tips:'The central rille is challenging and needs excellent seeing.' },
+    { id:'rima-hadley', name:'Hadley Rille', type:'rift', lat:25.0, lon:3.0, diameter:80, age:'Lava channel', best:'First quarter', difficulty:'Moderate', importance:1, fact:'Hadley Rille is a sinuous valley near the Apollo 15 landing site.', tips:'Use the Apennines as a guide and try higher power after the image steadies.' },
+    { id:'straight-wall', name:'Rupes Recta', type:'rift', lat:-22.1, lon:-7.8, diameter:110, age:'Fault scarp', best:'First quarter or last quarter', difficulty:'Easy', importance:1, fact:'Rupes Recta, the Straight Wall, is a famous linear fault scarp in Mare Nubium.', tips:'It appears as a dark line near first quarter and a bright line near last quarter.' },
+    { id:'schroter', name:'Schröter’s Valley', type:'rift', lat:26.2, lon:-50.8, diameter:160, age:'Volcanic valley', best:'Waxing gibbous', difficulty:'Moderate', importance:2, fact:'Schröter’s Valley is the largest sinuous rille on the Moon, near Aristarchus Plateau.', tips:'Look just north of Aristarchus and Herodotus.' }
+  ];
+
+  // maria shapes drawn as dark smooth regions
+  const MARIA_SHAPES = [
+    { id:'mare-imbrium', lat:32.8, lon:-15.6, rx:19, ry:15, angle:-10 },
+    { id:'mare-serenitatis', lat:28.0, lon:17.5, rx:13, ry:11, angle:4 },
+    { id:'mare-tranquillitatis', lat:8.5, lon:31.4, rx:17, ry:12, angle:-22 },
+    { id:'mare-crisium', lat:17.0, lon:59.1, rx:10, ry:9, angle:10 },
+    { id:'mare-nectaris', lat:-15.2, lon:35.5, rx:9, ry:8, angle:4 },
+    { id:'mare-nubium', lat:-21.3, lon:-16.6, rx:14, ry:10, angle:-12 },
+    { id:'mare-humorum', lat:-24.4, lon:-38.6, rx:10, ry:9, angle:5 },
+    { id:'oceanus-procellarum', lat:18.4, lon:-57.4, rx:25, ry:32, angle:-12 },
+    { id:'mare-frigoris', lat:56.0, lon:1.4, rx:38, ry:5, angle:0 },
+    { id:'sinus-iridum', lat:44.1, lon:-31.5, rx:8, ry:5, angle:-12 }
+  ];
+
+  // glossary entries for explain mode
+  const GLOSSARY = [
+    ['Maria', 'Dark lava plains on the Moon. They are ancient impact basins later filled by basaltic lava.'],
+    ['Crater', 'A circular impact scar made when an asteroid or comet hit the lunar surface.'],
+    ['Terminator', 'The moving boundary between lunar day and night. Shadows are longest near it, so relief looks sharper.'],
+    ['Libration', 'A small apparent wobble of the Moon that lets us see slightly around the edges over time.'],
+    ['Selenographic Latitude', 'Moon latitude, measured north or south of the lunar equator.'],
+    ['Selenographic Longitude', 'Moon longitude, measured east or west on the lunar surface.'],
+    ['Ray System', 'Bright streaks of ejecta thrown out from a young impact crater.'],
+    ['Rille', 'A narrow valley or groove, often linked to lava channels or crustal fractures.'],
+    ['Permanently Shadowed Region', 'A polar area that receives little or no sunlight. Some may contain water ice.'],
+    ['Best Phase', 'The lunar phase when sunlight hits a feature at a good angle for telescope viewing.']
+  ];
+
+  // tiny toast helper for quick status messages
+  function showToast(text, ms = 2600) {
+    ui.toast.textContent = text;
+    ui.toast.style.display = 'block';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { ui.toast.style.display = 'none'; }, ms);
+  }
+
+  // basic math helpers used all over the app
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function smoothstep(x) { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); }
+  function normAngle(v) { let x = v % 360; if (x < 0) x += 360; return x; }
+  function wrap180(v) { let x = normAngle(v); if (x > 180) x -= 360; return x; }
+  function formatDeg(v) { return `${Math.abs(v).toFixed(2)}°${v >= 0 ? 'N' : 'S'}`; }
+  function formatLon(v) { return `${Math.abs(v).toFixed(2)}°${v >= 0 ? 'E' : 'W'}`; }
+
+  // keep the date n time inputs synced with the current date object
+  function formatLocalInputs(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth()+1).padStart(2,'0');
+    const d = String(date.getDate()).padStart(2,'0');
+    const hh = String(date.getHours()).padStart(2,'0');
+    const mm = String(date.getMinutes()).padStart(2,'0');
+    const ss = String(date.getSeconds()).padStart(2,'0');
+    ui.dateInput.value = `${y}-${m}-${d}`;
+    ui.timeInput.value = `${hh}:${mm}:${ss}`;
+  }
+
+  // resize the canvas for sharp rendering
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
+  // moon phase math with a safe fallback if astronomy engine is blocked
+  function getMoonPhaseStats(date) {
+    let age = ((date.getTime() - KNOWN_NEW_MOON) / 86400000) % SYNODIC_MONTH;
+    if (age < 0) age += SYNODIC_MONTH;
+    const phase = age / SYNODIC_MONTH;
+    const elong = phase * 360;
+    const illum = (1 - Math.cos(elong * RAD)) / 2;
+    const waxing = age < SYNODIC_MONTH / 2;
+    const name = phaseName(age);
+    let alt = null, az = null, distanceKm = 384400;
+
+    if (window.Astronomy) {
+      try {
+        const observer = new Astronomy.Observer(state.latitude, state.longitude, 0);
+        const eq = Astronomy.Equator('Moon', date, observer, true, true);
+        const hor = Astronomy.Horizon(date, observer, eq.ra, eq.dec, 'normal');
+        alt = hor.altitude;
+        az = normAngle(hor.azimuth);
+        const vec = Astronomy.GeoVector('Moon', date, true);
+        if (vec && Number.isFinite(vec.Length)) distanceKm = vec.Length * 149597870.7;
+      } catch (err) {
+        // this keeps the moon atlas working offline
+      }
+    }
+
+    return { age, phase, elong, illum, waxing, name, alt, az, distanceKm };
+  }
+
+  // name the current moon phase in plain english
+  function phaseName(age) {
+    const p = age / SYNODIC_MONTH;
+    if (p < 0.035 || p > 0.965) return 'New Moon';
+    if (p < 0.22) return 'Waxing Crescent';
+    if (p < 0.285) return 'First Quarter';
+    if (p < 0.47) return 'Waxing Gibbous';
+    if (p < 0.535) return 'Full Moon';
+    if (p < 0.72) return 'Waning Gibbous';
+    if (p < 0.785) return 'Last Quarter';
+    return 'Waning Crescent';
+  }
+
+  // estimate the sun angle over a lunar longitude
+  function featureLighting(feature) {
+    const stats = state.moonStats || getMoonPhaseStats(state.currentDate);
+    const subSolarLon = stats.waxing ? -90 + stats.phase * 360 : -90 + stats.phase * 360;
+    const d = wrap180(feature.lon - subSolarLon);
+    const sunAlt = 90 - Math.abs(d);
+    const lit = sunAlt > 0;
+    const terminator = Math.abs(sunAlt) < 12;
+    const quality = terminator ? 'Excellent shadows' : lit ? (sunAlt > 60 ? 'Bright, low contrast' : 'Sunlit') : 'Night side';
+    return { subSolarLon, sunAlt, lit, terminator, quality };
+  }
+
+  // figure out if a feature matches the current filters
+  function featurePassesFilters(feature) {
+    if (state.featureTypeFilter !== 'all' && feature.type !== state.featureTypeFilter) return false;
+    const light = featureLighting(feature);
+    if (state.visibilityFilter === 'lit' && !light.lit) return false;
+    if (state.visibilityFilter === 'terminator' && !light.terminator) return false;
+    if (state.visibilityFilter === 'tonight' && (!light.lit || !light.terminator)) return false;
+    return true;
+  }
+
+  // project lunar lon lat onto the current moon disk
+  function projectLunar(lonDeg, latDeg) {
+    const lon = (lonDeg - state.centerLon) * RAD;
+    const lat = latDeg * RAD;
+    const centerLat = state.centerLat * RAD;
+    const x = Math.cos(lat) * Math.sin(lon);
+    const y = Math.sin(lat) * Math.cos(centerLat) - Math.cos(lat) * Math.cos(lon) * Math.sin(centerLat);
+    const z = Math.sin(lat) * Math.sin(centerLat) + Math.cos(lat) * Math.cos(lon) * Math.cos(centerLat);
+    if (z <= -0.08) return null;
+    const { cx, cy, r } = moonFrame();
+    return { x: cx + x * r, y: cy - y * r, z, localX: x, localY: y, r };
+  }
+
+  // convert a screen point back to rough lunar lon lat
+  function unprojectLunar(screenX, screenY) {
+    const { cx, cy, r } = moonFrame();
+    const x = (screenX - cx) / r;
+    const y = -(screenY - cy) / r;
+    const rho2 = x*x + y*y;
+    if (rho2 > 1) return null;
+    const z = Math.sqrt(Math.max(0, 1 - rho2));
+    const centerLat = state.centerLat * RAD;
+    const lat = Math.asin(y * Math.cos(centerLat) + z * Math.sin(centerLat));
+    const lon = Math.atan2(x, z * Math.cos(centerLat) - y * Math.sin(centerLat));
+    return { lon: wrap180(lon * DEG + state.centerLon), lat: lat * DEG };
+  }
+
+  // get the current moon disk frame
+  function moonFrame() {
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.width * 0.52;
+    const cy = rect.height * 0.50;
+    const base = Math.min(rect.width, rect.height) * 0.39;
+    const r = base * state.zoom;
+    return { cx, cy, r };
+  }
+
+  // create or reuse one floating html label element
+  function ensureLabel(key, text) {
+    if (!labels.has(key)) {
+      const el = document.createElement('div');
+      el.className = 'moon-label';
+      labelLayer.appendChild(el);
+      labels.set(key, el);
+    }
+    const el = labels.get(key);
+    el.textContent = text;
+    return el;
+  }
+
+  // hide every floating html label before the next render pass
+  function clearLabels() {
+    for (const el of labels.values()) el.style.display = 'none';
+  }
+
+  // draw the dark space backdrop
+  function drawBackground() {
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    const glow = ctx.createRadialGradient(rect.width * 0.52, rect.height * 0.5, 0, rect.width * 0.52, rect.height * 0.5, Math.max(rect.width, rect.height) * 0.55);
+    glow.addColorStop(0, 'rgba(11, 61, 145, 0.16)');
+    glow.addColorStop(0.42, 'rgba(30, 136, 255, 0.06)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }
+
+  // pseudo terrain texture so it still looks real without image assets
+  function lunarNoise(lon, lat) {
+    const a = Math.sin((lon * 12.9898 + lat * 78.233) * RAD) * 43758.5453;
+    const b = Math.sin((lon * 5.43 - lat * 19.17) * RAD) * 9821.17;
+    return ((a - Math.floor(a)) * 0.68 + (b - Math.floor(b)) * 0.32);
+  }
+
+  // draw the main realistic moon disk
+  function drawMoonDisk() {
+    const { cx, cy, r } = moonFrame();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    const img = ctx.createImageData(Math.ceil(r * 2), Math.ceil(r * 2));
+    const data = img.data;
+    const size = Math.ceil(r * 2);
+    const stats = state.moonStats;
+
+    for (let py = 0; py < size; py++) {
+      for (let px = 0; px < size; px++) {
+        const dx = (px - r) / r;
+        const dy = (py - r) / r;
+        const rr = dx*dx + dy*dy;
+        const idx = (py * size + px) * 4;
+        if (rr > 1) { data[idx+3] = 0; continue; }
+        const z = Math.sqrt(Math.max(0, 1 - rr));
+        const loc = unprojectLunar(cx + dx*r, cy + dy*r);
+        const lon = loc ? loc.lon : 0;
+        const lat = loc ? loc.lat : 0;
+        const noise = lunarNoise(lon, lat);
+        const highland = 0.62 + noise * 0.24;
+        const limb = 0.45 + 0.55 * z;
+        const light = phaseLightAtDisk(dx, dy, z, stats);
+        const shade = clamp((highland * limb * light) * state.contrast, 0, 1);
+        const c = Math.round(28 + shade * 208);
+        data[idx] = c;
+        data[idx+1] = c + 2;
+        data[idx+2] = c + 7;
+        data[idx+3] = 255;
+      }
+    }
+
+    ctx.putImageData(img, cx - r, cy - r);
+    drawMariaShading();
+    if (ui.toggleTerrain.checked) drawReliefCraters();
+
+    const edge = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r * 1.02);
+    edge.addColorStop(0, 'rgba(255,255,255,0)');
+    edge.addColorStop(0.78, 'rgba(255,255,255,0.03)');
+    edge.addColorStop(1, 'rgba(0,0,0,0.58)');
+    ctx.fillStyle = edge;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(123,183,255,0.32)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // phase light at a disk point using approximate sun direction
+  function phaseLightAtDisk(dx, dy, z, stats) {
+    if (!ui.toggleTerminator.checked) return 1;
+    const sign = stats.waxing ? 1 : -1;
+    const phase = stats.phase;
+    const sunX = sign * Math.sin(phase * Math.PI * 2);
+    const sunZ = -Math.cos(phase * Math.PI * 2);
+    const dot = dx * sunX + z * sunZ;
+    const day = smoothstep((dot + 0.03) / 0.12);
+    const earthshine = stats.illum < 0.28 ? 0.13 : 0.035;
+    return clamp(earthshine + day * 0.96, 0.02, 1);
+  }
+
+  // draw maria as smooth darker basins on the sphere
+  function drawMariaShading() {
+    if (!ui.toggleMaria.checked) return;
+    ctx.save();
+    for (const mare of MARIA_SHAPES) {
+      const p = projectLunar(mare.lon, mare.lat);
+      if (!p) continue;
+      const sx = p.r * (mare.rx / 90) * clamp(p.z + 0.18, 0.14, 1);
+      const sy = p.r * (mare.ry / 90);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(mare.angle * RAD);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(sx, sy));
+      g.addColorStop(0, 'rgba(28, 31, 39, 0.58)');
+      g.addColorStop(0.72, 'rgba(32, 36, 46, 0.42)');
+      g.addColorStop(1, 'rgba(32, 36, 46, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, sx, sy, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // draw crater rims and relief shadows
+  function drawReliefCraters() {
+    const craters = FEATURES.filter(f => f.type === 'crater' && f.diameter > 20);
+    ctx.save();
+    for (const f of craters) {
+      const p = projectLunar(f.lon, f.lat);
+      if (!p || p.z < 0.05) continue;
+      const radiusPx = clamp((f.diameter / (MOON_RADIUS_KM * 2)) * p.r * 2, 3, 44) * (0.45 + p.z * 0.55);
+      const light = featureLighting(f);
+      const alpha = light.lit ? 0.22 : 0.08;
+      ctx.strokeStyle = `rgba(245, 250, 255, ${alpha})`;
+      ctx.lineWidth = f.importance <= 1 ? 1.4 : 1.0;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, radiusPx, radiusPx * clamp(0.55 + p.z * 0.45, 0.28, 1), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(0, 0, 0, ${alpha * 0.9})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x + radiusPx * 0.12, p.y + radiusPx * 0.16, radiusPx * 0.86, radiusPx * clamp(0.48 + p.z * 0.42, 0.25, 0.92), 0, Math.PI * 0.1, Math.PI * 1.1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // draw the lunar latitude longitude grid
+  function drawGrid() {
+    if (!ui.toggleGrid.checked) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(30, 136, 255, 0.22)';
+    ctx.lineWidth = 0.8;
+    for (let lon = -90; lon <= 90; lon += 15) drawLunarLine(lon, true);
+    for (let lat = -75; lat <= 75; lat += 15) drawLunarLine(lat, false);
+    ctx.restore();
+  }
+
+  // draw one projected lunar grid line
+  function drawLunarLine(value, isLon) {
+    let started = false;
+    ctx.beginPath();
+    for (let i = -90; i <= 90; i += 2) {
+      const lon = isLon ? value : i;
+      const lat = isLon ? i : value;
+      const p = projectLunar(lon, lat);
+      if (!p || p.z < 0.01) { started = false; continue; }
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+      else ctx.lineTo(p.x, p.y);
+    }
+    if (started) ctx.stroke();
+  }
+
+  // draw feature markers n labels
+  function drawFeatures() {
+    state.renderHits = [];
+    const selectedId = state.selected?.id;
+    for (const f of FEATURES) {
+      if (!featurePassesFilters(f)) continue;
+      if ((f.type === 'crater' && !ui.toggleCraters.checked) || (f.type === 'mare' && !ui.toggleMaria.checked) || (f.type === 'landing' && !ui.toggleLandingSites.checked) || (f.type === 'artemis' && !ui.toggleArtemis.checked)) continue;
+      const p = projectLunar(f.lon, f.lat);
+      if (!p || p.z < 0.02) continue;
+      const light = featureLighting(f);
+      const color = featureColor(f.type, light);
+      const selected = selectedId === f.id;
+      const radius = selected ? 6.5 : markerRadius(f);
+      ctx.save();
+      ctx.globalAlpha = light.lit || selected ? 1 : 0.42;
+      ctx.fillStyle = color.fill;
+      ctx.strokeStyle = selected ? '#7bb7ff' : color.stroke;
+      ctx.lineWidth = selected ? 2 : 1.1;
+      ctx.shadowBlur = selected ? 22 : 7;
+      ctx.shadowColor = selected ? 'rgba(30,136,255,0.95)' : color.glow;
+      if (f.type === 'landing' || f.type === 'artemis') drawDiamond(p.x, p.y, radius);
+      else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const labelAllowed = ui.toggleLabels.checked && shouldLabelFeature(f, light, selected);
+      const label = ensureLabel(`feature:${f.id}`, f.name);
+      label.style.display = labelAllowed ? 'block' : 'none';
+      if (labelAllowed) {
+        label.style.left = `${p.x}px`;
+        label.style.top = `${p.y - 14}px`;
+        label.classList.toggle('selected', selected);
+        label.style.fontSize = selected ? '13px' : '12px';
+      }
+      state.renderHits.push({ feature: f, x: p.x, y: p.y, radius: Math.max(12, radius * 3) });
+    }
+  }
+
+  // draw diamond markers for landing sites
+  function drawDiamond(x, y, r) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.lineTo(x + r, y);
+    ctx.lineTo(x, y + r);
+    ctx.lineTo(x - r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // color lunar feature markers by type
+  function featureColor(type, light) {
+    const dim = light.lit ? 1 : 0.55;
+    if (type === 'landing') return { fill:`rgba(157,200,255,${0.92*dim})`, stroke:'rgba(230,245,255,0.96)', glow:'rgba(30,136,255,0.68)' };
+    if (type === 'artemis') return { fill:`rgba(210,230,255,${0.84*dim})`, stroke:'rgba(160,210,255,0.94)', glow:'rgba(30,136,255,0.72)' };
+    if (type === 'mare') return { fill:`rgba(11,61,145,${0.58*dim})`, stroke:'rgba(123,183,255,0.74)', glow:'rgba(30,136,255,0.35)' };
+    if (type === 'mountain') return { fill:`rgba(225,235,245,${0.64*dim})`, stroke:'rgba(220,240,255,0.78)', glow:'rgba(123,183,255,0.32)' };
+    if (type === 'rift') return { fill:`rgba(110,150,215,${0.75*dim})`, stroke:'rgba(123,183,255,0.78)', glow:'rgba(30,136,255,0.45)' };
+    return { fill:`rgba(235,240,248,${0.68*dim})`, stroke:'rgba(255,255,255,0.82)', glow:'rgba(123,183,255,0.42)' };
+  }
+
+  // marker sizing based on feature importance
+  function markerRadius(f) {
+    if (f.type === 'landing' || f.type === 'artemis') return 5.2;
+    if (f.importance <= 1) return 4.8;
+    if (f.importance === 2) return 3.9;
+    return 3.2;
+  }
+
+  // decide which labels are visible at current density
+  function shouldLabelFeature(f, light, selected) {
+    if (selected) return true;
+    if (!light.lit && state.visibilityFilter !== 'all') return false;
+    const limit = lerp(1, 3.4, state.labelDensity);
+    if (f.importance <= limit) return true;
+    if (state.zoom > 1.35 && f.importance <= limit + 0.7) return true;
+    return false;
+  }
+
+  // draw the selected feature glow ring
+  function drawSelectedGuide() {
+    if (!state.selected) return;
+    const p = projectLunar(state.selected.lon, state.selected.lat);
+    if (!p) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(30,136,255,0.88)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // full render pass for one animation frame
+  function render() {
+    resizeCanvas();
+    clearLabels();
+    drawBackground();
+    drawMoonDisk();
+    drawGrid();
+    drawFeatures();
+    drawSelectedGuide();
+  }
+
+  // ease the moon camera toward target lon lat n zoom
+  function syncCamera() {
+    state.centerLon += wrap180(state.targetLon - state.centerLon) * 0.16;
+    state.centerLat += (state.targetLat - state.centerLat) * 0.16;
+    state.zoom += (state.targetZoom - state.zoom) * 0.18;
+  }
+
+  // update all live phase and observing readouts
+  function updateStats() {
+    state.moonStats = getMoonPhaseStats(state.currentDate);
+    const s = state.moonStats;
+    ui.phaseName.textContent = s.name;
+    ui.illuminationText.textContent = `${Math.round(s.illum * 100)}%`;
+    ui.moonAltText.textContent = Number.isFinite(s.alt) ? `${s.alt.toFixed(1)}°` : 'needs astronomy lib';
+    ui.moonAzText.textContent = Number.isFinite(s.az) ? `${s.az.toFixed(1)}°` : 'needs astronomy lib';
+    ui.bottomPhase.textContent = `${s.name} • ${Math.round(s.illum * 100)}% illuminated • lunar age ${s.age.toFixed(1)} days`;
+    const best = bestTonightFeatures().slice(0, 3).map(f => f.name).join(', ');
+    ui.bestFeaturesText.textContent = best || 'terminator features';
+    updateInfoPanel();
+  }
+
+  // pick features near the terminator for tonight
+  function bestTonightFeatures() {
+    return FEATURES
+      .map(f => ({ f, l: featureLighting(f) }))
+      .filter(x => x.l.lit && x.l.terminator && x.f.importance <= 2)
+      .sort((a,b) => a.f.importance - b.f.importance || Math.abs(a.l.sunAlt) - Math.abs(b.l.sunAlt))
+      .map(x => x.f);
+  }
+
+  // update selected feature info panel
+  function updateInfoPanel() {
+    const f = state.selected;
+    if (!f) return;
+    const light = featureLighting(f);
+    const visible = projectLunar(f.lon, f.lat) ? 'Near-side visible' : 'Rotated out of view';
+    ui.infoName.textContent = f.name;
+    ui.infoType.textContent = typeLabel(f.type);
+    ui.infoLat.textContent = formatDeg(f.lat);
+    ui.infoLon.textContent = formatLon(f.lon);
+    ui.infoDiameter.textContent = f.diameter ? `${f.diameter.toLocaleString()} km` : 'site marker';
+    ui.infoAge.textContent = f.age || '—';
+    ui.infoLighting.textContent = `${light.quality} (${light.sunAlt.toFixed(0)}° sun)`;
+    ui.infoVisibility.textContent = visible;
+    ui.infoBestPhase.textContent = f.best || 'varies';
+    ui.infoDifficulty.textContent = f.difficulty || 'Moderate';
+    ui.infoTips.textContent = f.tips || 'Use the terminator for the strongest shadows.';
+    ui.infoFact.textContent = f.fact || 'Lunar atlas feature.';
+  }
+
+  // convert type names to nice ui text
+  function typeLabel(type) {
+    return {
+      crater:'Crater', mare:'Lunar Mare / Basin', landing:'Apollo Landing Site', artemis:'Artemis / South Pole Region', mountain:'Mountain Range', rift:'Rille / Valley / Scarp'
+    }[type] || 'Lunar Feature';
+  }
+
+  // select a feature n center it on the atlas
+  function focusFeature(feature) {
+    if (!feature) return;
+    state.selected = feature;
+    state.targetLon = clamp(feature.lon, -86, 86);
+    state.targetLat = clamp(feature.lat, -70, 70);
+    state.targetZoom = Math.max(state.targetZoom, feature.type === 'artemis' ? 1.45 : 1.28);
+    updateInfoPanel();
+    showToast(`Centered on ${feature.name}.`);
+  }
+
+  // find feature under the pointer
+  function pickFeature(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    let best = null, bestD = Infinity;
+    for (const hit of state.renderHits || []) {
+      const d = Math.hypot(hit.x - x, hit.y - y);
+      if (d <= hit.radius && d < bestD) { best = hit.feature; bestD = d; }
+    }
+    return best;
+  }
+
+  // normalize search text for feature search
+  function normalizeSearchText(value) {
+    return String(value || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  // search features and show matching rows
+  function runSearch() {
+    const q = normalizeSearchText(ui.searchInput.value);
+    const box = ui.searchResults;
+    box.innerHTML = '';
+    if (!q) { box.style.display = 'none'; return; }
+    const matches = FEATURES
+      .map(f => ({ f, n: normalizeSearchText(`${f.name} ${f.type} ${f.fact}`) }))
+      .filter(x => x.n.includes(q) || q.includes(normalizeSearchText(x.f.name)))
+      .slice(0, 12);
+    if (!matches.length) {
+      box.style.display = 'block';
+      box.innerHTML = '<div class="muted" style="padding:8px">No lunar feature found.</div>';
+      return;
+    }
+    for (const { f } of matches) {
+      const row = document.createElement('div');
+      row.className = 'result-row';
+      row.innerHTML = `<span>${f.name}</span><span class="tag">${typeLabel(f.type)}</span>`;
+      row.addEventListener('click', () => { box.style.display = 'none'; focusFeature(f); });
+      box.appendChild(row);
+    }
+    box.style.display = 'block';
+  }
+
+  // read the date time n location inputs into live app state
+  function applyTimeLocationFromInputs() {
+    const dateStr = ui.dateInput.value;
+    const timeStr = ui.timeInput.value || '00:00:00';
+    const lat = parseFloat(ui.latInput.value);
+    const lon = parseFloat(ui.lonInput.value);
+    if (!dateStr || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      showToast('Enter a valid date, time, latitude, and longitude.');
+      return;
+    }
+    state.latitude = clamp(lat, -90, 90);
+    state.longitude = clamp(lon, -180, 180);
+    const nextDate = new Date(`${dateStr}T${timeStr}`);
+    if (!Number.isNaN(nextDate.getTime())) state.currentDate = nextDate;
+    ui.latInput.value = state.latitude.toFixed(4);
+    ui.lonInput.value = state.longitude.toFixed(4);
+    updateStats();
+    showToast('Moon time and location applied.');
+  }
+
+  // build the glossary drawer contents
+  function buildGlossary() {
+    ui.glossaryList.innerHTML = '';
+    for (const [title, text] of GLOSSARY) {
+      const item = document.createElement('div');
+      item.className = 'glossary-item';
+      item.innerHTML = `<div class="glossary-title">${title}</div><div class="muted">${text}</div>`;
+      ui.glossaryList.appendChild(item);
+    }
+  }
+
+  // wire up the main ui controls
+  ui.applyDateLocationBtn.addEventListener('click', applyTimeLocationFromInputs);
+  ui.liveTimeBtn.addEventListener('click', () => {
+    state.liveTime = !state.liveTime;
+    ui.liveTimeBtn.textContent = `Live Time: ${state.liveTime ? 'On' : 'Off'}`;
+    if (state.liveTime) { state.currentDate = new Date(); formatLocalInputs(state.currentDate); updateStats(); }
+  });
+  ui.geolocateBtn.addEventListener('click', () => {
+    if (!navigator.geolocation) return showToast('Geolocation is not supported in this browser.');
+    navigator.geolocation.getCurrentPosition(pos => {
+      state.latitude = pos.coords.latitude;
+      state.longitude = pos.coords.longitude;
+      ui.latInput.value = state.latitude.toFixed(4);
+      ui.lonInput.value = state.longitude.toFixed(4);
+      updateStats();
+      showToast('Using your current location.');
+    }, () => showToast('Could not get your location.'));
+  });
+  ui.nearSideBtn.addEventListener('click', () => { state.targetLon = 0; state.targetLat = 0; state.targetZoom = 1; });
+  ui.eastLimbBtn.addEventListener('click', () => { state.targetLon = 58; state.targetLat = 0; state.targetZoom = 1.08; });
+  ui.westLimbBtn.addEventListener('click', () => { state.targetLon = -58; state.targetLat = 0; state.targetZoom = 1.08; });
+  ui.southPoleBtn.addEventListener('click', () => { state.targetLon = 0; state.targetLat = -68; state.targetZoom = 1.45; });
+  ui.resetViewBtn.addEventListener('click', () => { state.targetLon = 0; state.targetLat = 0; state.targetZoom = 1; state.selected = null; });
+  ui.labelDensitySlider.addEventListener('input', () => { state.labelDensity = parseFloat(ui.labelDensitySlider.value); ui.labelDensityReadout.textContent = state.labelDensity.toFixed(2); });
+  ui.contrastSlider.addEventListener('input', () => { state.contrast = parseFloat(ui.contrastSlider.value); ui.contrastReadout.textContent = state.contrast.toFixed(2); });
+  ui.featureTypeFilter.addEventListener('change', () => { state.featureTypeFilter = ui.featureTypeFilter.value; });
+  ui.visibilityFilter.addEventListener('change', () => { state.visibilityFilter = ui.visibilityFilter.value; });
+  ui.searchBtn.addEventListener('click', runSearch);
+  ui.searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+  ui.searchInput.addEventListener('input', () => { clearTimeout(runSearch._t); runSearch._t = setTimeout(runSearch, 120); });
+  ui.clearSelectionBtn.addEventListener('click', () => { state.selected = null; ui.infoName.textContent = 'Click a lunar feature'; ui.infoType.textContent = 'Craters, maria, Apollo sites, Artemis targets'; });
+  ui.visibleTonightBtn.addEventListener('click', () => { state.visibilityFilter = 'tonight'; ui.visibilityFilter.value = 'tonight'; const best = bestTonightFeatures()[0]; if (best) focusFeature(best); else showToast('No strong terminator target right now. Try changing the date.'); });
+  ui.terminatorBtn.addEventListener('click', () => { const tour = bestTonightFeatures(); if (!tour.length) return showToast('No terminator tour targets for this phase.'); focusFeature(tour[state.tourIndex % tour.length]); state.tourIndex++; });
+  ui.glossaryBtn.addEventListener('click', () => ui.glossaryPanel.classList.toggle('open'));
+  ui.collapseBtn.addEventListener('click', () => {
+    state.panelCollapsed = !state.panelCollapsed;
+    ui.panelBody.style.display = state.panelCollapsed ? 'none' : 'flex';
+    ui.controlPanel.style.minHeight = state.panelCollapsed ? 'unset' : '260px';
+    ui.controlPanel.style.resize = state.panelCollapsed ? 'none' : 'both';
+    ui.collapseBtn.textContent = state.panelCollapsed ? '+' : '−';
+  });
+
+  // state n handlers for dragging the control panel around
+  let draggingPanel = false;
+  let panelDrag = {x:0,y:0,left:0,top:0};
+  ui.panelHeader.addEventListener('pointerdown', e => {
+    if (e.target === ui.collapseBtn) return;
+    draggingPanel = true;
+    const rect = ui.controlPanel.getBoundingClientRect();
+    panelDrag = { x:e.clientX, y:e.clientY, left:rect.left, top:rect.top };
+    ui.panelHeader.setPointerCapture(e.pointerId);
+  });
+  ui.panelHeader.addEventListener('pointermove', e => {
+    if (!draggingPanel) return;
+    ui.controlPanel.style.left = `${panelDrag.left + (e.clientX - panelDrag.x)}px`;
+    ui.controlPanel.style.top = `${panelDrag.top + (e.clientY - panelDrag.y)}px`;
+    ui.controlPanel.style.right = 'auto';
+    ui.controlPanel.style.bottom = 'auto';
+  });
+  function endPanelDrag(e){ draggingPanel = false; try { ui.panelHeader.releasePointerCapture(e.pointerId); } catch {} }
+  ui.panelHeader.addEventListener('pointerup', endPanelDrag);
+  ui.panelHeader.addEventListener('pointercancel', endPanelDrag);
+
+  // state n handlers for dragging clicking n zooming the moon atlas
+  let movedDuringDrag = false;
+  canvas.addEventListener('pointerdown', e => {
+    state.isDragging = true;
+    movedDuringDrag = false;
+    state.dragStartX = e.clientX;
+    state.dragStartY = e.clientY;
+    state.dragLon = state.targetLon;
+    state.dragLat = state.targetLat;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!state.isDragging) return;
+    const dx = e.clientX - state.dragStartX;
+    const dy = e.clientY - state.dragStartY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedDuringDrag = true;
+    state.targetLon = clamp(state.dragLon - dx * 0.12 / state.zoom, -88, 88);
+    state.targetLat = clamp(state.dragLat + dy * 0.12 / state.zoom, -78, 78);
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    canvas.classList.remove('dragging');
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    if (!movedDuringDrag) {
+      const hit = pickFeature(e.clientX, e.clientY);
+      if (hit) focusFeature(hit);
+      else state.selected = null;
+    }
+  });
+  canvas.addEventListener('pointercancel', () => { state.isDragging = false; canvas.classList.remove('dragging'); });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); state.targetZoom = clamp(state.targetZoom + (e.deltaY < 0 ? 0.10 : -0.10), 0.72, 2.45); }, { passive:false });
+  window.addEventListener('resize', resizeCanvas);
+
+  // main animation loop
+  function loop() {
+    requestAnimationFrame(loop);
+    if (state.liveTime) {
+      state.currentDate = new Date();
+      formatLocalInputs(state.currentDate);
+      if (!loop._last || Date.now() - loop._last > 1000) { updateStats(); loop._last = Date.now(); }
+    }
+    syncCamera();
+    render();
+  }
+
+  // initial ui sync n app startup
+  buildGlossary();
+  formatLocalInputs(state.currentDate);
+  updateStats();
+  ui.labelDensityReadout.textContent = state.labelDensity.toFixed(2);
+  ui.contrastReadout.textContent = state.contrast.toFixed(2);
+  focusFeature(FEATURES.find(f => f.id === 'copernicus'));
+  showToast('Moon Atlas loaded. Search Tycho, Apollo 11, Shackleton, or Mare Imbrium.');
+  loop();
+})();
+</script>
+</body>
+</html>

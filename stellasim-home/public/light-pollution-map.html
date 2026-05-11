@@ -1,0 +1,2240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Light Pollution Map</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <style>
+    /* this keeps the stellasim colors the same */
+    :root {
+      --panel-bg: rgba(5, 14, 32, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #07162f;
+      --field-border: rgba(47, 124, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c8e8;
+      --accent: #0b3d91;
+      --accent-light: #2f7cff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0,0,0,0.42);
+      --button-gradient: linear-gradient(180deg, #0b3d91, #061b46);
+      --button-hover: linear-gradient(180deg, #1557bd, #0b3d91);
+      --radius-lg: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      overflow-x: hidden;
+      background: var(--page-bg);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(47, 124, 255, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(47, 124, 255, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(80, 150, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #020816 42%, #000000 100%);
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { user-select: none; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 { width: 360px; height: 360px; top: 6%; left: 10%; background: radial-gradient(circle, rgba(47, 124, 255, 0.2), transparent 72%); }
+    .glow-2 { width: 430px; height: 430px; right: 7%; top: 14%; background: radial-gradient(circle, rgba(11, 61, 145, 0.17), transparent 72%); animation-delay: -6s; }
+    .glow-3 { width: 380px; height: 380px; left: 48%; bottom: 4%; background: radial-gradient(circle, rgba(80, 150, 255, 0.12), transparent 74%); animation-delay: -11s; }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 35%, rgba(255,255,255,0.96), rgba(211,228,255,0.93) 36%, rgba(130,176,255,0.28) 62%, rgba(47,124,255,0) 76%);
+      box-shadow: 0 0 40px rgba(80, 150, 255, 0.18), 0 0 95px rgba(47, 124, 255, 0.11);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #020816;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .main-inner {
+      max-width: 1460px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-card, .panel, .map-card, .small-card, .object-card, .site-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(5, 14, 32, 0.96), rgba(2, 8, 20, 0.94));
+      border: 1px solid rgba(47, 124, 255, 0.2);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.055), inset 0 -1px 0 rgba(47, 124, 255, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-card::after, .panel::after, .map-card::after, .small-card::after, .object-card::after, .site-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0%, transparent 32%, rgba(255,255,255,0.05) 40%, transparent 49%, transparent 100%);
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 28px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -150px;
+      top: -160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(47,124,255,0.14), transparent 65%);
+      pointer-events: none;
+    }
+
+    .content { position: relative; z-index: 1; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(47, 124, 255, 0.08);
+      border: 1px solid rgba(47, 124, 255, 0.18);
+      color: var(--accent-light);
+      font-size: 0.84rem;
+      margin-bottom: 14px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .glow-text {
+      color: var(--accent-light);
+      text-shadow: 0 0 24px rgba(47, 124, 255, 0.2), 0 0 44px rgba(47, 124, 255, 0.12);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 90ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .hero-actions, .btn-row, .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hero-actions { margin-top: 18px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .summary-item, .metric-item {
+      padding: 12px;
+      border-radius: 15px;
+      border: 1px solid rgba(47, 124, 255, 0.14);
+      background: rgba(7, 11, 19, 0.28);
+      min-width: 0;
+    }
+
+    .summary-item span, .metric-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      margin-bottom: 5px;
+    }
+
+    .summary-item strong, .metric-item strong {
+      display: block;
+      color: var(--field-text);
+      overflow-wrap: anywhere;
+      line-height: 1.25;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .left-col, .right-col {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel { padding: 18px; animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .map-card { padding: 12px; animation: mapFadeIn 420ms ease both; }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 1.18rem;
+      font-weight: 760;
+    }
+
+    .section-title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .field { display: grid; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+
+    .field label {
+      color: var(--accent-light);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .input, .textarea {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(7,22,47,0.96), rgba(3,12,30,0.96));
+      color: var(--field-text);
+      border-radius: 13px;
+      padding: 11px 12px;
+      outline: none;
+      transition: 160ms ease;
+      color-scheme: dark;
+    }
+
+    .textarea { min-height: 72px; resize: vertical; line-height: 1.45; }
+
+    .input:focus, .textarea:focus {
+      border-color: rgba(47,124,255,0.62);
+      box-shadow: 0 0 0 3px rgba(47,124,255,0.08), 0 0 22px rgba(47,124,255,0.1);
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(47,124,255,0.22);
+      border-radius: 13px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255,255,255,0.04);
+      transition: 180ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(47,124,255,0.26), rgba(47,124,255,0.14));
+      border-color: rgba(47,124,255,0.7);
+      color: white;
+    }
+
+    .btn.small { padding: 8px 10px; border-radius: 11px; font-size: 0.82rem; }
+    .btn.danger { border-color: rgba(255,157,157,0.25); color: #ffd8d8; background: rgba(255,120,120,0.055); }
+
+    .btn:hover, .site-card:hover, .object-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(47,124,255,0.42);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2), 0 0 18px rgba(47,124,255,0.14);
+    }
+
+    .map-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      padding: 0 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .map-title h2 { margin: 0; font-size: 1.08rem; }
+    .map-title p { margin: 4px 0 0; color: var(--muted); font-size: 0.8rem; }
+
+    .map-wrap {
+      position: relative;
+      min-height: 650px;
+      height: calc(100vh - 315px);
+      border-radius: 18px;
+      border: 1px solid rgba(47,124,255,0.22);
+      background:
+        radial-gradient(circle at 50% 44%, rgba(47,124,255,0.08), transparent 0 24%),
+        linear-gradient(180deg, #020816, #000000);
+      overflow: hidden;
+      cursor: grab;
+      z-index: 1;
+    }
+
+    .map-wrap.dragging { cursor: grabbing; }
+
+    #skyQualityCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .map-hint {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      width: min(340px, calc(100% - 32px));
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(16, 23, 35, 0.82);
+      border: 1px solid rgba(47,124,255,0.16);
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.42;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+
+    .legend-bar {
+      height: 8px;
+      border-radius: 999px;
+      margin: 7px 0 8px;
+      background: linear-gradient(90deg, rgba(35,60,130,0.95), rgba(70,120,210,0.9), rgba(160,120,80,0.9), rgba(230,170,90,0.95));
+      border: 1px solid rgba(47,124,255,0.18);
+    }
+
+    .legend-labels { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 0.72rem; }
+
+    .badge {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      color: var(--accent-light);
+      background: rgba(47,124,255,0.08);
+      border: 1px solid rgba(47,124,255,0.16);
+      white-space: nowrap;
+    }
+
+    .badge.soft { color: var(--muted); background: rgba(255,255,255,0.035); }
+
+    .bortle-top {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .bortle-number {
+      width: 70px;
+      height: 70px;
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      font-size: 1.85rem;
+      font-weight: 850;
+      background: linear-gradient(180deg, rgba(47,124,255,0.22), rgba(47,124,255,0.08));
+      border: 1px solid rgba(47,124,255,0.42);
+      box-shadow: 0 0 24px rgba(47,124,255,0.12) inset;
+    }
+
+    .scale-row {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 5px;
+      margin-top: 14px;
+    }
+
+    .scale-cell {
+      padding: 8px 0;
+      text-align: center;
+      border-radius: 9px;
+      border: 1px solid rgba(47,124,255,0.13);
+      color: var(--muted);
+      background: rgba(255,255,255,0.035);
+      font-size: 0.78rem;
+    }
+
+    .scale-cell.active {
+      color: white;
+      border-color: rgba(47,124,255,0.72);
+      background: rgba(47,124,255,0.17);
+      box-shadow: 0 0 18px rgba(47,124,255,0.14);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .progress-shell {
+      margin-top: 10px;
+      height: 9px;
+      background: rgba(7,11,19,0.32);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(47,124,255,0.1);
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      width: 50%;
+      background: linear-gradient(90deg, rgba(47,124,255,0.56), rgba(80,150,255,0.96));
+      box-shadow: 0 0 14px rgba(47,124,255,0.28);
+    }
+
+    .card-list, .object-grid, .glossary-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .site-card, .object-card, .small-card {
+      padding: 13px;
+      transition: 180ms ease;
+    }
+
+    .site-card h3, .object-card h3, .small-card h3 {
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .site-card p, .object-card p, .small-card p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .bottom-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .object-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .glossary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin: 12px 0 0;
+    }
+
+    .status-text {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      margin-top: 10px;
+    }
+
+    @keyframes glowFloat {
+      0% { transform: translate3d(0,0,0) scale(1); }
+      50% { transform: translate3d(14px,-12px,0) scale(1.05); }
+      100% { transform: translate3d(0,0,0) scale(1); }
+    }
+
+    @keyframes panelSheen {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(140%); }
+    }
+
+    @keyframes panelFloatIn {
+      from { opacity: 0; transform: translateY(22px); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    @keyframes mapFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @media (max-width: 1280px) {
+      .layout { grid-template-columns: 320px minmax(0, 1fr); }
+      .right-col { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 900px) {
+      .app-shell { padding: 18px 14px 24px; }
+      .layout, .right-col, .bottom-layout { grid-template-columns: 1fr; }
+      .map-wrap { min-height: 460px; height: 62vh; }
+      .object-grid, .glossary-grid, .compare-grid, .summary-grid, .metrics-grid { grid-template-columns: 1fr; }
+      .moon-wrap { width: 98px; height: 98px; top: 72px; right: 24px; opacity: 0.42; }
+      .moon-wrap::after { width: 78px; height: 78px; top: 9px; left: 31px; }
+    }
+
+    /* nasa blue + black polish */
+    .hero-card, .panel, .map-card, .small-card, .object-card, .site-card {
+      background: linear-gradient(180deg, rgba(5, 14, 32, 0.96), rgba(2, 8, 20, 0.94));
+      border-color: rgba(11, 61, 145, 0.55);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255,255,255,0.055);
+    }
+
+    .btn.primary, .bortle-number, .scale-cell.active {
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      border-color: rgba(47, 124, 255, 0.76);
+    }
+
+    .btn:hover, .site-card:hover, .object-card:hover {
+      background: rgba(11, 61, 145, 0.22);
+      border-color: rgba(47, 124, 255, 0.55);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.28), 0 0 18px rgba(47,124,255,0.18);
+    }
+
+    .input, .textarea {
+      background: linear-gradient(180deg, rgba(7, 22, 47, 0.96), rgba(3, 12, 30, 0.96));
+    }
+
+  </style>
+  <!-- this helps draw real country outlines when the browser is online -->
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+</head>
+<body>
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <main class="app-shell">
+    <div class="main-inner">
+      <section class="hero-card">
+        <div class="content">
+          <div class="eyebrow">✦ Dark Sky Finder · VIIRS world layer</div>
+          <h1 class="hero-title">Light Pollution <span class="glow-text">Map</span></h1>
+          <p class="hero-subtitle">
+            Find better observing locations with a real whole-world map. The app can draw NASA/Suomi NPP VIIRS Earth-at-night imagery as the light data layer, then blends it with StellaSim’s local Bortle model for planning estimates.
+          </p>
+          <div class="hero-actions">
+            <button class="btn primary" id="findNearbyBtn" type="button">Find Darker Nearby</button>
+            <button class="btn" id="saveSpotHeroBtn" type="button">Save Spot</button>
+            <button class="btn" id="copyReportBtn" type="button">Copy Report</button>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-item"><span>Location</span><strong id="summaryLocation">Monterey Park, CA</strong></div>
+            <div class="summary-item"><span>Bortle</span><strong id="summaryBortle">8</strong></div>
+            <div class="summary-item"><span>Sky brightness</span><strong id="summaryBrightness">~16.8 mag/arcsec²</strong></div>
+            <div class="summary-item"><span>Recommendation</span><strong id="summaryRec">Moon, planets, doubles</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="left-col">
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Location Controls</h2>
+                <p>Search the built-in city list, enter coordinates, use geolocation, or click the custom map.</p>
+              </div>
+
+              <div class="control-grid">
+                <div class="field full">
+                  <label for="searchInput">City or dark-sky site</label>
+                  <input class="input" id="searchInput" type="text" value="Monterey Park, CA" list="placeList" placeholder="Example: Los Angeles, Flagstaff, Death Valley" />
+                  <datalist id="placeList"></datalist>
+                </div>
+                <div class="field">
+                  <label for="latInput">Latitude</label>
+                  <input class="input" id="latInput" type="number" step="0.0001" value="34.0625" />
+                </div>
+                <div class="field">
+                  <label for="lonInput">Longitude</label>
+                  <input class="input" id="lonInput" type="number" step="0.0001" value="-118.1228" />
+                </div>
+                <div class="field full">
+                  <label for="spotNameInput">Spot name</label>
+                  <input class="input" id="spotNameInput" type="text" value="Monterey Park, CA" />
+                </div>
+                <div class="field full">
+                  <label for="notesInput">Spot notes</label>
+                  <textarea class="textarea" id="notesInput" placeholder="Example: park gate closes at sunset, bring dew shield, avoid streetlights..."></textarea>
+                </div>
+              </div>
+
+              <div class="btn-row" style="margin-top:12px;">
+                <button class="btn primary" id="searchBtn" type="button">Search</button>
+                <button class="btn" id="geoBtn" type="button">Use My Location</button>
+                <button class="btn" id="applyCoordsBtn" type="button">Apply Coordinates</button>
+                <button class="btn" id="resetBtn" type="button">Reset View</button>
+                <button class="btn" id="saveSpotBtn" type="button">Save Spot</button>
+                <button class="btn" id="compareBtn" type="button">Set Compare</button>
+                <button class="btn" id="exportBtn" type="button">Export Notes</button>
+                <button class="btn danger" id="clearFavoritesBtn" type="button">Clear Favorites</button>
+              </div>
+              <div class="status-text" id="controlStatus">Click the map to pick a new observing location.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Map Layers</h2>
+                <p>Toggle the satellite night-lights layer, modeled sky glow, radius rings, and observing markers.</p>
+              </div>
+              <div class="btn-row" style="margin-top:12px;">
+                <button class="btn primary small" id="toggleLightBtn" type="button">Model overlay</button>
+                <button class="btn primary small" id="toggleSatelliteBtn" type="button">VIIRS data</button>
+                <button class="btn primary small" id="toggleRingsBtn" type="button">Radius rings</button>
+                <button class="btn primary small" id="toggleSitesBtn" type="button">Dark-sky spots</button>
+                <button class="btn primary small" id="toggleSavedBtn" type="button">Saved spots</button>
+              </div>
+              <p class="note">Bortle class and sky brightness are planning estimates. The visual layer can use NASA/Suomi NPP VIIRS Earth-at-night imagery when online; local lights, haze, weather, and moonlight still change real observing conditions.</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Favorites</h2>
+                <p>Saved locally in this browser.</p>
+              </div>
+              <div class="card-list" id="favoritesList"></div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="map-card">
+          <div class="map-toolbar">
+            <div class="map-title">
+              <h2>Interactive Sky Quality Map</h2>
+              <p>Drag to pan, wheel to zoom, click to choose a location. Canvas map with no broken Leaflet tiles.</p>
+            </div>
+            <div class="pill-row">
+              <span class="badge" id="coordBadge">34.0625, -118.1228</span>
+              <span class="badge soft" id="dataBadge">loading world data</span>
+            </div>
+          </div>
+
+          <div class="map-wrap" id="mapWrap">
+            <canvas id="skyQualityCanvas"></canvas>
+            <div class="map-hint">
+              <strong>VIIRS night lights + modeled sky glow</strong>
+              <div class="legend-bar"></div>
+              <div class="legend-labels"><span>darker</span><span>brighter</span></div>
+              <div style="margin-top:8px;">This version draws its own map. It is less detailed than a whole-world map with country outlines and optional VIIRS night-lights imagery.</div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="right-col">
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Bortle Class</h2>
+                <p>Plain-English sky quality based on the current estimate.</p>
+              </div>
+              <div class="bortle-top">
+                <div class="bortle-number" id="bortleNumber">8</div>
+                <div>
+                  <h3 id="bortleLabel" style="margin-bottom:6px;">city sky</h3>
+                  <p id="bortleDesc" style="margin:0;color:var(--muted);line-height:1.45;">Deep-sky observing is difficult, but the Moon, planets, bright stars, and some clusters are still worth observing.</p>
+                </div>
+              </div>
+              <div class="scale-row" id="bortleScale"></div>
+              <div class="metrics-grid">
+                <div class="metric-item"><span>Sky brightness</span><strong id="brightnessText">~16.8 mag/arcsec²</strong></div>
+                <div class="metric-item"><span>Limiting magnitude</span><strong id="limitingText">~4.3</strong></div>
+                <div class="metric-item"><span>Milky Way</span><strong id="milkyWayText">Not visible</strong></div>
+                <div class="metric-item"><span>Zodiacal light</span><strong id="zodiacalText">Not visible</strong></div>
+                <div class="metric-item"><span>Andromeda</span><strong id="andromedaText">Core difficult</strong></div>
+                <div class="metric-item"><span>Nebulae / galaxies</span><strong id="deepSkyText">Very limited</strong></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Viewing Conditions</h2>
+                <p>Estimated local observing score. Weather API is intentionally not required.</p>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric-item"><span>Cloud cover</span><strong id="cloudText">estimated low</strong></div>
+                <div class="metric-item"><span>Humidity</span><strong id="humidityText">estimated</strong></div>
+                <div class="metric-item"><span>Wind</span><strong id="windText">estimated</strong></div>
+                <div class="metric-item"><span>Temperature</span><strong id="tempText">estimated</strong></div>
+                <div class="metric-item"><span>Dew point</span><strong id="dewText">estimated</strong></div>
+                <div class="metric-item"><span>Moon illumination</span><strong id="moonText">estimated</strong></div>
+              </div>
+              <div class="progress-shell"><div class="progress-fill" id="scoreFill"></div></div>
+              <p class="note"><strong id="scoreText">-- / 100</strong> observing score</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title">
+                <h2>Recommendation</h2>
+                <p id="recommendationText">Loading recommendation...</p>
+              </div>
+              <div class="small-card" style="margin-top:12px;">
+                <div class="content">
+                  <h3>Equipment Suggestions</h3>
+                  <p id="equipmentText">Loading...</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="bottom-layout">
+        <section class="panel">
+          <div class="content">
+            <div class="section-title">
+              <h2>Nearby Darker Options</h2>
+              <p>Generated by scanning outward and checking where the model gets darker.</p>
+            </div>
+            <div class="card-list" id="darkSiteList"></div>
+            <p class="note">Before traveling to a dark-sky site, check road access, park hours, weather, permits, wildlife, and safety conditions.</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="content">
+            <div class="section-title">
+              <h2>Compare Locations</h2>
+              <p>Compare your selected spot against a saved compare location.</p>
+            </div>
+            <div class="compare-grid" id="compareGrid"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="content">
+          <div class="section-title">
+            <h2>Realistic Visible Objects</h2>
+            <p>Targets are filtered by sky quality, not by exact live altitude yet.</p>
+          </div>
+          <div class="object-grid" id="objectGrid"></div>
+        </div>
+      </section>
+
+      <section class="bottom-layout">
+        <section class="panel">
+          <div class="content">
+            <div class="section-title">
+              <h2>Dark Adaptation Guide</h2>
+              <p>Small habits that make a real difference outside.</p>
+            </div>
+            <div class="card-list">
+              <div class="small-card"><div class="content"><h3>Protect your night vision</h3><p>Avoid white light, use dim red light, and give your eyes 20-30 minutes to adapt.</p></div></div>
+              <div class="small-card"><div class="content"><h3>Block nearby lights</h3><p>Use a hood, shield, building shadow, or car as a light block when streetlights are nearby.</p></div></div>
+              <div class="small-card"><div class="content"><h3>Time it right</h3><p>Observe faint galaxies and nebulae after astronomical twilight and away from bright moonlight.</p></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="content">
+            <div class="section-title">
+              <h2>Glossary</h2>
+              <p>Quick explanations for common dark-sky terms.</p>
+            </div>
+            <div class="glossary-grid" id="glossaryGrid"></div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // this is the city glow data for the fallback model
+    const CITY_DATA = [
+      { name: "Monterey Park, CA", lat: 34.0625, lon: -118.1228, intensity: 5800 },
+      { name: "Los Angeles", lat: 34.0522, lon: -118.2437, intensity: 9800 },
+      { name: "New York", lat: 40.7128, lon: -74.0060, intensity: 11000 },
+      { name: "Chicago", lat: 41.8781, lon: -87.6298, intensity: 7600 },
+      { name: "Houston", lat: 29.7604, lon: -95.3698, intensity: 6800 },
+      { name: "Phoenix", lat: 33.4484, lon: -112.0740, intensity: 6200 },
+      { name: "Philadelphia", lat: 39.9526, lon: -75.1652, intensity: 5600 },
+      { name: "San Antonio", lat: 29.4241, lon: -98.4936, intensity: 4300 },
+      { name: "San Diego", lat: 32.7157, lon: -117.1611, intensity: 5000 },
+      { name: "Dallas", lat: 32.7767, lon: -96.7970, intensity: 6100 },
+      { name: "San Jose", lat: 37.3382, lon: -121.8863, intensity: 4300 },
+      { name: "San Francisco", lat: 37.7749, lon: -122.4194, intensity: 5200 },
+      { name: "Las Vegas", lat: 36.1699, lon: -115.1398, intensity: 5200 },
+      { name: "Seattle", lat: 47.6062, lon: -122.3321, intensity: 4100 },
+      { name: "Portland", lat: 45.5152, lon: -122.6784, intensity: 3100 },
+      { name: "Denver", lat: 39.7392, lon: -104.9903, intensity: 3800 },
+      { name: "Salt Lake City", lat: 40.7608, lon: -111.8910, intensity: 2800 },
+      { name: "Tucson", lat: 32.2226, lon: -110.9747, intensity: 1900 },
+      { name: "Flagstaff", lat: 35.1983, lon: -111.6513, intensity: 520 },
+      { name: "Miami", lat: 25.7617, lon: -80.1918, intensity: 4900 },
+      { name: "Atlanta", lat: 33.7490, lon: -84.3880, intensity: 4600 },
+      { name: "Boston", lat: 42.3601, lon: -71.0589, intensity: 4000 },
+      { name: "Washington DC", lat: 38.9072, lon: -77.0369, intensity: 4100 },
+      { name: "London", lat: 51.5072, lon: -0.1276, intensity: 7600 },
+      { name: "Paris", lat: 48.8566, lon: 2.3522, intensity: 7100 },
+      { name: "Tokyo", lat: 35.6762, lon: 139.6503, intensity: 12000 },
+      { name: "Seoul", lat: 37.5665, lon: 126.9780, intensity: 8200 },
+      { name: "Beijing", lat: 39.9042, lon: 116.4074, intensity: 8800 },
+      { name: "Shanghai", lat: 31.2304, lon: 121.4737, intensity: 10500 },
+      { name: "Delhi", lat: 28.6139, lon: 77.2090, intensity: 11200 },
+      { name: "Mumbai", lat: 19.0760, lon: 72.8777, intensity: 9400 },
+      { name: "Sydney", lat: -33.8688, lon: 151.2093, intensity: 5400 },
+      { name: "Melbourne", lat: -37.8136, lon: 144.9631, intensity: 5000 },
+      { name: "Toronto", lat: 43.6532, lon: -79.3832, intensity: 5300 },
+      { name: "Vancouver", lat: 49.2827, lon: -123.1207, intensity: 3300 },
+      { name: "Mexico City", lat: 19.4326, lon: -99.1332, intensity: 11800 },
+      { name: "São Paulo", lat: -23.5558, lon: -46.6396, intensity: 11500 },
+      { name: "Buenos Aires", lat: -34.6037, lon: -58.3816, intensity: 7000 },
+      { name: "Cairo", lat: 30.0444, lon: 31.2357, intensity: 9600 },
+      { name: "Istanbul", lat: 41.0082, lon: 28.9784, intensity: 8500 },
+      { name: "Moscow", lat: 55.7558, lon: 37.6173, intensity: 9000 },
+      { name: "Berlin", lat: 52.5200, lon: 13.4050, intensity: 4700 },
+      { name: "Madrid", lat: 40.4168, lon: -3.7038, intensity: 5200 },
+      { name: "Rome", lat: 41.9028, lon: 12.4964, intensity: 5000 },
+      { name: "Amsterdam", lat: 52.3676, lon: 4.9041, intensity: 4100 },
+      { name: "Brussels", lat: 50.8503, lon: 4.3517, intensity: 3900 },
+      { name: "Dubai", lat: 25.2048, lon: 55.2708, intensity: 6500 },
+      { name: "Riyadh", lat: 24.7136, lon: 46.6753, intensity: 5200 },
+      { name: "Karachi", lat: 24.8607, lon: 67.0011, intensity: 8000 },
+      { name: "Dhaka", lat: 23.8103, lon: 90.4125, intensity: 8800 },
+      { name: "Bangkok", lat: 13.7563, lon: 100.5018, intensity: 7300 },
+      { name: "Singapore", lat: 1.3521, lon: 103.8198, intensity: 9800 },
+      { name: "Jakarta", lat: -6.2088, lon: 106.8456, intensity: 10500 },
+      { name: "Manila", lat: 14.5995, lon: 120.9842, intensity: 8600 },
+      { name: "Hong Kong", lat: 22.3193, lon: 114.1694, intensity: 8200 },
+      { name: "Taipei", lat: 25.0330, lon: 121.5654, intensity: 6100 },
+      { name: "Osaka", lat: 34.6937, lon: 135.5023, intensity: 7700 },
+      { name: "Lagos", lat: 6.5244, lon: 3.3792, intensity: 7200 },
+      { name: "Johannesburg", lat: -26.2041, lon: 28.0473, intensity: 5400 },
+      { name: "Cape Town", lat: -33.9249, lon: 18.4241, intensity: 3600 },
+      { name: "Lima", lat: -12.0464, lon: -77.0428, intensity: 6200 },
+      { name: "Santiago", lat: -33.4489, lon: -70.6693, intensity: 5600 },
+      { name: "Bogotá", lat: 4.7110, lon: -74.0721, intensity: 6800 },
+      { name: "Rio de Janeiro", lat: -22.9068, lon: -43.1729, intensity: 7600 },
+      { name: "Montreal", lat: 45.5019, lon: -73.5674, intensity: 4200 },
+      { name: "Calgary", lat: 51.0447, lon: -114.0719, intensity: 2500 },
+      { name: "Honolulu", lat: 21.3099, lon: -157.8581, intensity: 2300 },
+      { name: "Anchorage", lat: 61.2176, lon: -149.8997, intensity: 1600 }
+    ];
+
+    // this is the sample dark sky anchor list
+    const DARK_SKY_ANCHORS = [
+      { name: "Death Valley National Park", lat: 36.5323, lon: -116.9325, intensity: -650 },
+      { name: "Joshua Tree National Park", lat: 33.8734, lon: -115.9010, intensity: -430 },
+      { name: "Anza-Borrego Desert", lat: 33.2559, lon: -116.3750, intensity: -470 },
+      { name: "Cherry Springs State Park", lat: 41.6637, lon: -77.8234, intensity: -600 },
+      { name: "Big Bend National Park", lat: 29.1275, lon: -103.2425, intensity: -700 },
+      { name: "Natural Bridges National Monument", lat: 37.6045, lon: -110.0132, intensity: -690 },
+      { name: "Great Basin National Park", lat: 38.9833, lon: -114.3000, intensity: -720 },
+      { name: "Mauna Kea", lat: 19.8206, lon: -155.4681, intensity: -720 },
+      { name: "Flagstaff Area", lat: 35.1983, lon: -111.6513, intensity: -180 },
+      { name: "Atacama Desert", lat: -23.8634, lon: -69.1328, intensity: -760 },
+      { name: "NamibRand", lat: -25.0520, lon: 16.0990, intensity: -760 },
+      { name: "Aoraki Mackenzie", lat: -44.0059, lon: 170.4771, intensity: -740 }
+    ];
+
+    // this keeps object visibility info
+    const OBJECTS = [
+      { name: "Moon", type: "Solar system", minBortle: 9, season: "All year", gear: "Naked-eye / binocular / telescope", note: "Excellent even under bright city skies." },
+      { name: "Venus", type: "Planet", minBortle: 9, season: "Varies", gear: "Naked-eye / telescope", note: "Look for its phase through a telescope." },
+      { name: "Jupiter", type: "Planet", minBortle: 9, season: "Varies", gear: "Binoculars / telescope", note: "Great city target; moons are visible in small telescopes." },
+      { name: "Saturn", type: "Planet", minBortle: 9, season: "Varies", gear: "Telescope", note: "Rings show best with steady air." },
+      { name: "Mars", type: "Planet", minBortle: 9, season: "Best near opposition", gear: "Telescope", note: "Small outside opposition." },
+      { name: "Orion Nebula", type: "Nebula", minBortle: 8, season: "Winter", gear: "Binoculars / telescope", note: "Can show in city skies, much better from darker sites." },
+      { name: "Pleiades", type: "Open cluster", minBortle: 9, season: "Autumn / winter", gear: "Naked-eye / binoculars", note: "One of the best bright cluster targets." },
+      { name: "Andromeda Galaxy", type: "Galaxy", minBortle: 6, season: "Autumn", gear: "Binoculars", note: "Core is possible in suburban skies; dark sky reveals its extent." },
+      { name: "Beehive Cluster", type: "Open cluster", minBortle: 7, season: "Spring", gear: "Binoculars", note: "Good binocular target away from inner-city glare." },
+      { name: "Double Cluster", type: "Open cluster", minBortle: 7, season: "Autumn / winter", gear: "Binoculars / telescope", note: "Low power views are best." },
+      { name: "Hercules Cluster M13", type: "Globular cluster", minBortle: 6, season: "Summer", gear: "Telescope", note: "Resolves better with aperture and darker skies." },
+      { name: "Ring Nebula M57", type: "Planetary nebula", minBortle: 6, season: "Summer", gear: "Telescope", note: "Small but bright; filters can help." },
+      { name: "Lagoon Nebula M8", type: "Nebula", minBortle: 4, season: "Summer", gear: "Binoculars / telescope", note: "Much better under rural southern skies." },
+      { name: "Eagle Nebula M16", type: "Nebula", minBortle: 4, season: "Summer", gear: "Telescope", note: "Dark skies and filters help a lot." },
+      { name: "Dumbbell Nebula M27", type: "Planetary nebula", minBortle: 5, season: "Summer", gear: "Telescope", note: "A UHC/OIII filter can improve contrast." },
+      { name: "Whirlpool Galaxy M51", type: "Galaxy", minBortle: 3, season: "Spring", gear: "Telescope", note: "Needs dark, transparent sky for structure." },
+      { name: "Triangulum Galaxy M33", type: "Galaxy", minBortle: 3, season: "Autumn", gear: "Binoculars / telescope", note: "Large and diffuse; hurt badly by light pollution." },
+      { name: "North America Nebula", type: "Nebula", minBortle: 3, season: "Summer", gear: "Binoculars / telescope", note: "Best with dark sky and nebula filter." },
+      { name: "Milky Way Core", type: "Milky Way", minBortle: 4, season: "Summer", gear: "Naked-eye", note: "Needs low southern horizon and dark skies." },
+      { name: "Zodiacal Light", type: "Sky glow", minBortle: 2, season: "Spring / autumn", gear: "Naked-eye", note: "Requires excellent transparency and very dark sky." }
+    ];
+
+    // this explains glossary words
+    const GLOSSARY = [
+      ["Bortle class", "A 1-9 visual scale for night-sky darkness. 1 is very dark; 9 is inner-city."],
+      ["Sky brightness", "Measured in mag/arcsec². Higher numbers mean darker skies."],
+      ["Limiting magnitude", "The faintest star you can see with the naked eye under the conditions."],
+      ["Light dome", "The glow over a city caused by artificial light scattering in the atmosphere."],
+      ["Transparency", "How clear the air is for faint deep-sky contrast."],
+      ["Seeing", "How steady the air is for sharp planetary and high-power views."],
+      ["Astronomical twilight", "When the Sun is far enough below the horizon for the sky to become fully dark."],
+      ["UHC / OIII filter", "Filters that boost contrast for many emission and planetary nebulae."],
+      ["Zodiacal light", "A faint triangular glow from sunlight scattered by dust in the solar system."],
+      ["Dark adaptation", "Your eyes becoming more sensitive after avoiding bright light for 20-30 minutes."]
+    ];
+
+    // this points to real world map + nasa night light sources
+    const WORLD_LAND_TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json";
+    const NASA_NIGHT_LIGHTS_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/City_Lights_2012_-_Flat_map.jpg/1280px-City_Lights_2012_-_Flat_map.jpg";
+
+    const storageKeys = {
+      favorites: "stellasimLightPollutionFavoritesNoTiles",
+      lastLocation: "stellasimLightPollutionLastLocationNoTiles",
+      compare: "stellasimLightPollutionCompareNoTiles"
+    };
+
+    // this stores the map state
+    const state = {
+      selected: { name: "Monterey Park, CA", lat: 34.0625, lon: -118.1228, notes: "" },
+      compare: loadJSON(storageKeys.compare, null),
+      favorites: loadJSON(storageKeys.favorites, []),
+      darkerSites: [],
+      canvas: null,
+      ctx: null,
+      width: 0,
+      height: 0,
+      centerLat: 34.05,
+      centerLon: -118.24,
+      zoom: 0.55,
+      drag: null,
+      showLight: true,
+      showSatellite: true,
+      showRings: true,
+      showSites: true,
+      showSaved: true,
+      needsDraw: true,
+      worldLand: null,
+      worldDataReady: false,
+      nasaLightsImage: null,
+      nasaLightsReady: false,
+      nasaSampleCanvas: null,
+      nasaSampleData: null
+    };
+
+    const els = {};
+
+    // this starts the app
+    document.addEventListener("DOMContentLoaded", () => {
+      cacheElements();
+      populatePlaceList();
+      createBortleScale();
+      createGlossary();
+      loadLastLocation();
+      bindEvents();
+      initCustomMap();
+      loadWorldMapData();
+      loadNasaNightLights();
+      updateAll();
+      initStarfield();
+    });
+
+    function cacheElements() {
+      ["searchInput","latInput","lonInput","spotNameInput","notesInput","searchBtn","geoBtn","applyCoordsBtn","resetBtn","saveSpotBtn","saveSpotHeroBtn","compareBtn","exportBtn","clearFavoritesBtn","findNearbyBtn","copyReportBtn","toggleLightBtn","toggleSatelliteBtn","dataBadge","toggleRingsBtn","toggleSitesBtn","toggleSavedBtn","controlStatus","summaryLocation","summaryBortle","summaryBrightness","summaryRec","coordBadge","bortleNumber","bortleLabel","bortleDesc","bortleScale","brightnessText","limitingText","milkyWayText","zodiacalText","andromedaText","deepSkyText","cloudText","humidityText","windText","tempText","dewText","moonText","scoreFill","scoreText","recommendationText","equipmentText","favoritesList","darkSiteList","compareGrid","objectGrid","glossaryGrid","mapWrap","skyQualityCanvas","placeList"].forEach((id) => {
+        els[id] = document.getElementById(id);
+      });
+    }
+
+    function bindEvents() {
+      els.searchBtn.addEventListener("click", searchPlace);
+      els.searchInput.addEventListener("keydown", (event) => { if (event.key === "Enter") searchPlace(); });
+      els.geoBtn.addEventListener("click", useGeolocation);
+      els.applyCoordsBtn.addEventListener("click", applyCoordinates);
+      els.resetBtn.addEventListener("click", resetView);
+      els.saveSpotBtn.addEventListener("click", saveFavoriteSpot);
+      els.saveSpotHeroBtn.addEventListener("click", saveFavoriteSpot);
+      els.compareBtn.addEventListener("click", setCompareLocation);
+      els.exportBtn.addEventListener("click", copyReport);
+      els.copyReportBtn.addEventListener("click", copyReport);
+      els.clearFavoritesBtn.addEventListener("click", clearFavorites);
+      els.findNearbyBtn.addEventListener("click", () => { findNearbyDarkerSites(); updateDarkSiteList(); drawMap(); });
+      els.toggleLightBtn.addEventListener("click", () => toggleLayer("showLight", els.toggleLightBtn));
+      els.toggleSatelliteBtn.addEventListener("click", () => toggleLayer("showSatellite", els.toggleSatelliteBtn));
+      els.toggleRingsBtn.addEventListener("click", () => toggleLayer("showRings", els.toggleRingsBtn));
+      els.toggleSitesBtn.addEventListener("click", () => toggleLayer("showSites", els.toggleSitesBtn));
+      els.toggleSavedBtn.addEventListener("click", () => toggleLayer("showSaved", els.toggleSavedBtn));
+      window.addEventListener("resize", resizeMapCanvas);
+    }
+
+    function populatePlaceList() {
+      const places = [...CITY_DATA, ...DARK_SKY_ANCHORS].sort((a, b) => a.name.localeCompare(b.name));
+      els.placeList.innerHTML = places.map((place) => `<option value="${escapeHTML(place.name)}"></option>`).join("");
+    }
+
+    function initCustomMap() {
+      state.canvas = els.skyQualityCanvas;
+      state.ctx = state.canvas.getContext("2d");
+      resizeMapCanvas();
+
+      state.canvas.addEventListener("mousedown", startDrag);
+      state.canvas.addEventListener("mousemove", moveDrag);
+      state.canvas.addEventListener("mouseup", endDrag);
+      state.canvas.addEventListener("mouseleave", endDrag);
+      state.canvas.addEventListener("click", clickMap);
+      state.canvas.addEventListener("wheel", zoomMap, { passive: false });
+
+      state.canvas.addEventListener("touchstart", startTouch, { passive: false });
+      state.canvas.addEventListener("touchmove", moveTouch, { passive: false });
+      state.canvas.addEventListener("touchend", endDrag);
+    }
+
+    function resizeMapCanvas() {
+      const rect = els.mapWrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      state.width = Math.max(320, rect.width);
+      state.height = Math.max(360, rect.height);
+      state.canvas.width = Math.floor(state.width * dpr);
+      state.canvas.height = Math.floor(state.height * dpr);
+      state.canvas.style.width = state.width + "px";
+      state.canvas.style.height = state.height + "px";
+      state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawMap();
+    }
+
+    // this draws the custom sky quality map
+    function drawMap() {
+      const ctx = state.ctx;
+      const w = state.width;
+      const h = state.height;
+      ctx.clearRect(0, 0, w, h);
+
+      drawMapBackground(ctx, w, h);
+      if (state.showSatellite) drawNasaNightLights(ctx, w, h);
+      drawGrid(ctx, w, h);
+      drawWorldMap(ctx, w, h);
+      if (state.showLight) drawLightOverlay(ctx, w, h);
+      if (state.showRings) drawRadiusRings(ctx);
+      drawCities(ctx);
+      if (state.showSites) drawDarkAnchors(ctx);
+      if (state.showSaved) drawSavedSpots(ctx);
+      drawDarkerSuggestions(ctx);
+      drawSelectedMarker(ctx);
+      if (state.compare) drawCompareMarker(ctx);
+    }
+
+    function drawMapBackground(ctx, w, h) {
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "#020816");
+      grad.addColorStop(0.55, "#03112c");
+      grad.addColorStop(1, "#000000");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      const glow = ctx.createRadialGradient(w * 0.52, h * 0.45, 0, w * 0.52, h * 0.45, Math.max(w, h) * 0.58);
+      glow.addColorStop(0, "rgba(47,124,255,0.08)");
+      glow.addColorStop(1, "rgba(47,124,255,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    function drawGrid(ctx, w, h) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(47,124,255,0.08)";
+      ctx.lineWidth = 1;
+      for (let lon = -180; lon <= 180; lon += 5) {
+        const a = project(state.centerLat - 90, lon);
+        const b = project(state.centerLat + 90, lon);
+        if ((a.x < -100 && b.x < -100) || (a.x > w + 100 && b.x > w + 100)) continue;
+        ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
+      }
+      for (let lat = -80; lat <= 80; lat += 5) {
+        const p = project(lat, state.centerLon);
+        if (p.y < -100 || p.y > h + 100) continue;
+        ctx.beginPath(); ctx.moveTo(0, p.y); ctx.lineTo(w, p.y); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // this loads country outlines for the full world map
+    async function loadWorldMapData() {
+      if (!window.topojson) {
+        state.worldDataReady = false;
+        if (els.dataBadge) els.dataBadge.textContent = "fallback world map";
+        drawMap();
+        return;
+      }
+
+      try {
+        const response = await fetch(WORLD_LAND_TOPOJSON_URL, { cache: "force-cache" });
+        if (!response.ok) throw new Error("world map failed");
+        const topology = await response.json();
+        state.worldLand = topojson.feature(topology, topology.objects.land);
+        state.worldDataReady = true;
+        if (els.dataBadge) els.dataBadge.textContent = "world outlines loaded";
+        drawMap();
+      } catch (error) {
+        state.worldDataReady = false;
+        if (els.dataBadge) els.dataBadge.textContent = "fallback world map";
+        drawMap();
+      }
+    }
+
+    // this loads the nasa viirs earth at night layer
+    function loadNasaNightLights() {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.referrerPolicy = "no-referrer";
+
+      img.onload = () => {
+        state.nasaLightsImage = img;
+        state.nasaLightsReady = true;
+        buildNasaSampleGrid(img);
+        if (els.dataBadge) els.dataBadge.textContent = state.worldDataReady ? "viirs + world outlines" : "viirs loaded";
+        drawMap();
+        updateAll();
+      };
+
+      img.onerror = () => {
+        state.nasaLightsReady = false;
+        if (els.dataBadge) els.dataBadge.textContent = state.worldDataReady ? "world outlines loaded" : "fallback model";
+        drawMap();
+      };
+
+      img.src = NASA_NIGHT_LIGHTS_IMAGE_URL;
+    }
+
+    // this makes the nasa image usable for estimates
+    function buildNasaSampleGrid(img) {
+      try {
+        const sample = document.createElement("canvas");
+        sample.width = 720;
+        sample.height = 360;
+        const sctx = sample.getContext("2d", { willReadFrequently: true });
+        sctx.drawImage(img, 0, 0, sample.width, sample.height);
+        state.nasaSampleCanvas = sample;
+        state.nasaSampleData = sctx.getImageData(0, 0, sample.width, sample.height);
+      } catch (error) {
+        state.nasaSampleCanvas = null;
+        state.nasaSampleData = null;
+      }
+    }
+
+    // this draws the viirs flat map into the current view
+    function drawNasaNightLights(ctx, w, h) {
+      if (!state.nasaLightsReady || !state.nasaLightsImage) return;
+
+      const img = state.nasaLightsImage;
+      const scale = mapScale();
+      const sx = scale * Math.cos(toRad(state.centerLat)) * (360 / img.width);
+      const sy = scale * (180 / img.height);
+
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.globalCompositeOperation = "screen";
+      ctx.imageSmoothingEnabled = true;
+
+      [-360, 0, 360].forEach((shift) => {
+        const leftLon = -180 + shift;
+        const tx = w / 2 + (leftLon - state.centerLon) * scale * Math.cos(toRad(state.centerLat));
+        const ty = h / 2 - (90 - state.centerLat) * scale;
+        ctx.setTransform(sx, 0, 0, sy, tx, ty);
+        ctx.drawImage(img, 0, 0);
+      });
+
+      ctx.restore();
+    }
+
+    // this draws country outlines if the world file loads
+    function drawWorldMap(ctx, w, h) {
+      if (!state.worldLand) {
+        drawFallbackWorldMap(ctx, w, h);
+        return;
+      }
+
+      ctx.save();
+      ctx.fillStyle = "rgba(76,120,103,0.13)";
+      ctx.strokeStyle = "rgba(170,215,255,0.16)";
+      ctx.lineWidth = state.zoom > 3 ? 1.2 : 0.8;
+
+      const geometries = state.worldLand.features || [];
+      geometries.forEach((feature) => drawGeoGeometry(ctx, feature.geometry));
+      ctx.restore();
+    }
+
+    // this handles polygon and multipolygon world shapes
+    function drawGeoGeometry(ctx, geometry) {
+      if (!geometry) return;
+      if (geometry.type === "Polygon") drawPolygonSet(ctx, geometry.coordinates);
+      if (geometry.type === "MultiPolygon") geometry.coordinates.forEach((polygon) => drawPolygonSet(ctx, polygon));
+    }
+
+    // this draws one land polygon chunk
+    function drawPolygonSet(ctx, rings) {
+      rings.forEach((ring) => {
+        if (!ring.length) return;
+        ctx.beginPath();
+        ring.forEach(([lon, lat], index) => {
+          const p = project(lat, lon);
+          if (index === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+
+    // this is the backup world map if cdn outlines fail
+    function drawFallbackWorldMap(ctx, w, h) {
+      const hints = [
+        { name: "north america", points: [[72,-168],[60,-140],[52,-122],[32,-117],[18,-96],[25,-82],[44,-66],[59,-74],[71,-100]] },
+        { name: "south america", points: [[13,-81],[4,-50],[-18,-39],[-35,-53],[-55,-69],[-22,-79]] },
+        { name: "greenland", points: [[83,-73],[75,-20],[60,-42],[62,-72]] },
+        { name: "europe", points: [[71,-10],[62,38],[45,45],[36,12],[43,-10],[56,-12]] },
+        { name: "africa", points: [[36,-17],[31,35],[10,51],[-34,19],[-35,-18],[2,-17]] },
+        { name: "asia", points: [[72,38],[66,170],[18,145],[2,103],[9,72],[31,43],[45,55]] },
+        { name: "australia", points: [[-11,113],[-21,153],[-39,146],[-35,114]] },
+        { name: "antarctica", points: [[-63,-180],[-72,-90],[-66,0],[-74,90],[-63,180],[-85,180],[-85,-180]] }
+      ];
+
+      ctx.save();
+      hints.forEach((shape) => {
+        ctx.beginPath();
+        shape.points.forEach(([lat, lon], index) => {
+          const p = project(lat, lon);
+          if (index === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "rgba(85,122,106,0.14)";
+        ctx.strokeStyle = "rgba(47,124,255,0.12)";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    function drawLightOverlay(ctx, w, h) {
+      const step = Math.max(12, Math.floor(Math.min(w, h) / 48));
+      const image = ctx.createImageData(Math.ceil(w / step), Math.ceil(h / step));
+      let index = 0;
+      for (let y = 0; y < image.height; y++) {
+        for (let x = 0; x < image.width; x++) {
+          const px = x * step + step / 2;
+          const py = y * step + step / 2;
+          const geo = unproject(px, py);
+          const contribution = estimateCityLightContribution(geo.lat, geo.lon);
+          const normalized = clamp(contribution / 8.5, 0, 1);
+          const color = heatColor(normalized);
+          image.data[index++] = color.r;
+          image.data[index++] = color.g;
+          image.data[index++] = color.b;
+          image.data[index++] = Math.floor(28 + normalized * 118);
+        }
+      }
+
+      const temp = document.createElement("canvas");
+      temp.width = image.width;
+      temp.height = image.height;
+      const tctx = temp.getContext("2d");
+      tctx.putImageData(image, 0, 0);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalCompositeOperation = "screen";
+      ctx.drawImage(temp, 0, 0, w, h);
+      ctx.restore();
+    }
+
+    function drawCities(ctx) {
+      ctx.save();
+      CITY_DATA.forEach((city) => {
+        const p = project(city.lat, city.lon);
+        if (!insideMap(p.x, p.y, 80)) return;
+        const r = clamp(Math.sqrt(city.intensity) / 19 * state.zoom, 3, 12);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,190,110,0.09)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,210,150,0.75)";
+        ctx.fill();
+        if (state.zoom > 1.25 && city.intensity > 1800) drawLabel(ctx, city.name, p.x + r + 5, p.y - r - 2, "rgba(241,247,255,0.78)");
+      });
+      ctx.restore();
+    }
+
+    function drawDarkAnchors(ctx) {
+      ctx.save();
+      DARK_SKY_ANCHORS.forEach((site) => {
+        const p = project(site.lat, site.lon);
+        if (!insideMap(p.x, p.y, 80)) return;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(47,124,255,0.16)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(80,150,255,0.72)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(80,150,255,0.96)";
+        ctx.fill();
+        if (state.zoom > 1.05) drawLabel(ctx, site.name, p.x + 10, p.y + 4, "rgba(80,150,255,0.82)");
+      });
+      ctx.restore();
+    }
+
+    function drawSavedSpots(ctx) {
+      ctx.save();
+      state.favorites.forEach((spot) => {
+        const p = project(spot.lat, spot.lon);
+        if (!insideMap(p.x, p.y, 80)) return;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - 9); ctx.lineTo(p.x + 8, p.y + 6); ctx.lineTo(p.x - 8, p.y + 6); ctx.closePath();
+        ctx.fillStyle = "rgba(80,150,255,0.82)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.7)";
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    function drawDarkerSuggestions(ctx) {
+      ctx.save();
+      state.darkerSites.forEach((site, i) => {
+        const p = project(site.lat, site.lon);
+        if (!insideMap(p.x, p.y, 80)) return;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? "rgba(157,255,220,0.9)" : "rgba(157,255,220,0.55)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(210,255,238,0.9)";
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    function drawRadiusRings(ctx) {
+      const p = project(state.selected.lat, state.selected.lon);
+      const rings = [10, 25, 50, 100];
+      ctx.save();
+      rings.forEach((km) => {
+        const degLon = km / (111 * Math.cos(toRad(state.selected.lat)) || 1);
+        const edge = project(state.selected.lat, state.selected.lon + degLon);
+        const radius = Math.abs(edge.x - p.x);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(80,150,255,0.13)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        if (radius > 22 && radius < Math.max(state.width, state.height)) drawLabel(ctx, `${km} km`, p.x + radius + 4, p.y - 4, "rgba(199,211,234,0.62)");
+      });
+      ctx.restore();
+    }
+
+    function drawSelectedMarker(ctx) {
+      const p = project(state.selected.lat, state.selected.lon);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(47,124,255,0.16)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(47,124,255,0.9)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.98)";
+      ctx.fill();
+      drawLabel(ctx, state.selected.name, p.x + 17, p.y - 10, "rgba(255,255,255,0.96)");
+      ctx.restore();
+    }
+
+    function drawCompareMarker(ctx) {
+      const p = project(state.compare.lat, state.compare.lon);
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,220,150,0.95)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x - 9, p.y - 9); ctx.lineTo(p.x + 9, p.y + 9);
+      ctx.moveTo(p.x + 9, p.y - 9); ctx.lineTo(p.x - 9, p.y + 9);
+      ctx.stroke();
+      drawLabel(ctx, "compare", p.x + 12, p.y + 4, "rgba(255,220,150,0.9)");
+      ctx.restore();
+    }
+
+    function drawLabel(ctx, text, x, y, color) {
+      ctx.save();
+      ctx.font = "12px Inter, system-ui, sans-serif";
+      const width = ctx.measureText(text).width + 10;
+      ctx.fillStyle = "rgba(4,10,18,0.56)";
+      roundRect(ctx, x - 5, y - 14, width, 20, 8);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // this keeps the whole world visible at low zoom
+    function mapScale() {
+      return Math.min(state.width / 380, state.height / 190) * 2.25 * state.zoom;
+    }
+
+    function project(lat, lon) {
+      const scale = mapScale();
+      const x = state.width / 2 + (lon - state.centerLon) * scale * Math.cos(toRad(state.centerLat));
+      const y = state.height / 2 - (lat - state.centerLat) * scale;
+      return { x, y };
+    }
+
+    function unproject(x, y) {
+      const scale = mapScale();
+      const lon = state.centerLon + (x - state.width / 2) / (scale * Math.cos(toRad(state.centerLat)) || 1);
+      const lat = state.centerLat - (y - state.height / 2) / scale;
+      return { lat: clamp(lat, -85, 85), lon: wrapLon(lon) };
+    }
+
+    function startDrag(event) {
+      state.drag = { x: event.clientX, y: event.clientY, moved: false };
+      els.mapWrap.classList.add("dragging");
+    }
+
+    function moveDrag(event) {
+      if (!state.drag) return;
+      const dx = event.clientX - state.drag.x;
+      const dy = event.clientY - state.drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) state.drag.moved = true;
+      const scale = 6.2 * state.zoom;
+      state.centerLon -= dx / (scale * Math.cos(toRad(state.centerLat)) || 1);
+      state.centerLat += dy / scale;
+      state.centerLat = clamp(state.centerLat, -75, 75);
+      state.centerLon = wrapLon(state.centerLon);
+      state.drag.x = event.clientX;
+      state.drag.y = event.clientY;
+      drawMap();
+    }
+
+    function endDrag() {
+      els.mapWrap.classList.remove("dragging");
+      setTimeout(() => { state.drag = null; }, 0);
+    }
+
+    function clickMap(event) {
+      if (state.drag && state.drag.moved) return;
+      const rect = state.canvas.getBoundingClientRect();
+      const geo = unproject(event.clientX - rect.left, event.clientY - rect.top);
+      selectLocation({ name: `Custom spot ${geo.lat.toFixed(3)}, ${geo.lon.toFixed(3)}`, lat: geo.lat, lon: geo.lon, notes: els.notesInput.value });
+    }
+
+    function zoomMap(event) {
+      event.preventDefault();
+      const oldZoom = state.zoom;
+      state.zoom = clamp(state.zoom * (event.deltaY < 0 ? 1.16 : 0.86), 0.45, 5.5);
+      const rect = state.canvas.getBoundingClientRect();
+      const before = unproject(event.clientX - rect.left, event.clientY - rect.top);
+      state.zoom = oldZoom;
+      const after = unproject(event.clientX - rect.left, event.clientY - rect.top);
+      state.zoom = clamp(oldZoom * (event.deltaY < 0 ? 1.16 : 0.86), 0.45, 5.5);
+      state.centerLat += before.lat - after.lat;
+      state.centerLon += before.lon - after.lon;
+      drawMap();
+    }
+
+    function startTouch(event) {
+      event.preventDefault();
+      const t = event.touches[0];
+      if (!t) return;
+      startDrag({ clientX: t.clientX, clientY: t.clientY });
+    }
+
+    function moveTouch(event) {
+      event.preventDefault();
+      const t = event.touches[0];
+      if (!t) return;
+      moveDrag({ clientX: t.clientX, clientY: t.clientY });
+    }
+
+    function searchPlace() {
+      const query = els.searchInput.value.trim().toLowerCase();
+      const places = [...CITY_DATA, ...DARK_SKY_ANCHORS];
+      const exact = places.find((place) => place.name.toLowerCase() === query);
+      const partial = places.find((place) => place.name.toLowerCase().includes(query) || query.includes(place.name.toLowerCase()));
+      const match = exact || partial;
+      if (!match) {
+        els.controlStatus.textContent = "That place is not in the built-in list yet. Try coordinates, geolocation, or a major city name.";
+        return;
+      }
+      selectLocation({ name: match.name, lat: match.lat, lon: match.lon, notes: els.notesInput.value });
+      state.centerLat = match.lat;
+      state.centerLon = match.lon;
+      state.zoom = Math.max(state.zoom, 1.15);
+    }
+
+    function useGeolocation() {
+      if (!navigator.geolocation) {
+        els.controlStatus.textContent = "Geolocation is not available in this browser.";
+        return;
+      }
+      els.controlStatus.textContent = "Asking for your location...";
+      navigator.geolocation.getCurrentPosition((position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        selectLocation({ name: "My Location", lat, lon, notes: els.notesInput.value });
+        state.centerLat = lat;
+        state.centerLon = lon;
+        drawMap();
+      }, () => {
+        els.controlStatus.textContent = "Location access was blocked or unavailable.";
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
+    function applyCoordinates() {
+      const lat = Number(els.latInput.value);
+      const lon = Number(els.lonInput.value);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        els.controlStatus.textContent = "Enter valid latitude and longitude first.";
+        return;
+      }
+      selectLocation({ name: els.spotNameInput.value || "Custom coordinates", lat, lon, notes: els.notesInput.value });
+      state.centerLat = lat;
+      state.centerLon = lon;
+      drawMap();
+    }
+
+    function resetView() {
+      state.centerLat = state.selected.lat;
+      state.centerLon = state.selected.lon;
+      state.zoom = 0.55;
+      drawMap();
+      els.controlStatus.textContent = "Map view reset around the selected location.";
+    }
+
+    function selectLocation(location) {
+      state.selected = {
+        name: location.name || "Selected location",
+        lat: Number(location.lat),
+        lon: Number(location.lon),
+        notes: location.notes || ""
+      };
+      els.searchInput.value = state.selected.name;
+      els.spotNameInput.value = state.selected.name;
+      els.latInput.value = state.selected.lat.toFixed(4);
+      els.lonInput.value = state.selected.lon.toFixed(4);
+      saveJSON(storageKeys.lastLocation, state.selected);
+      findNearbyDarkerSites();
+      updateAll();
+      drawMap();
+      els.controlStatus.textContent = `Selected ${state.selected.name}.`;
+    }
+
+    function updateAll() {
+      const analysis = analyzeLocation(state.selected.lat, state.selected.lon);
+      updateSummary(analysis);
+      updateBortlePanel(analysis);
+      updateViewingConditions(analysis);
+      updateRecommendation(analysis);
+      updateVisibleObjects(analysis.bortle);
+      updateFavoritesList();
+      updateDarkSiteList();
+      updateCompare();
+      els.coordBadge.textContent = `${state.selected.lat.toFixed(4)}, ${state.selected.lon.toFixed(4)}`;
+    }
+
+    function analyzeLocation(lat, lon) {
+      const contribution = estimateCityLightContribution(lat, lon);
+      const bortle = estimateBortle(lat, lon);
+      const brightness = estimateSkyBrightness(bortle, contribution);
+      const limiting = estimateLimitingMagnitude(bortle);
+      const moonIllumination = estimateMoonIllumination();
+      const clouds = estimateCloudCover(lat, lon);
+      const deepSkyScore = estimateDeepSkyScore(bortle, moonIllumination, clouds);
+      return { contribution, bortle, brightness, limiting, moonIllumination, clouds, deepSkyScore };
+    }
+
+    // this estimates artificial sky glow from viirs + nearby city distance
+    function estimateCityLightContribution(lat, lon) {
+      const cleanLat = clamp(Number(lat), -90, 90);
+      const cleanLon = wrapLon(Number(lon));
+      let modelContribution = 0;
+      let nearestCityKm = Infinity;
+
+      CITY_DATA.forEach((city) => {
+        const d = distanceKm(cleanLat, cleanLon, city.lat, city.lon);
+        nearestCityKm = Math.min(nearestCityKm, d);
+
+        // this stops faraway cities from making remote places too bright
+        if (d > 850) return;
+
+        const cityStrength = city.intensity / 9800;
+        const localSpread = city.intensity > 8500 ? 145 : city.intensity > 5000 ? 120 : 92;
+        const skyDomeSpread = city.intensity > 8500 ? 330 : city.intensity > 5000 ? 270 : 210;
+        const localGlow = cityStrength * 7.6 * Math.exp(-d / localSpread);
+        const skyDome = cityStrength * 1.75 * Math.exp(-d / skyDomeSpread);
+        modelContribution += localGlow + skyDome;
+      });
+
+      DARK_SKY_ANCHORS.forEach((site) => {
+        const d = distanceKm(cleanLat, cleanLon, site.lat, site.lon);
+
+        // this makes dark-sky anchors local only, not a weird global correction
+        if (d > 260) return;
+
+        const darkPull = Math.abs(site.intensity) / 760;
+        modelContribution -= darkPull * 0.58 * Math.exp(-d / 95);
+      });
+
+      const viirsContribution = sampleNasaLightContribution(cleanLat, cleanLon);
+      let combined = viirsContribution === null
+        ? modelContribution
+        : modelContribution * 0.68 + viirsContribution * 0.32;
+
+      // this keeps antarctica and very remote polar areas dark unless there is a real nearby light source
+      if (isRemotePolarSky(cleanLat, nearestCityKm)) {
+        combined = Math.min(combined, 0.09);
+      }
+
+      return Math.max(0, combined);
+    }
+
+    // this samples the nasa night lights image when it is available
+    function sampleNasaLightContribution(lat, lon) {
+      if (!state.nasaSampleData || !state.nasaSampleCanvas) return null;
+
+      const canvas = state.nasaSampleCanvas;
+      const image = state.nasaSampleData;
+      const x = Math.floor(((wrapLon(lon) + 180) / 360) * (canvas.width - 1));
+      const y = Math.floor(((90 - clamp(lat, -85, 85)) / 180) * (canvas.height - 1));
+      let total = 0;
+      let samples = 0;
+
+      // this uses a tiny area so one bright pixel does not break the estimate
+      for (let oy = -2; oy <= 2; oy++) {
+        for (let ox = -2; ox <= 2; ox++) {
+          const px = clamp(x + ox, 0, canvas.width - 1);
+          const py = clamp(y + oy, 0, canvas.height - 1);
+          const idx = (py * canvas.width + px) * 4;
+          const r = image.data[idx];
+          const g = image.data[idx + 1];
+          const b = image.data[idx + 2];
+          const luma = (r * 0.62 + g * 0.28 + b * 0.1) / 255;
+          const warmth = clamp((r - b + 28) / 125, 0, 1);
+          const artificialSignal = Math.max(0, luma - 0.105) * (0.42 + warmth * 0.58);
+          total += artificialSignal;
+          samples++;
+        }
+      }
+
+      const raw = total / Math.max(1, samples);
+      const boosted = Math.pow(clamp(raw * 3.4, 0, 1), 0.82);
+
+      // this reduces false light from ice/snow on polar basemaps
+      const polarFactor = Math.abs(lat) > 60 ? 0.18 : Math.abs(lat) > 50 ? 0.55 : 1;
+      return boosted * 8.4 * polarFactor;
+    }
+
+    // this detects places that should be extremely dark in the fallback model
+    function isRemotePolarSky(lat, nearestCityKm) {
+      return Math.abs(lat) >= 62 && nearestCityKm > 450;
+    }
+
+    function estimateBortle(lat, lon) {
+      const c = estimateCityLightContribution(lat, lon);
+      if (c > 7.8) return 9;
+      if (c > 5.5) return 8;
+      if (c > 3.75) return 7;
+      if (c > 2.35) return 6;
+      if (c > 1.28) return 5;
+      if (c > 0.66) return 4;
+      if (c > 0.30) return 3;
+      if (c > 0.10) return 2;
+      return 1;
+    }
+
+    function estimateSkyBrightness(bortle, contribution = 0) {
+      const ranges = {
+        1: [21.75, 21.95], 2: [21.6, 21.75], 3: [21.3, 21.6], 4: [20.4, 21.3], 5: [19.1, 20.4],
+        6: [18.0, 19.1], 7: [17.0, 18.0], 8: [16.0, 17.0], 9: [15.4, 16.0]
+      };
+      const [low, high] = ranges[bortle];
+      const t = clamp((contribution % 1), 0, 1);
+      return high - (high - low) * t;
+    }
+
+    function estimateLimitingMagnitude(bortle) {
+      const values = { 1: 7.8, 2: 7.3, 3: 6.8, 4: 6.3, 5: 5.8, 6: 5.3, 7: 4.8, 8: 4.3, 9: 3.8 };
+      return values[bortle] || 4;
+    }
+
+    function estimateMilkyWayVisibility(bortle, moonIllumination = 0.3) {
+      if (moonIllumination > 0.72 && bortle > 2) return "Washed out by moonlight";
+      if (bortle <= 2) return "Detailed and bright";
+      if (bortle === 3) return "Clear structure";
+      if (bortle === 4) return "Visible, weaker";
+      if (bortle === 5) return "Faint / patchy";
+      return "Not visible";
+    }
+
+    function estimateDeepSkyScore(bortle, moonIllumination, clouds) {
+      const darkness = (10 - bortle) * 10;
+      const moonPenalty = moonIllumination * 24;
+      const cloudPenalty = clouds * 0.48;
+      return clamp(Math.round(darkness + 18 - moonPenalty - cloudPenalty), 0, 100);
+    }
+
+    function estimateCloudCover(lat, lon) {
+      const seasonal = Math.abs(Math.sin((Date.now() / 86400000 + lat + lon) * 0.045));
+      return Math.round(12 + seasonal * 42);
+    }
+
+    function estimateMoonIllumination() {
+      const lunarCycle = 29.53058867;
+      const knownNewMoon = new Date("2024-01-11T11:57:00Z").getTime();
+      const days = (Date.now() - knownNewMoon) / 86400000;
+      const phase = ((days % lunarCycle) + lunarCycle) % lunarCycle / lunarCycle;
+      return 0.5 * (1 - Math.cos(2 * Math.PI * phase));
+    }
+
+    function findNearbyDarkerSites() {
+      const origin = state.selected;
+      const candidates = [];
+      const bearings = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+      const distances = [20, 35, 50, 75, 100, 140, 190];
+      const currentBortle = estimateBortle(origin.lat, origin.lon);
+
+      bearings.forEach((bearing) => {
+        distances.forEach((distance) => {
+          const point = destinationPoint(origin.lat, origin.lon, distance, bearing);
+          const bortle = estimateBortle(point.lat, point.lon);
+          const brightness = estimateSkyBrightness(bortle, estimateCityLightContribution(point.lat, point.lon));
+          const improvement = currentBortle - bortle;
+          if (improvement > 0 || distance <= 50) {
+            candidates.push({
+              name: labelForCandidate(bearing, distance, bortle),
+              lat: point.lat,
+              lon: point.lon,
+              distance,
+              bearing,
+              direction: bearingToDirection(bearing),
+              bortle,
+              brightness,
+              improvement,
+              drive: Math.max(20, Math.round(distance * 1.15))
+            });
+          }
+        });
+      });
+
+      DARK_SKY_ANCHORS.forEach((site) => {
+        const d = distanceKm(origin.lat, origin.lon, site.lat, site.lon);
+        if (d < 350) {
+          const bortle = estimateBortle(site.lat, site.lon);
+          candidates.push({ name: site.name, lat: site.lat, lon: site.lon, distance: Math.round(d), bearing: bearingBetween(origin.lat, origin.lon, site.lat, site.lon), direction: bearingToDirection(bearingBetween(origin.lat, origin.lon, site.lat, site.lon)), bortle, brightness: estimateSkyBrightness(bortle), improvement: currentBortle - bortle, drive: Math.round(d * 1.2) });
+        }
+      });
+
+      state.darkerSites = candidates
+        .sort((a, b) => (b.improvement * 20 - b.distance / 8) - (a.improvement * 20 - a.distance / 8))
+        .filter((site, index, arr) => arr.findIndex((other) => distanceKm(site.lat, site.lon, other.lat, other.lon) < 18) === index)
+        .slice(0, 8);
+    }
+
+    function updateSummary(analysis) {
+      els.summaryLocation.textContent = state.selected.name;
+      els.summaryBortle.textContent = analysis.bortle;
+      els.summaryBrightness.textContent = `~${analysis.brightness.toFixed(1)} mag/arcsec²`;
+      els.summaryRec.textContent = shortRecommendation(analysis.bortle);
+    }
+
+    function updateBortlePanel(analysis) {
+      const info = bortleInfo(analysis.bortle);
+      els.bortleNumber.textContent = analysis.bortle;
+      els.bortleLabel.textContent = info.label;
+      els.bortleDesc.textContent = info.desc;
+      els.brightnessText.textContent = `~${analysis.brightness.toFixed(1)} mag/arcsec²`;
+      els.limitingText.textContent = `~${analysis.limiting.toFixed(1)}`;
+      els.milkyWayText.textContent = estimateMilkyWayVisibility(analysis.bortle, analysis.moonIllumination);
+      els.zodiacalText.textContent = analysis.bortle <= 2 ? "Possible" : "Not visible";
+      els.andromedaText.textContent = analysis.bortle <= 4 ? "Visible" : analysis.bortle <= 6 ? "Core possible" : "Core difficult";
+      els.deepSkyText.textContent = analysis.bortle <= 3 ? "Excellent" : analysis.bortle <= 5 ? "Good" : analysis.bortle <= 7 ? "Limited" : "Very limited";
+      Array.from(els.bortleScale.children).forEach((cell, index) => cell.classList.toggle("active", index + 1 === analysis.bortle));
+    }
+
+    function updateViewingConditions(analysis) {
+      const humidity = Math.round(35 + Math.abs(Math.sin((state.selected.lat + Date.now() / 86400000) * 0.04)) * 42);
+      const wind = Math.round(3 + Math.abs(Math.cos(state.selected.lon * 0.07)) * 15);
+      const temp = Math.round(8 + Math.abs(Math.sin(state.selected.lat * 0.04)) * 20);
+      const dew = Math.round(temp - (100 - humidity) / 5);
+      els.cloudText.textContent = `${analysis.clouds}% estimated`;
+      els.humidityText.textContent = `${humidity}% estimated`;
+      els.windText.textContent = `${wind} km/h estimated`;
+      els.tempText.textContent = `${temp}°C estimated`;
+      els.dewText.textContent = `${dew}°C estimated`;
+      els.moonText.textContent = `${Math.round(analysis.moonIllumination * 100)}% estimated`;
+      els.scoreFill.style.width = `${analysis.deepSkyScore}%`;
+      els.scoreText.textContent = `${analysis.deepSkyScore} / 100`;
+    }
+
+    function updateRecommendation(analysis) {
+      els.recommendationText.textContent = getObservingRecommendation(analysis.bortle);
+      els.equipmentText.textContent = getEquipmentSuggestion(analysis.bortle);
+    }
+
+    function updateVisibleObjects(bortle) {
+      const visible = OBJECTS.filter((object) => bortle <= object.minBortle || object.minBortle === 9);
+      els.objectGrid.innerHTML = visible.map((object) => `
+        <article class="object-card">
+          <div class="content">
+            <h3>${object.name}</h3>
+            <p>${object.type} • ${object.season} • ${object.gear}</p>
+            <div class="pill-row" style="margin-top:8px;"><span class="badge">${bortle <= object.minBortle ? "realistic" : "difficult"}</span><span class="badge soft">Bortle ${object.minBortle} or darker</span></div>
+            <p>${object.note}</p>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function updateDarkSiteList() {
+      if (!state.darkerSites.length) findNearbyDarkerSites();
+      els.darkSiteList.innerHTML = state.darkerSites.map((site, index) => `
+        <article class="site-card">
+          <div class="content">
+            <h3>${index === 0 ? "Best nearby option" : site.name}</h3>
+            <p>${site.direction} • ${Math.round(site.distance)} km away • about ${site.drive} min drive estimate</p>
+            <div class="pill-row" style="margin-top:8px;">
+              <span class="badge">Bortle ${site.bortle}</span>
+              <span class="badge soft">~${site.brightness.toFixed(1)} mag/arcsec²</span>
+              <span class="badge soft">${site.improvement > 0 ? `${site.improvement} class darker` : "similar sky"}</span>
+            </div>
+            <p>${site.bortle <= 3 ? "Deep-sky candidate: galaxies, nebulae, Milky Way structure." : site.bortle <= 5 ? "Good for Messier objects, clusters, brighter nebulae." : "Useful improvement, but still avoid faint galaxies."}</p>
+            <div class="btn-row" style="margin-top:10px;">
+              <button class="btn primary small" type="button" onclick="centerSuggestedSite(${index})">Center</button>
+              <button class="btn small" type="button" onclick="saveSuggestedSite(${index})">Save</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function updateFavoritesList() {
+      if (!state.favorites.length) {
+        els.favoritesList.innerHTML = `<div class="small-card"><div class="content"><p>No saved observing spots yet.</p></div></div>`;
+        return;
+      }
+      els.favoritesList.innerHTML = state.favorites.map((spot, index) => `
+        <article class="site-card">
+          <div class="content">
+            <h3>${spot.name}</h3>
+            <p>${spot.lat.toFixed(4)}, ${spot.lon.toFixed(4)} • Bortle ${spot.bortle}</p>
+            <div class="btn-row" style="margin-top:10px;">
+              <button class="btn primary small" type="button" onclick="loadFavoriteSpot(${index})">Load</button>
+              <button class="btn small" type="button" onclick="renameFavoriteSpot(${index})">Rename</button>
+              <button class="btn danger small" type="button" onclick="deleteFavoriteSpot(${index})">Delete</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function updateCompare() {
+      const selectedAnalysis = analyzeLocation(state.selected.lat, state.selected.lon);
+      if (!state.compare) {
+        els.compareGrid.innerHTML = `<div class="small-card"><div class="content"><h3>No compare location</h3><p>Press Set Compare to save the current spot for side-by-side comparison.</p></div></div>`;
+        return;
+      }
+      const compareAnalysis = analyzeLocation(state.compare.lat, state.compare.lon);
+      const better = selectedAnalysis.bortle < compareAnalysis.bortle ? state.selected.name : state.compare.name;
+      els.compareGrid.innerHTML = [
+        compareCard(state.selected.name, state.selected, selectedAnalysis, "Current"),
+        compareCard(state.compare.name, state.compare, compareAnalysis, "Compare")
+      ].join("") + `<div class="small-card" style="grid-column:1/-1;"><div class="content"><h3>Recommended choice</h3><p>${better} has the stronger estimated dark-sky quality for deep-sky observing.</p></div></div>`;
+    }
+
+    function compareCard(name, spot, analysis, label) {
+      return `<div class="small-card"><div class="content"><h3>${label}: ${name}</h3><p>Bortle ${analysis.bortle} • ~${analysis.brightness.toFixed(1)} mag/arcsec² • limiting mag ~${analysis.limiting.toFixed(1)}</p><p>${estimateMilkyWayVisibility(analysis.bortle, analysis.moonIllumination)}</p></div></div>`;
+    }
+
+    function createBortleScale() {
+      els.bortleScale.innerHTML = Array.from({ length: 9 }, (_, i) => `<div class="scale-cell">${i + 1}</div>`).join("");
+    }
+
+    function createGlossary() {
+      els.glossaryGrid.innerHTML = GLOSSARY.map(([term, desc]) => `<div class="small-card"><div class="content"><h3>${term}</h3><p>${desc}</p></div></div>`).join("");
+    }
+
+    function saveFavoriteSpot() {
+      const analysis = analyzeLocation(state.selected.lat, state.selected.lon);
+      const favorite = { ...state.selected, name: els.spotNameInput.value || state.selected.name, notes: els.notesInput.value, bortle: analysis.bortle, savedAt: new Date().toISOString() };
+      state.favorites = state.favorites.filter((spot) => distanceKm(spot.lat, spot.lon, favorite.lat, favorite.lon) > 0.3);
+      state.favorites.unshift(favorite);
+      state.favorites = state.favorites.slice(0, 20);
+      saveJSON(storageKeys.favorites, state.favorites);
+      updateFavoritesList();
+      drawMap();
+      els.controlStatus.textContent = `${favorite.name} saved.`;
+    }
+
+    function setCompareLocation() {
+      state.compare = { ...state.selected, name: els.spotNameInput.value || state.selected.name };
+      saveJSON(storageKeys.compare, state.compare);
+      updateCompare();
+      drawMap();
+      els.controlStatus.textContent = `${state.compare.name} set as compare location.`;
+    }
+
+    function clearFavorites() {
+      state.favorites = [];
+      saveJSON(storageKeys.favorites, []);
+      updateFavoritesList();
+      drawMap();
+      els.controlStatus.textContent = "Favorites cleared.";
+    }
+
+    function copyReport() {
+      const analysis = analyzeLocation(state.selected.lat, state.selected.lon);
+      const report = [
+        "StellaSim Light Pollution Report",
+        `Location: ${state.selected.name}`,
+        `Coordinates: ${state.selected.lat.toFixed(4)}, ${state.selected.lon.toFixed(4)}`,
+        `Estimated Bortle: ${analysis.bortle} (${bortleInfo(analysis.bortle).label})`,
+        `Sky brightness: ~${analysis.brightness.toFixed(1)} mag/arcsec²`,
+        `Limiting magnitude: ~${analysis.limiting.toFixed(1)}`,
+        `Milky Way: ${estimateMilkyWayVisibility(analysis.bortle, analysis.moonIllumination)}`,
+        `Observing score: ${analysis.deepSkyScore}/100`,
+        `Recommendation: ${getObservingRecommendation(analysis.bortle)}`,
+        "",
+        "Nearby darker options:",
+        ...state.darkerSites.slice(0, 5).map((site) => `- ${site.name}: ${Math.round(site.distance)} km ${site.direction}, Bortle ${site.bortle}`),
+        "",
+        "Note: estimates are for planning. Local lights, haze, weather, and moonlight can change conditions."
+      ].join("\n");
+
+      navigator.clipboard.writeText(report).then(() => {
+        els.controlStatus.textContent = "Report copied.";
+      }).catch(() => {
+        els.controlStatus.textContent = report;
+      });
+    }
+
+    function toggleLayer(key, button) {
+      state[key] = !state[key];
+      button.classList.toggle("primary", state[key]);
+      drawMap();
+    }
+
+    function centerSuggestedSite(index) {
+      const site = state.darkerSites[index];
+      if (!site) return;
+      state.centerLat = site.lat;
+      state.centerLon = site.lon;
+      drawMap();
+    }
+
+    function saveSuggestedSite(index) {
+      const site = state.darkerSites[index];
+      if (!site) return;
+      const old = state.selected;
+      state.selected = { name: site.name, lat: site.lat, lon: site.lon, notes: "" };
+      saveFavoriteSpot();
+      state.selected = old;
+      updateAll();
+      drawMap();
+    }
+
+    function loadFavoriteSpot(index) {
+      const spot = state.favorites[index];
+      if (!spot) return;
+      selectLocation(spot);
+      state.centerLat = spot.lat;
+      state.centerLon = spot.lon;
+    }
+
+    function renameFavoriteSpot(index) {
+      const spot = state.favorites[index];
+      if (!spot) return;
+      const name = prompt("New spot name:", spot.name);
+      if (!name) return;
+      spot.name = name.trim();
+      saveJSON(storageKeys.favorites, state.favorites);
+      updateFavoritesList();
+      drawMap();
+    }
+
+    function deleteFavoriteSpot(index) {
+      state.favorites.splice(index, 1);
+      saveJSON(storageKeys.favorites, state.favorites);
+      updateFavoritesList();
+      drawMap();
+    }
+
+    function loadLastLocation() {
+      const last = loadJSON(storageKeys.lastLocation, null);
+      if (last && Number.isFinite(last.lat) && Number.isFinite(last.lon)) {
+        state.selected = last;
+        state.centerLat = last.lat;
+        state.centerLon = last.lon;
+      }
+      els.searchInput.value = state.selected.name;
+      els.spotNameInput.value = state.selected.name;
+      els.latInput.value = state.selected.lat.toFixed(4);
+      els.lonInput.value = state.selected.lon.toFixed(4);
+      findNearbyDarkerSites();
+    }
+
+    function bortleInfo(bortle) {
+      const data = {
+        1: ["excellent dark sky", "Milky Way structure, faint nebulae, galaxies, and zodiacal light become realistic."],
+        2: ["typical truly dark site", "Excellent for galaxies, nebulae, Milky Way detail, and faint objects."],
+        3: ["rural sky", "Strong deep-sky site. Milky Way is clear and many galaxies become accessible."],
+        4: ["rural/suburban transition", "Usable dark-ish sky. Milky Way is visible and many Messier objects are possible."],
+        5: ["suburban sky", "The Milky Way may be weak, but clusters and brighter Messier objects are still realistic."],
+        6: ["bright suburban sky", "Deep sky is limited. Bright clusters, nebulae with filters, Moon, and planets work best."],
+        7: ["suburban/urban transition", "Faint galaxies are difficult. Focus on solar system, double stars, and bright clusters."],
+        8: ["city sky", "Deep-sky observing is difficult, but the Moon, planets, bright stars, and some clusters are still worth observing."],
+        9: ["inner-city sky", "Very bright sky. Best for Moon, planets, Sun with a proper filter, and bright double stars."]
+      };
+      return { label: data[bortle][0], desc: data[bortle][1] };
+    }
+
+    function shortRecommendation(bortle) {
+      if (bortle >= 8) return "Moon, planets, doubles";
+      if (bortle >= 6) return "clusters, planets, bright nebulae";
+      if (bortle >= 4) return "Messier objects, Milky Way";
+      return "galaxies, nebulae, Milky Way";
+    }
+
+    function getObservingRecommendation(bortle) {
+      if (bortle >= 9) return "This is a very bright urban sky. Deep-sky observing will be difficult, but the Moon, planets, bright double stars, and bright clusters are still worth observing.";
+      if (bortle >= 8) return "This is a city sky. Use it for lunar, planetary, double-star, and bright cluster observing. Travel outward for galaxies and faint nebulae.";
+      if (bortle >= 6) return "This is a bright suburban sky. Brighter Messier objects are possible, especially open clusters and nebulae with UHC/OIII filters.";
+      if (bortle >= 4) return "This is a usable suburban/rural-transition sky. The Milky Way may be weak to moderate, but many Messier objects are possible with binoculars or a small telescope.";
+      if (bortle >= 2) return "This is an excellent dark-sky site. Galaxies, nebulae, Milky Way structure, and faint objects become much easier.";
+      return "This is an elite dark sky. Protect your night vision and spend time on faint galaxies, dark nebulae, and Milky Way structure.";
+    }
+
+    function getEquipmentSuggestion(bortle) {
+      if (bortle >= 8) return "Use Moon/planetary observing, double stars, bright clusters, and a narrowband/UHC filter for nebulae. Avoid faint galaxies.";
+      if (bortle >= 6) return "Try binocular clusters, brighter Messier objects, planetary nebulae, and UHC/OIII filters for emission nebulae.";
+      if (bortle >= 4) return "Use low-power eyepieces, binocular sweeps, and nebula filters. Many Messier objects become practical.";
+      return "Bring a low-power wide-field eyepiece, galaxy charts, nebula filters, and plan time for Milky Way scanning.";
+    }
+
+    function labelForCandidate(bearing, distance, bortle) {
+      if (distance <= 50) return `Best within ${distance} km`;
+      if (bortle <= 3) return "Deep-sky candidate";
+      return `Darker ${bearingToDirection(bearing).toLowerCase()} option`;
+    }
+
+    function heatColor(t) {
+      if (t < 0.33) return { r: Math.round(42 + t * 70), g: Math.round(82 + t * 120), b: Math.round(170 + t * 80) };
+      if (t < 0.68) return { r: Math.round(90 + t * 170), g: Math.round(118 + t * 120), b: Math.round(210 - t * 110) };
+      return { r: Math.round(200 + t * 55), g: Math.round(128 + t * 72), b: Math.round(70 + t * 35) };
+    }
+
+    function distanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function destinationPoint(lat, lon, distance, bearing) {
+      const R = 6371;
+      const brng = toRad(bearing);
+      const lat1 = toRad(lat);
+      const lon1 = toRad(lon);
+      const d = distance / R;
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+      const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+      return { lat: toDeg(lat2), lon: wrapLon(toDeg(lon2)) };
+    }
+
+    function bearingBetween(lat1, lon1, lat2, lon2) {
+      const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function bearingToDirection(bearing) {
+      const dirs = ["North", "North-east", "East", "South-east", "South", "South-west", "West", "North-west"];
+      return dirs[Math.round(bearing / 45) % 8];
+    }
+
+    function insideMap(x, y, pad = 0) {
+      return x >= -pad && x <= state.width + pad && y >= -pad && y <= state.height + pad;
+    }
+
+    function toRad(deg) { return deg * Math.PI / 180; }
+    function toDeg(rad) { return rad * 180 / Math.PI; }
+    function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+    function wrapLon(lon) { return ((((lon + 180) % 360) + 360) % 360) - 180; }
+
+    function loadJSON(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+    }
+
+    function saveJSON(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+    }
+
+    window.centerSuggestedSite = centerSuggestedSite;
+    window.saveSuggestedSite = saveSuggestedSite;
+    window.loadFavoriteSpot = loadFavoriteSpot;
+    window.renameFavoriteSpot = renameFavoriteSpot;
+    window.deleteFavoriteSpot = deleteFavoriteSpot;
+
+    // this is the same kind of starfield vibe as the planner
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      let width = 0, height = 0, stars = [], mouseX = 0, mouseY = 0, targetMouseX = 0, targetMouseY = 0;
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+        stars = Array.from({ length: Math.min(300, Math.floor(width * height / 6800)) }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: 0.5 + Math.random() * 1.7,
+          a: 0.18 + Math.random() * 0.68,
+          tw: Math.random() * Math.PI * 2,
+          speed: 0.002 + Math.random() * 0.012,
+          p: 0.15 + Math.random() * 0.85,
+          c: Math.random() < 0.7 ? "255,255,255" : Math.random() < 0.85 ? "157,200,255" : "111,176,255"
+        }));
+      }
+
+      function animate(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+        stars.forEach((s) => {
+          const alpha = s.a * (0.72 + 0.28 * Math.sin(time * s.speed + s.tw));
+          const x = s.x + mouseX * s.p * 0.015;
+          const y = s.y + mouseY * s.p * 0.015;
+          ctx.beginPath();
+          ctx.arc(x, y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${s.c}, ${alpha})`;
+          ctx.shadowBlur = s.r * 6;
+          ctx.shadowColor = `rgba(${s.c}, ${alpha * 0.55})`;
+          ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+      window.addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>
