@@ -112,13 +112,9 @@ The Object Database is a searchable reference tool for astronomy objects.
 
 It is designed to store information about stars, planets, moons, galaxies, nebulae, clusters, asteroids, comets, satellites, and other objects. Users can search for an object and view its properties, location data, visibility information, and related observing details.
 
-## Calendar of Events
 
-The Calendar of Events shows upcoming astronomy events.
 
-It is designed to track meteor showers, eclipses, planetary conjunctions, Moon phases, oppositions, launches, and other sky events. Users can check what is happening soon and use the planner or star map to prepare for it.
 
-## Technology
 
 StellaSim is built with HTML, CSS, JavaScript, Node.js, and Express.
 
