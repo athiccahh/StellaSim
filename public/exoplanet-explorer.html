@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Exoplanet Explorer</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    /* main color tokens for the ui look */
+    :root {
+      --panel-bg: rgba(5, 14, 32, 0.94);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #07162f;
+      --field-border: rgba(47, 124, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c8e8;
+      --accent: #0b3d91;
+      --accent-2: #2f7cff;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.58);
+      --radius-lg: 22px;
+      --text: #f4f8ff;
+      --soft-panel: rgba(3, 12, 30, 0.76);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #000;
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(11, 61, 145, 0.24), transparent 38%),
+        radial-gradient(circle at 15% 75%, rgba(47, 124, 255, 0.12), transparent 34%),
+        linear-gradient(180deg, #000000 0%, #020816 45%, #000000 100%);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--field-border);
+      color: var(--field-text);
+      background: linear-gradient(180deg, #0b3d91, #061d49);
+      border-radius: 11px;
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+      max-width: 100%;
+      min-width: 0;
+      line-height: 1.2;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      background: linear-gradient(180deg, #1455bd, #0b3d91);
+      border-color: rgba(47, 124, 255, 0.68);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    input, select {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid var(--field-border);
+      background: var(--field-bg);
+      color: var(--field-text);
+      padding: 10px 11px;
+      outline: none;
+      font-size: 13px;
+    }
+
+    input::placeholder {
+      color: rgba(241, 247, 255, 0.58);
+    }
+
+    label {
+      display: block;
+      margin: 0 0 5px;
+      color: #f4f8ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bg-orbits {
+      position: fixed;
+      inset: -20%;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle, transparent 0 44%, rgba(47, 124, 255, 0.08) 44.2% 44.6%, transparent 44.8%),
+        radial-gradient(circle, transparent 0 32%, rgba(47, 124, 255, 0.06) 32.2% 32.5%, transparent 32.7%);
+      opacity: 0.9;
+      transform: rotate(-10deg);
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(47, 124, 255, 0.18);
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.2px;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .main-grid {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(420px, 1fr) minmax(300px, 390px);
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .panel {
+      min-height: 0;
+      background: var(--panel-bg);
+      border: 2px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 15px 12px;
+      border-bottom: 1px solid rgba(47, 124, 255, 0.22);
+      background: linear-gradient(180deg, rgba(7, 22, 47, 0.82), rgba(2, 8, 20, 0.72));
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0.2px;
+    }
+
+    .panel-header p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .panel-body {
+      padding: 13px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .left-panel, .right-panel {
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .search-row button {
+      min-width: 86px;
+      width: auto;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-bottom: 11px;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 7px 0 11px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(47, 124, 255, 0.15);
+      border: 1px solid rgba(47, 124, 255, 0.22);
+      color: #eef7ff;
+      font-size: 12px;
+      white-space: nowrap;
+      max-width: 100%;
+      min-width: 0;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .planet-list {
+      display: grid;
+      gap: 9px;
+      padding-bottom: 8px;
+    }
+
+    .planet-card {
+      border: 1px solid rgba(47, 124, 255, 0.18);
+      background: rgba(47, 124, 255, 0.045);
+      border-radius: 15px;
+      padding: 11px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .planet-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(47, 124, 255, 0.45);
+      background: rgba(47, 124, 255, 0.075);
+    }
+
+    .planet-card.active {
+      border-color: rgba(47, 124, 255, 0.95);
+      box-shadow: 0 0 18px rgba(47, 124, 255, 0.2);
+      background: rgba(47, 124, 255, 0.1);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .card-subtitle {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .score-badge {
+      min-width: 42px;
+      text-align: center;
+      border-radius: 11px;
+      padding: 5px 7px;
+      border: 1px solid rgba(47, 124, 255, 0.32);
+      background: rgba(2, 8, 20, 0.72);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .card-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .metric {
+      border-radius: 11px;
+      padding: 7px;
+      background: rgba(3, 12, 30, 0.58);
+      border: 1px solid rgba(47, 124, 255, 0.12);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      color: #f4f8ff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scene-panel {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 0;
+    }
+
+    .scene-header {
+      padding: 15px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid rgba(47, 124, 255, 0.22);
+      background: linear-gradient(180deg, rgba(7, 22, 47, 0.76), rgba(2, 8, 20, 0.58));
+    }
+
+    .scene-title h2 {
+      margin: 0;
+      font-size: 21px;
+    }
+
+    .scene-title p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      max-width: 620px;
+    }
+
+    .model-wrap {
+      position: relative;
+      min-height: 0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(47, 124, 255, 0.11), transparent 42%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04), transparent 18%);
+    }
+
+    #modelCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .model-overlay {
+      position: absolute;
+      inset: 14px;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .model-nameplate {
+      justify-self: start;
+      max-width: min(460px, 85%);
+      padding: 10px 12px;
+      border-radius: 15px;
+      background: rgba(2, 8, 20, 0.82);
+      border: 1px solid rgba(47, 124, 255, 0.24);
+      box-shadow: var(--shadow);
+    }
+
+    .model-nameplate h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .model-nameplate p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .orbit-readout {
+      align-self: end;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .mini-orbit {
+      min-width: 0;
+      height: 98px;
+      border-radius: 16px;
+      background: rgba(2, 8, 20, 0.82);
+      border: 1px solid rgba(47, 124, 255, 0.2);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .earth-scale {
+      width: 158px;
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(2, 8, 20, 0.82);
+      border: 1px solid rgba(47, 124, 255, 0.2);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .scale-row {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 6px;
+    }
+
+    .scale-dot {
+      display: inline-block;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2f7cff, #9fc4ff);
+      box-shadow: 0 0 14px rgba(47, 124, 255, 0.4);
+    }
+
+    .scale-dot.earth {
+      width: 16px;
+      height: 16px;
+      background: linear-gradient(135deg, #2f7cff, #d8e7ff);
+    }
+
+    .earth-scale small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .scene-footer {
+      border-top: 1px solid rgba(47, 124, 255, 0.18);
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.62);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .scene-footer strong {
+      color: #f4f8ff;
+    }
+
+    .detail-section {
+      border: 1px solid rgba(47, 124, 255, 0.16);
+      background: rgba(47, 124, 255, 0.04);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 11px;
+      overflow: hidden;
+    }
+
+    .detail-section h3 {
+      margin: 0 0 9px;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(47, 124, 255, 0.11);
+      font-size: 12px;
+    }
+
+    .kv:last-child {
+      border-bottom: none;
+    }
+
+    .kv span {
+      color: var(--muted);
+    }
+
+    .kv strong {
+      text-align: right;
+      color: #f4f8ff;
+      font-weight: 700;
+    }
+
+    .habitability-meter {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.78);
+      border: 1px solid rgba(47, 124, 255, 0.14);
+      overflow: hidden;
+      margin: 10px 0 8px;
+    }
+
+    .habitability-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #061d49, #0b3d91, #2f7cff);
+      transition: width 0.28s ease;
+    }
+
+    .human-text {
+      color: #f4f8ff;
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid rgba(47, 124, 255, 0.12);
+      text-align: left;
+    }
+
+    .compare-table th {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .compare-table td:last-child,
+    .compare-table th:last-child {
+      text-align: right;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .action-grid button {
+      width: 100%;
+      min-height: 42px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      padding: 8px 10px;
+    }
+
+    .empty, .error, .loading {
+      color: var(--muted);
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px dashed rgba(47, 124, 255, 0.26);
+      background: rgba(3, 12, 30, 0.58);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+
+    .error {
+      color: #ffd1d1;
+      border-color: rgba(255, 120, 120, 0.38);
+    }
+
+    .footer-strip {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(47, 124, 255, 0.18);
+      background: rgba(0, 0, 0, 0.82);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 58px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 50;
+      background: rgba(5, 14, 32, 0.94);
+      border: 1px solid rgba(47, 124, 255, 0.38);
+      color: #f4f8ff;
+      border-radius: 999px;
+      padding: 9px 13px;
+      box-shadow: var(--shadow);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1180px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        min-height: 100vh;
+        height: auto;
+        overflow: visible;
+      }
+
+      .main-grid {
+        grid-template-columns: 1fr;
+        overflow: visible;
+      }
+
+      .left-panel,
+      .right-panel,
+      .scene-panel {
+        min-height: 520px;
+      }
+
+      .model-wrap {
+        min-height: 520px;
+      }
+
+      .footer-strip,
+      .topbar {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .controls-grid,
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .orbit-readout {
+        grid-template-columns: 1fr;
+      }
+
+      .earth-scale {
+        width: 100%;
+      }
+
+      .scene-header {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-orbits"></div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>StellaSim Exoplanet Explorer</h1>
+        <p>Explore confirmed worlds from the NASA Exoplanet Archive with simulated planet models and Earth comparisons.</p>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="panel left-panel">
+        <div class="panel-header">
+          <h2>Planet Search</h2>
+          <p>Search by planet or host star.</p>
+        </div>
+
+        <div class="panel-body">
+          <div class="search-row">
+            <input id="searchInput" type="search" placeholder="Kepler, TRAPPIST, Proxima..." autocomplete="off" />
+            <button id="searchBtn" type="button">Search</button>
+          </div>
+
+          <div class="controls-grid">
+            <div>
+              <label for="filterSelect">Filter</label>
+              <select id="filterSelect">
+                <option value="all">All</option>
+                <option value="Super-Earth">Super-Earths</option>
+                <option value="Gas Giant">Gas Giants</option>
+                <option value="Hot Jupiter">Hot Jupiters</option>
+                <option value="Habitable Zone Candidate">Habitable Zone Candidates</option>
+                <option value="Earth Sized">Earth Sized</option>
+                <option value="Mini-Neptune">Mini-Neptunes</option>
+                <option value="Recently Discovered">Recently Discovered</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="sortSelect">Sort</label>
+              <select id="sortSelect">
+                <option value="name">Name</option>
+                <option value="newest">Discovery Year Newest</option>
+                <option value="nearest">Distance Nearest</option>
+                <option value="habitability">Habitability Highest</option>
+                <option value="radiusEarth">Radius Closest To Earth</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <button id="resetBtn" type="button">Reset</button>
+            <button id="loadMoreBtn" type="button">Load More</button>
+          </div>
+
+          <div class="status-line">
+            <span id="resultText">Loading planets...</span>
+            <span class="pill" id="limitPill">Starter Set</span>
+          </div>
+
+          <div id="messageBox"></div>
+          <div class="planet-list" id="planetList"></div>
+        </div>
+      </section>
+
+      <section class="panel scene-panel">
+        <div class="scene-header">
+          <div class="scene-title">
+            <h2 id="sceneTitle">Exoplanet Sim Lab</h2>
+            <p id="sceneSubtitle">Select a confirmed exoplanet to update the model, orbit sketch, habitability estimate, and Earth comparison.</p>
+          </div>
+
+          <div class="badges">
+            <span class="pill">NASA Exoplanet Archive</span>
+          </div>
+        </div>
+
+        <div class="model-wrap" id="modelWrap">
+          <canvas id="modelCanvas"></canvas>
+
+          <div class="model-overlay">
+            <div class="model-nameplate">
+              <h3 id="selectedName">Loading...</h3>
+              <p id="selectedSummary">Starter planets will appear instantly.</p>
+            </div>
+
+            <div></div>
+
+            <div class="orbit-readout">
+              <canvas class="mini-orbit" id="orbitCanvas" width="760" height="120"></canvas>
+
+              <div class="earth-scale">
+                <div class="scale-row">
+                  <span class="scale-dot earth" title="Earth"></span>
+                  <span class="scale-dot" id="planetScaleDot" title="Selected planet"></span>
+                </div>
+                <small id="scaleText">Earth vs selected planet</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scene-footer">
+          <span><strong>Drag:</strong> rotate model. <strong>Wheel:</strong> zoom. Planet distance is visually scaled, not physically exact.</span>
+          <span id="archiveNote">Showing starter planets.</span>
+        </div>
+      </section>
+
+      <section class="panel right-panel">
+        <div class="panel-header">
+          <h2>Selected Planet</h2>
+          <p>Missing values are shown as unknown. The habitability score is not official.</p>
+        </div>
+
+        <div class="panel-body">
+          <div class="detail-section">
+            <h3>Habitability Estimate</h3>
+            <div class="kv"><span>Score</span><strong id="habitabilityScore">—</strong></div>
+            <div class="habitability-meter"><div class="habitability-fill" id="habitabilityFill"></div></div>
+            <div class="kv"><span>Label</span><strong id="habitabilityLabel">—</strong></div>
+            <p class="human-text" id="humanExplanation">Select a planet to see an explanation.</p>
+          </div>
+
+          <div class="detail-section">
+            <h3>Planet Details</h3>
+            <div id="planetDetails"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Host Star</h3>
+            <div id="starDetails"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Compare With Earth</h3>
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Earth</th>
+                  <th>Selected</th>
+                </tr>
+              </thead>
+              <tbody id="compareTable"></tbody>
+            </table>
+          </div>
+
+          <div class="detail-section">
+            <h3>Actions</h3>
+            <div class="action-grid">
+              <button id="copySummaryBtn" type="button">Copy Planet Summary</button>
+              <button id="nasaSourceBtn" type="button">Open NASA Source</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-strip">
+      <span>Data from NASA Exoplanet Archive when the live route is available. Habitability score is educational, not official.</span>
+      <span>StellaSim Exoplanet Explorer</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Copied planet summary.</div>
+
+  <script>
+    // main dom refs
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const filterSelect = document.getElementById('filterSelect');
+    const sortSelect = document.getElementById('sortSelect');
+    const planetList = document.getElementById('planetList');
+    const messageBox = document.getElementById('messageBox');
+    const resultText = document.getElementById('resultText');
+    const limitPill = document.getElementById('limitPill');
+    const selectedName = document.getElementById('selectedName');
+    const selectedSummary = document.getElementById('selectedSummary');
+    const sceneTitle = document.getElementById('sceneTitle');
+    const sceneSubtitle = document.getElementById('sceneSubtitle');
+    const archiveNote = document.getElementById('archiveNote');
+    const habitabilityScore = document.getElementById('habitabilityScore');
+    const habitabilityFill = document.getElementById('habitabilityFill');
+    const habitabilityLabel = document.getElementById('habitabilityLabel');
+    const humanExplanation = document.getElementById('humanExplanation');
+    const planetDetails = document.getElementById('planetDetails');
+    const starDetails = document.getElementById('starDetails');
+    const compareTable = document.getElementById('compareTable');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const nasaSourceBtn = document.getElementById('nasaSourceBtn');
+    const modelCanvas = document.getElementById('modelCanvas');
+    const orbitCanvas = document.getElementById('orbitCanvas');
+    const planetScaleDot = document.getElementById('planetScaleDot');
+    const scaleText = document.getElementById('scaleText');
+    const toast = document.getElementById('toast');
+
+    // this gives the page real planets instantly so it never sits empty
+    const STARTER_PLANETS = [
+      {
+        id: 'TRAPPIST-1 e',
+        name: 'TRAPPIST-1 e',
+        hostStar: 'TRAPPIST-1',
+        distanceLy: 40.66,
+        distancePc: 12.47,
+        discoveryYear: 2017,
+        discoveryMethod: 'Transit',
+        radiusEarth: 0.92,
+        massEarth: 0.69,
+        orbitalPeriodDays: 6.10,
+        semiMajorAxisAu: 0.029,
+        equilibriumTempK: 251,
+        starTempK: 2566,
+        starRadiusSolar: 0.12,
+        starMassSolar: 0.09,
+        starType: 'M',
+        ra: '23h 06m',
+        dec: '-05° 02′',
+        category: 'Habitable Zone Candidate',
+        habitabilityScore: 80,
+        habitabilityLabel: 'Strong candidate',
+        humanExplanation: 'This planet has some Earth-like traits, but habitability is still uncertain because we may not know its atmosphere, surface pressure, radiation environment, or water content.'
+      },
+      {
+        id: 'Kepler-452 b',
+        name: 'Kepler-452 b',
+        hostStar: 'Kepler-452',
+        distanceLy: 1799,
+        distancePc: 552,
+        discoveryYear: 2015,
+        discoveryMethod: 'Transit',
+        radiusEarth: 1.63,
+        massEarth: null,
+        orbitalPeriodDays: 384.84,
+        semiMajorAxisAu: 1.046,
+        equilibriumTempK: 265,
+        starTempK: 5757,
+        starRadiusSolar: 1.11,
+        starMassSolar: 1.04,
+        starType: 'G',
+        ra: '19h 44m',
+        dec: '+44° 16′',
+        category: 'Habitable Zone Candidate',
+        habitabilityScore: 64,
+        habitabilityLabel: 'Promising',
+        humanExplanation: 'This planet has some Earth-like traits, but habitability is still uncertain because we may not know its atmosphere, surface pressure, radiation environment, or water content.'
+      },
+      {
+        id: 'Proxima Cen b',
+        name: 'Proxima Cen b',
+        hostStar: 'Proxima Centauri',
+        distanceLy: 4.25,
+        distancePc: 1.30,
+        discoveryYear: 2016,
+        discoveryMethod: 'Radial Velocity',
+        radiusEarth: null,
+        massEarth: 1.07,
+        orbitalPeriodDays: 11.19,
+        semiMajorAxisAu: 0.049,
+        equilibriumTempK: 234,
+        starTempK: 3050,
+        starRadiusSolar: 0.15,
+        starMassSolar: 0.12,
+        starType: 'M',
+        ra: '14h 29m',
+        dec: '-62° 40′',
+        category: 'Super-Earth',
+        habitabilityScore: 41,
+        habitabilityLabel: 'Possible but uncertain',
+        humanExplanation: 'There is not enough data to make a strong habitability estimate. Exoplanet measurements often have missing mass, radius, or atmosphere information.'
+      },
+      {
+        id: 'TOI-700 d',
+        name: 'TOI-700 d',
+        hostStar: 'TOI-700',
+        distanceLy: 101.4,
+        distancePc: 31.1,
+        discoveryYear: 2020,
+        discoveryMethod: 'Transit',
+        radiusEarth: 1.14,
+        massEarth: 1.72,
+        orbitalPeriodDays: 37.42,
+        semiMajorAxisAu: 0.163,
+        equilibriumTempK: 269,
+        starTempK: 3480,
+        starRadiusSolar: 0.42,
+        starMassSolar: 0.42,
+        starType: 'M',
+        ra: '06h 28m',
+        dec: '-65° 34′',
+        category: 'Habitable Zone Candidate',
+        habitabilityScore: 75,
+        habitabilityLabel: 'Promising',
+        humanExplanation: 'This planet has some Earth-like traits, but habitability is still uncertain because we may not know its atmosphere, surface pressure, radiation environment, or water content.'
+      },
+      {
+        id: '51 Peg b',
+        name: '51 Peg b',
+        hostStar: '51 Pegasi',
+        distanceLy: 50.45,
+        distancePc: 15.47,
+        discoveryYear: 1995,
+        discoveryMethod: 'Radial Velocity',
+        radiusEarth: 13.9,
+        massEarth: 150,
+        orbitalPeriodDays: 4.23,
+        semiMajorAxisAu: 0.052,
+        equilibriumTempK: 1250,
+        starTempK: 5793,
+        starRadiusSolar: 1.20,
+        starMassSolar: 1.11,
+        starType: 'G',
+        ra: '22h 57m',
+        dec: '+20° 46′',
+        category: 'Hot Jupiter',
+        habitabilityScore: 0,
+        habitabilityLabel: 'Very Unlikely',
+        humanExplanation: 'Humans could not live here. This is likely a giant planet orbiting very close to its star, so it would be extremely hot and have no solid Earth-like surface.'
+      }
+    ];
+
+    // app state
+    let allPlanets = [...STARTER_PLANETS];
+    let selectedPlanet = null;
+    let currentLimit = 40;
+    let currentQuery = '';
+    let hasLiveArchiveData = false;
+    let loading = false;
+    let spin = 0;
+    let zoom = 1;
+    let dragging = false;
+    let lastMouseX = 0;
+    let activeFetchController = null;
+
+    // this formats numbers without pretending missing data is zero
+    function fmt(value, digits = 2, suffix = '') {
+      if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return 'unknown';
+      const num = Number(value);
+      if (Math.abs(num) >= 1000) return `${num.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
+      return `${num.toFixed(digits)}${suffix}`;
+    }
+
+    // this formats compact card values
+    function fmtCompact(value, digits = 1, suffix = '') {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) return 'unknown';
+      return `${Number(value).toFixed(digits)}${suffix}`;
+    }
+
+    // this escapes html for safe card rendering
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    // this shows loading, errors, and empty states
+    function setMessage(type, text) {
+      messageBox.innerHTML = '';
+      if (!text) return;
+
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = text;
+      messageBox.appendChild(div);
+    }
+
+    // this gets a category if live data doesn't send one
+    function inferCategory(planet) {
+      const radius = planet.radiusEarth;
+      const mass = planet.massEarth;
+      const period = planet.orbitalPeriodDays;
+      const temp = planet.equilibriumTempK;
+      const currentYear = new Date().getFullYear();
+
+      const isGasGiant = (radius !== null && radius >= 6) || (mass !== null && mass >= 95);
+      const isHotJupiter = isGasGiant && period !== null && period <= 10;
+      const isHabitableCandidate =
+        temp !== null && temp >= 180 && temp <= 320 &&
+        radius !== null && radius >= 0.5 && radius <= 2.5;
+
+      if (isHotJupiter) return 'Hot Jupiter';
+      if (isHabitableCandidate) return 'Habitable Zone Candidate';
+      if (isGasGiant) return 'Gas Giant';
+      if (radius !== null && radius >= 0.8 && radius <= 1.25) return 'Earth Sized';
+      if ((radius !== null && radius > 1.25 && radius <= 2.0) || (mass !== null && mass > 1 && mass <= 10)) return 'Super-Earth';
+      if (radius !== null && radius > 2.0 && radius <= 4.0) return 'Mini-Neptune';
+      if (planet.discoveryYear !== null && planet.discoveryYear >= currentYear - 5) return 'Recently Discovered';
+
+      return 'Other Confirmed Planet';
+    }
+
+    // this makes live archive rows safer
+    function normalizeFrontendPlanet(planet) {
+      const p = { ...planet };
+
+      p.id = p.id || p.name || crypto.randomUUID();
+      p.name = p.name || 'Unknown Planet';
+      p.hostStar = p.hostStar || null;
+      p.category = p.category || inferCategory(p);
+      p.habitabilityScore = Number.isFinite(Number(p.habitabilityScore)) ? Number(p.habitabilityScore) : 0;
+      p.habitabilityLabel = p.habitabilityLabel || getHabitabilityLabel(p.habitabilityScore);
+      p.humanExplanation = p.humanExplanation || getHumanExplanation(p, p.habitabilityScore, p.category);
+
+      return p;
+    }
+
+    // this turns score into a readable label
+    function getHabitabilityLabel(score) {
+      if (score <= 19) return 'Very Unlikely';
+      if (score <= 39) return 'Low';
+      if (score <= 59) return 'Possible but uncertain';
+      if (score <= 79) return 'Promising';
+      return 'Strong candidate';
+    }
+
+    // this explains whether humans could live there using rules, not ai
+    function getHumanExplanation(planet, score, category) {
+      const temp = planet.equilibriumTempK;
+      const radius = planet.radiusEarth;
+      const missingKeyData = planet.radiusEarth === null || planet.massEarth === null || planet.equilibriumTempK === null;
+
+      if (category === 'Hot Jupiter') {
+        return 'Humans could not live here. This is likely a giant planet orbiting very close to its star, so it would be extremely hot and have no solid Earth-like surface.';
+      }
+
+      if (category === 'Gas Giant') {
+        return 'Humans could not live on the planet itself because it is likely a gas giant, but large moons around similar planets are sometimes interesting in science fiction and habitability discussions.';
+      }
+
+      if (missingKeyData) {
+        return 'There is not enough data to make a strong habitability estimate. Exoplanet measurements often have missing mass, radius, or atmosphere information.';
+      }
+
+      if (temp !== null && temp > 350) {
+        return 'Humans could not live here without extreme protection. The estimated equilibrium temperature is very hot, and the actual surface could be even hotter depending on the atmosphere.';
+      }
+
+      if (temp !== null && temp < 150) {
+        return 'Humans could not live here without extreme protection. The estimated equilibrium temperature is very cold, and liquid water would be difficult without a strong warming atmosphere.';
+      }
+
+      if (radius !== null && radius > 2.5) {
+        return 'This planet is probably too large to be Earth-like. It may have a thick atmosphere or volatile-rich composition instead of a rocky surface humans could stand on.';
+      }
+
+      if (score >= 60) {
+        return 'This planet has some Earth-like traits, but habitability is still uncertain because we may not know its atmosphere, surface pressure, radiation environment, or water content.';
+      }
+
+      return 'This planet has some interesting measurements, but it does not look strongly Earth-like from the available data. Habitability depends on details we usually cannot measure yet.';
+    }
+
+    // this decides if a planet matches the chosen filter
+    function planetMatchesFilter(planet, filter) {
+      if (filter === 'all') return true;
+      if (filter === 'Recently Discovered') {
+        return planet.discoveryYear && planet.discoveryYear >= new Date().getFullYear() - 5;
+      }
+      if (filter === 'Habitable Zone Candidate') {
+        return planet.category === 'Habitable Zone Candidate';
+      }
+      return planet.category === filter;
+    }
+
+    // this sorts the loaded planets locally
+    function getSortedFilteredPlanets() {
+      const filter = filterSelect.value;
+      const sort = sortSelect.value;
+      const planets = allPlanets.filter(p => planetMatchesFilter(p, filter));
+
+      planets.sort((a, b) => {
+        if (sort === 'newest') return (b.discoveryYear ?? -Infinity) - (a.discoveryYear ?? -Infinity);
+        if (sort === 'nearest') return (a.distanceLy ?? Infinity) - (b.distanceLy ?? Infinity);
+        if (sort === 'habitability') return (b.habitabilityScore ?? 0) - (a.habitabilityScore ?? 0);
+        if (sort === 'radiusEarth') return Math.abs((a.radiusEarth ?? Infinity) - 1) - Math.abs((b.radiusEarth ?? Infinity) - 1);
+        return String(a.name).localeCompare(String(b.name));
+      });
+
+      return planets;
+    }
+
+    // this loads exoplanet data from the local backend route
+    async function fetchPlanets({ query = currentQuery, limit = currentLimit, background = false } = {}) {
+      if (activeFetchController) {
+        activeFetchController.abort();
+      }
+
+      activeFetchController = new AbortController();
+      const timeout = window.setTimeout(() => activeFetchController.abort(), 5500);
+
+      loading = true;
+      searchBtn.disabled = true;
+      loadMoreBtn.disabled = true;
+
+      if (!background) {
+        setMessage('loading', hasLiveArchiveData ? 'Updating live NASA Exoplanet Archive data...' : 'Connecting to the live NASA Exoplanet Archive...');
+        resultText.textContent = hasLiveArchiveData ? 'Updating archive results...' : 'Showing starter planets while the live archive connects...';
+      }
+
+      try {
+        const params = new URLSearchParams({
+          limit: String(limit)
+        });
+
+        if (query.trim()) {
+          params.set('q', query.trim());
+        }
+
+        const response = await fetch(`/api/exoplanets?${params.toString()}`, {
+          signal: activeFetchController.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.enabled) {
+          throw new Error(data.error || 'Exoplanet route is not enabled yet.');
+        }
+
+        const livePlanets = Array.isArray(data.planets)
+          ? data.planets.map(normalizeFrontendPlanet)
+          : [];
+
+        if (!livePlanets.length) {
+          throw new Error('No live planets were returned.');
+        }
+
+        allPlanets = livePlanets;
+        hasLiveArchiveData = true;
+        currentLimit = data.limit || limit;
+        currentQuery = query.trim();
+
+        setMessage('', '');
+        renderPlanetList();
+        autoSelectInterestingPlanet();
+      } catch (err) {
+        console.warn('exoplanet live load failed:', err);
+
+        if (!hasLiveArchiveData) {
+          allPlanets = [...STARTER_PLANETS];
+
+          if (!background) {
+            setMessage('empty', 'The live archive is taking too long, so StellaSim is showing a small real starter set for now. Search again in a moment to retry NASA data.');
+          }
+
+          renderPlanetList();
+          autoSelectInterestingPlanet();
+        } else {
+          setMessage('error', `Could not refresh live exoplanets. Keeping the last loaded results. ${err.name === 'AbortError' ? 'The request timed out.' : err.message}`);
+          renderPlanetList();
+        }
+      } finally {
+        window.clearTimeout(timeout);
+        loading = false;
+        searchBtn.disabled = false;
+        loadMoreBtn.disabled = false;
+      }
+    }
+
+    // this picks a nice starting planet
+    function autoSelectInterestingPlanet() {
+      if (selectedPlanet && allPlanets.some(p => p.id === selectedPlanet.id)) {
+        selectPlanet(selectedPlanet.id);
+        return;
+      }
+
+      const preferredNames = ['Kepler-452 b', 'TRAPPIST-1 e', 'Proxima Cen b', 'TOI-700 d'];
+
+      const preferred = preferredNames
+        .map(name => allPlanets.find(p => p.name?.toLowerCase() === name.toLowerCase()))
+        .find(Boolean);
+
+      const best = preferred || allPlanets.find(p => p.habitabilityScore >= 50) || allPlanets[0] || null;
+
+      if (best) {
+        selectPlanet(best.id);
+      } else {
+        clearSelectedPlanet();
+      }
+    }
+
+    // this renders the planet cards
+    function renderPlanetList() {
+      const planets = getSortedFilteredPlanets();
+      planetList.innerHTML = '';
+
+      resultText.textContent = planets.length
+        ? `Showing ${planets.length} of ${allPlanets.length} loaded results`
+        : 'No planets match this view';
+
+      limitPill.textContent = hasLiveArchiveData
+        ? (currentQuery ? `Search: ${currentQuery}` : `Limit ${currentLimit}`)
+        : 'Starter Set';
+
+      archiveNote.textContent = hasLiveArchiveData
+        ? `Showing ${allPlanets.length} live archive result${allPlanets.length === 1 ? '' : 's'}.`
+        : `Showing ${allPlanets.length} starter planets while the live archive connects.`;
+
+      if (!loading && !planets.length) {
+        setMessage('empty', allPlanets.length ? 'No loaded planets match that filter.' : 'No planets were returned. Try a broader search.');
+        return;
+      }
+
+      if (planets.length) {
+        setMessage('', '');
+      }
+
+      for (const planet of planets) {
+        const card = document.createElement('article');
+        card.className = `planet-card${selectedPlanet?.id === planet.id ? ' active' : ''}`;
+        card.tabIndex = 0;
+
+        card.innerHTML = `
+          <div class="card-top">
+            <div>
+              <div class="card-title">${escapeHtml(planet.name)}</div>
+              <div class="card-subtitle">${escapeHtml(planet.hostStar || 'unknown host star')} • ${escapeHtml(planet.category)}</div>
+            </div>
+            <div class="score-badge">${planet.habitabilityScore ?? 0}</div>
+          </div>
+
+          <div class="card-metrics">
+            <div class="metric"><span>Distance</span><strong>${fmtCompact(planet.distanceLy, 1, ' ly')}</strong></div>
+            <div class="metric"><span>Radius</span><strong>${fmtCompact(planet.radiusEarth, 2, ' R⊕')}</strong></div>
+            <div class="metric"><span>Period</span><strong>${fmtCompact(planet.orbitalPeriodDays, 1, ' d')}</strong></div>
+          </div>
+
+          <div class="card-metrics">
+            <div class="metric"><span>Mass</span><strong>${fmtCompact(planet.massEarth, 2, ' M⊕')}</strong></div>
+            <div class="metric"><span>Year</span><strong>${planet.discoveryYear ?? 'unknown'}</strong></div>
+            <div class="metric"><span>Method</span><strong>${escapeHtml(planet.discoveryMethod || 'unknown')}</strong></div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => selectPlanet(planet.id));
+
+        card.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            selectPlanet(planet.id);
+          }
+        });
+
+        planetList.appendChild(card);
+      }
+    }
+
+    // this selects a planet and refreshes every panel
+    function selectPlanet(id) {
+      const planet = allPlanets.find(p => p.id === id);
+      if (!planet) return;
+
+      selectedPlanet = planet;
+      renderPlanetList();
+      renderSelectedPlanet();
+      drawOrbitCanvas(planet);
+      updateEarthScale(planet);
+      drawPlanetModel();
+    }
+
+    // this clears selected text if nothing loaded
+    function clearSelectedPlanet() {
+      selectedPlanet = null;
+      selectedName.textContent = 'No Planet Selected';
+      selectedSummary.textContent = 'Try another search or reset the archive results.';
+      habitabilityScore.textContent = '—';
+      habitabilityFill.style.width = '0%';
+      habitabilityLabel.textContent = '—';
+      humanExplanation.textContent = 'No planet is selected.';
+      planetDetails.innerHTML = '';
+      starDetails.innerHTML = '';
+      compareTable.innerHTML = '';
+    }
+
+    // this builds a key-value row
+    function kv(label, value) {
+      return `<div class="kv"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+    }
+
+    // this builds one earth comparison row
+    function compareRow(property, earth, selected) {
+      return `<tr><td>${escapeHtml(property)}</td><td>${escapeHtml(earth)}</td><td>${escapeHtml(selected)}</td></tr>`;
+    }
+
+    // this renders the selected planet details
+    function renderSelectedPlanet() {
+      const p = selectedPlanet;
+      if (!p) return;
+
+      const tempC = Number.isFinite(Number(p.equilibriumTempK))
+        ? `${(Number(p.equilibriumTempK) - 273.15).toFixed(1)} °C`
+        : 'unknown';
+
+      selectedName.textContent = p.name;
+
+      selectedSummary.textContent =
+        `${p.category} around ${p.hostStar || 'an unknown host star'} • discovered ${p.discoveryYear || 'unknown year'}${p.distanceLy ? ` • ${fmt(p.distanceLy, 1, ' ly away')}` : ''}`;
+
+      sceneTitle.textContent = p.name;
+      sceneSubtitle.textContent = `A procedural model of ${p.name}, using real archive measurements where available and visual scaling where needed.`;
+
+      habitabilityScore.textContent = `${p.habitabilityScore}/100`;
+      habitabilityFill.style.width = `${Math.max(0, Math.min(100, p.habitabilityScore || 0))}%`;
+      habitabilityLabel.textContent = p.habitabilityLabel || 'unknown';
+      humanExplanation.textContent = p.humanExplanation || 'There is not enough data to make a strong estimate.';
+
+      planetDetails.innerHTML = [
+        kv('Planet Name', p.name),
+        kv('Category', p.category),
+        kv('Distance', fmt(p.distanceLy, 2, ' ly')),
+        kv('Radius', fmt(p.radiusEarth, 2, ' R⊕')),
+        kv('Mass', fmt(p.massEarth, 2, ' M⊕')),
+        kv('Orbital Period', fmt(p.orbitalPeriodDays, 2, ' days')),
+        kv('Semi-Major Axis', fmt(p.semiMajorAxisAu, 3, ' AU')),
+        kv('Equilibrium Temp', `${fmt(p.equilibriumTempK, 0, ' K')} / ${tempC}`),
+        kv('Discovery Year', p.discoveryYear ?? 'unknown'),
+        kv('Discovery Method', p.discoveryMethod || 'unknown'),
+        kv('RA / Dec', `${p.ra || 'unknown'} / ${p.dec || 'unknown'}`)
+      ].join('');
+
+      starDetails.innerHTML = [
+        kv('Host Star', p.hostStar || 'unknown'),
+        kv('Star Type', p.starType || 'unknown'),
+        kv('Star Temp', fmt(p.starTempK, 0, ' K')),
+        kv('Star Radius', fmt(p.starRadiusSolar, 2, ' R☉')),
+        kv('Star Mass', fmt(p.starMassSolar, 2, ' M☉'))
+      ].join('');
+
+      compareTable.innerHTML = [
+        compareRow('Radius', '1 R⊕', fmt(p.radiusEarth, 2, ' R⊕')),
+        compareRow('Mass', '1 M⊕', fmt(p.massEarth, 2, ' M⊕')),
+        compareRow('Year Length', '365.25 days', fmt(p.orbitalPeriodDays, 2, ' days')),
+        compareRow('Temperature', '255 K', fmt(p.equilibriumTempK, 0, ' K')),
+        compareRow('Distance From Earth', '0 ly', fmt(p.distanceLy, 2, ' ly')),
+        compareRow('Host Star', 'Sun', p.hostStar || 'unknown')
+      ].join('');
+    }
+
+    // this gets visual colors for each planet type
+    function getPlanetPalette(planet) {
+      const category = planet?.category || 'Other Confirmed Planet';
+
+      if (category === 'Hot Jupiter') return ['#451512', '#b14425', '#ff9c4d', '#fff0c6'];
+      if (category === 'Gas Giant') return ['#8a5a35', '#d2ad7c', '#fff0c8', '#6e4830'];
+      if (category === 'Mini-Neptune') return ['#436f9f', '#2f7cff', '#d7f4ff', '#4b72a2'];
+      if (category === 'Super-Earth') return ['#33465a', '#5d84a8', '#bec9d6', '#9db7cc'];
+      if (category === 'Earth Sized' || category === 'Habitable Zone Candidate') return ['#123b61', '#4f9dff', '#d8e7ff', '#e8f0f7'];
+
+      return ['#26384f', '#2f7cff', '#d8e7ff', '#6d7f95'];
+    }
+
+    // this resizes the main planet canvas
+    function resizeModelCanvas() {
+      const rect = modelCanvas.parentElement.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+
+      if (modelCanvas.width !== Math.floor(width * dpr) || modelCanvas.height !== Math.floor(height * dpr)) {
+        modelCanvas.width = Math.floor(width * dpr);
+        modelCanvas.height = Math.floor(height * dpr);
+        modelCanvas.style.width = `${width}px`;
+        modelCanvas.style.height = `${height}px`;
+      }
+
+      return { width: modelCanvas.width, height: modelCanvas.height, dpr };
+    }
+
+    // this draws the procedural planet model
+    function drawPlanetModel() {
+      const p = selectedPlanet;
+      const ctx = modelCanvas.getContext('2d');
+      const { width, height } = resizeModelCanvas();
+
+      ctx.clearRect(0, 0, width, height);
+
+      const cx = width * 0.5;
+      const cy = height * 0.48;
+      const radiusEarth = Number.isFinite(Number(p?.radiusEarth)) ? Number(p.radiusEarth) : 1.2;
+      const r = Math.max(72, Math.min(Math.min(width, height) * 0.25, 110 * Math.pow(radiusEarth, 0.28) * zoom));
+      const palette = getPlanetPalette(p);
+
+      // this draws soft space background stars
+      ctx.save();
+      for (let i = 0; i < 180; i++) {
+        const x = (i * 197.31 + Math.sin(i) * 4000) % width;
+        const y = (i * 89.73 + Math.cos(i * 2) * 3000) % height;
+        const size = 1 + ((i * 13) % 22) / 18;
+        ctx.globalAlpha = 0.18 + ((i * 7) % 12) / 50;
+        ctx.fillStyle = '#d8e7ff';
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // this draws the host star glow
+      const starX = cx - r * 3.0;
+      const starY = cy - r * 0.38;
+      const starGlow = ctx.createRadialGradient(starX, starY, 0, starX, starY, r * 1.5);
+      starGlow.addColorStop(0, 'rgba(255, 238, 190, 0.86)');
+      starGlow.addColorStop(0.24, 'rgba(47, 124, 255, 0.18)');
+      starGlow.addColorStop(1, 'rgba(47, 124, 255, 0)');
+      ctx.fillStyle = starGlow;
+      ctx.beginPath();
+      ctx.arc(starX, starY, r * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // this draws a visual orbit ring
+      ctx.save();
+      ctx.translate(cx, cy + r * 0.95);
+      ctx.rotate(-0.08);
+      ctx.strokeStyle = 'rgba(47, 124, 255, 0.26)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 2.25, r * 0.55, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // this draws atmosphere glow
+      if (['Habitable Zone Candidate', 'Earth Sized', 'Mini-Neptune', 'Hot Jupiter'].includes(p?.category)) {
+        const glowColor = p.category === 'Hot Jupiter' ? 'rgba(255, 143, 77, 0.34)' : 'rgba(47, 124, 255, 0.32)';
+        const glow = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r * 1.35);
+        glow.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        glow.addColorStop(0.7, glowColor);
+        glow.addColorStop(1, 'rgba(47, 124, 255, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // this clips to the planet sphere
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      const planetGrad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r * 1.18);
+      planetGrad.addColorStop(0, palette[3]);
+      planetGrad.addColorStop(0.33, palette[2]);
+      planetGrad.addColorStop(0.68, palette[1]);
+      planetGrad.addColorStop(1, palette[0]);
+      ctx.fillStyle = planetGrad;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+      // this draws moving surface bands/clouds
+      const bandShift = (spin * 28) % (r * 2);
+
+      if (p?.category === 'Gas Giant' || p?.category === 'Hot Jupiter') {
+        for (let i = -10; i <= 10; i++) {
+          const y = cy + i * r * 0.11;
+          const wave = Math.sin(i * 1.7 + spin) * r * 0.05;
+          ctx.globalAlpha = 0.25;
+          ctx.fillStyle = palette[Math.abs(i) % palette.length];
+          ctx.beginPath();
+          ctx.ellipse(cx + wave, y, r * 1.25, r * 0.035 + (Math.abs(i) % 3) * 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = palette[0];
+        ctx.beginPath();
+        ctx.ellipse(cx + r * 0.38, cy + r * 0.18, r * 0.22, r * 0.08, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        for (let i = 0; i < 44; i++) {
+          const a = i * 1.618 + spin * 0.6;
+          const rr = r * (0.16 + ((i * 37) % 80) / 100);
+          const x = cx + Math.cos(a) * rr + Math.sin(spin + i) * r * 0.08;
+          const y = cy + Math.sin(a * 0.78) * rr * 0.72;
+          ctx.globalAlpha = 0.12;
+          ctx.fillStyle = palette[(i + 1) % palette.length];
+          ctx.beginPath();
+          ctx.ellipse(x + bandShift * 0.03, y, r * 0.16, r * 0.045, a, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        for (let i = 0; i < 12; i++) {
+          ctx.globalAlpha = 0.08;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          const y = cy - r * 0.7 + i * r * 0.13;
+          ctx.moveTo(cx - r, y);
+          for (let x = cx - r; x <= cx + r; x += r * 0.15) {
+            ctx.lineTo(x, y + Math.sin((x + spin * 60) * 0.02 + i) * r * 0.04);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // this adds a shadow side so it feels 3d
+      const shadow = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
+      shadow.addColorStop(0, 'rgba(255,255,255,0.06)');
+      shadow.addColorStop(0.42, 'rgba(255,255,255,0)');
+      shadow.addColorStop(0.78, 'rgba(0,0,0,0.28)');
+      shadow.addColorStop(1, 'rgba(0,0,0,0.72)');
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = shadow;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+      ctx.restore();
+
+      // this draws planet rim
+      ctx.strokeStyle = 'rgba(215, 236, 255, 0.32)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // this labels earth comparison
+      ctx.fillStyle = 'rgba(237, 244, 255, 0.86)';
+      ctx.font = `${Math.max(12, Math.floor(width / 110))}px Arial`;
+      ctx.fillText('procedural planet model', 24, height - 28);
+    }
+
+    // this draws the mini orbit visualization
+    function drawOrbitCanvas(planet) {
+      const ctx = orbitCanvas.getContext('2d');
+      const w = orbitCanvas.width;
+      const h = orbitCanvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const gradient = ctx.createLinearGradient(0, 0, w, h);
+      gradient.addColorStop(0, 'rgba(20, 32, 50, 0.96)');
+      gradient.addColorStop(1, 'rgba(8, 13, 23, 0.96)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w * 0.48;
+      const cy = h * 0.55;
+      const rx = w * 0.34;
+      const ry = h * 0.30;
+
+      ctx.strokeStyle = 'rgba(47, 124, 255, 0.52)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, -0.08, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 234, 178, 0.96)';
+      ctx.shadowColor = 'rgba(255, 222, 140, 0.8)';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(cx - rx * 0.52, cy, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      const period = Number(planet.orbitalPeriodDays);
+      const angle = Number.isFinite(period) ? ((Date.now() / 10000000) % (Math.PI * 2)) : 1.4;
+      const px = cx + Math.cos(angle) * rx;
+      const py = cy + Math.sin(angle) * ry;
+
+      ctx.fillStyle = 'rgba(47, 124, 255, 0.98)';
+      ctx.shadowColor = 'rgba(47, 124, 255, 0.9)';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = 'rgba(237, 244, 255, 0.92)';
+      ctx.font = '12px Arial';
+      ctx.fillText(`${planet.hostStar || 'Host star'}`, 16, 24);
+
+      ctx.fillStyle = 'rgba(199, 211, 234, 0.9)';
+      ctx.fillText(`Period: ${fmt(planet.orbitalPeriodDays, 2, ' days')} • Orbit: ${fmt(planet.semiMajorAxisAu, 3, ' AU')}`, 16, h - 16);
+    }
+
+    // this updates earth vs exoplanet scale dot
+    function updateEarthScale(planet) {
+      const r = Number.isFinite(Number(planet.radiusEarth)) ? Number(planet.radiusEarth) : 1;
+      const dotSize = Math.max(10, Math.min(54, 16 * Math.sqrt(r)));
+
+      planetScaleDot.style.width = `${dotSize}px`;
+      planetScaleDot.style.height = `${dotSize}px`;
+      scaleText.textContent = `Selected radius: ${fmt(planet.radiusEarth, 2, ' R⊕')}`;
+    }
+
+    // this copies a readable summary
+    async function copyPlanetSummary() {
+      if (!selectedPlanet) return;
+
+      const p = selectedPlanet;
+      const text =
+        `${p.name} orbits ${p.hostStar || 'an unknown host star'}. ` +
+        `It is categorized as ${p.category}. ` +
+        `Distance: ${fmt(p.distanceLy, 2, ' light years')}. ` +
+        `Radius: ${fmt(p.radiusEarth, 2, ' Earth radii')}. ` +
+        `Mass: ${fmt(p.massEarth, 2, ' Earth masses')}. ` +
+        `Orbital period: ${fmt(p.orbitalPeriodDays, 2, ' days')}. ` +
+        `Habitability estimate: ${p.habitabilityScore}/100 (${p.habitabilityLabel}). ` +
+        `${p.humanExplanation}`;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Copied planet summary.');
+      } catch {
+        showToast('Copy failed in this browser.');
+      }
+    }
+
+    // this opens the nasa overview page for the selected planet
+    function openNasaSource() {
+      if (!selectedPlanet) return;
+
+      const url = `https://exoplanetarchive.ipac.caltech.edu/overview/${encodeURIComponent(selectedPlanet.name)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // this shows a small toast
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add('show');
+
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // this runs the model animation
+    function animate() {
+      requestAnimationFrame(animate);
+
+      spin += 0.012;
+
+      if (selectedPlanet) {
+        drawPlanetModel();
+        drawOrbitCanvas(selectedPlanet);
+      }
+    }
+
+    // this handles mouse drag rotation
+    modelCanvas.addEventListener('pointerdown', event => {
+      dragging = true;
+      lastMouseX = event.clientX;
+      modelCanvas.setPointerCapture(event.pointerId);
+    });
+
+    modelCanvas.addEventListener('pointermove', event => {
+      if (!dragging) return;
+
+      const dx = event.clientX - lastMouseX;
+      lastMouseX = event.clientX;
+      spin += dx * 0.015;
+      drawPlanetModel();
+    });
+
+    modelCanvas.addEventListener('pointerup', event => {
+      dragging = false;
+      modelCanvas.releasePointerCapture(event.pointerId);
+    });
+
+    modelCanvas.addEventListener('wheel', event => {
+      event.preventDefault();
+
+      zoom += event.deltaY > 0 ? -0.06 : 0.06;
+      zoom = Math.max(0.7, Math.min(1.45, zoom));
+      drawPlanetModel();
+    }, { passive: false });
+
+    // event wiring
+    searchBtn.addEventListener('click', () => {
+      currentLimit = 40;
+      fetchPlanets({
+        query: searchInput.value,
+        limit: currentLimit
+      });
+    });
+
+    searchInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        currentLimit = 40;
+        fetchPlanets({
+          query: searchInput.value,
+          limit: currentLimit
+        });
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      filterSelect.value = 'all';
+      sortSelect.value = 'name';
+      selectedPlanet = null;
+      currentLimit = 40;
+
+      if (hasLiveArchiveData) {
+        fetchPlanets({ query: '', limit: currentLimit });
+      } else {
+        allPlanets = [...STARTER_PLANETS];
+        renderPlanetList();
+        autoSelectInterestingPlanet();
+        fetchPlanets({ query: '', limit: currentLimit, background: true });
+      }
+    });
+
+    loadMoreBtn.addEventListener('click', () => {
+      currentLimit += 40;
+      fetchPlanets({
+        query: currentQuery,
+        limit: currentLimit
+      });
+    });
+
+    filterSelect.addEventListener('change', () => {
+      renderPlanetList();
+
+      const visible = getSortedFilteredPlanets();
+
+      if (visible.length && (!selectedPlanet || !visible.some(p => p.id === selectedPlanet.id))) {
+        selectPlanet(visible[0].id);
+      }
+    });
+
+    sortSelect.addEventListener('change', () => {
+      renderPlanetList();
+
+      const visible = getSortedFilteredPlanets();
+
+      if (visible.length && (!selectedPlanet || !visible.some(p => p.id === selectedPlanet.id))) {
+        selectPlanet(visible[0].id);
+      }
+    });
+
+    copySummaryBtn.addEventListener('click', copyPlanetSummary);
+    nasaSourceBtn.addEventListener('click', openNasaSource);
+
+    window.addEventListener('resize', () => {
+      drawPlanetModel();
+      if (selectedPlanet) drawOrbitCanvas(selectedPlanet);
+    });
+
+    // startup
+    allPlanets = [...STARTER_PLANETS];
+    renderPlanetList();
+    autoSelectInterestingPlanet();
+    fetchPlanets({ query: '', limit: currentLimit, background: true });
+    animate();
+  </script>
+</body>
+</html>

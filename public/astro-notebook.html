@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Astro Notebook</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  <style>
+    /* nasa blue + black theme */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --accent-2: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --button-gradient: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --button-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.72));
+      --danger: #ff9d9d;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    /* reset */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--text); overflow-x: hidden; }
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+    body.field-mode { --panel-bg: rgba(3, 6, 12, 0.98); font-size: 18px; }
+    body.red-mode { --accent: #7c1111; --accent-light: #ff5a5a; --accent-2: #ff5a5a; --field-border: rgba(255, 90, 90, 0.38); --panel-border: rgba(124, 17, 17, 0.95); --button-gradient: linear-gradient(180deg, rgba(124, 17, 17, 0.58), rgba(22, 4, 4, 0.86)); --button-hover: linear-gradient(180deg, rgba(255, 90, 90, 0.25), rgba(124, 17, 17, 0.72)); }
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font: inherit; }
+    button { user-select: none; }
+
+    /* moving stars */
+    #starfield { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.98; }
+    .space-glow { position: fixed; border-radius: 50%; filter: blur(95px); pointer-events: none; z-index: 0; opacity: 0.22; animation: glowFloat 18s ease-in-out infinite; }
+    .glow-1 { width: 360px; height: 360px; top: 6%; left: 10%; background: radial-gradient(circle, rgba(11, 61, 145, 0.20), transparent 72%); }
+    .glow-2 { width: 430px; height: 430px; right: 7%; top: 14%; background: radial-gradient(circle, rgba(11, 61, 145, 0.17), transparent 72%); animation-delay: -6s; }
+    .glow-3 { width: 380px; height: 380px; left: 48%; bottom: 4%; background: radial-gradient(circle, rgba(44, 126, 255, 0.12), transparent 74%); animation-delay: -11s; }
+
+    /* this adds the background moon */
+.moon-wrap {
+  position: fixed;
+  top: 72px;
+  right: 94px;
+  left: auto;
+  width: 138px;
+  height: 138px;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+.moon-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 35% 35%,
+      rgba(255, 255, 255, 0.96),
+      rgba(211, 228, 255, 0.93) 36%,
+      rgba(44, 126, 255, 0.20) 62%,
+      rgba(11, 61, 145, 0) 76%
+    );
+  box-shadow:
+    0 0 40px rgba(44, 126, 255, 0.18),
+    0 0 95px rgba(11, 61, 145, 0.12);
+}
+
+.moon-wrap::after {
+  content: "";
+  position: absolute;
+  width: 108px;
+  height: 108px;
+  top: 12px;
+  left: 40px;
+  border-radius: 50%;
+  background: #02040a;
+  box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+}
+
+@media (max-width: 920px) {
+  .moon-wrap {
+    width: 98px;
+    height: 98px;
+    top: 72px;
+    right: 24px;
+    left: auto;
+    opacity: 0.42;
+  }
+}
+
+    /* page shell */
+    .app-shell { min-height: 100vh; position: relative; z-index: 1; padding: 28px; }
+    .main-inner { max-width: 1580px; margin: 0 auto; display: grid; gap: 18px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand-icon { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; background: var(--button-gradient); border: 1px solid rgba(44,126,255,0.5); box-shadow: 0 0 22px rgba(44,126,255,0.12); }
+    .brand h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -0.04em; line-height: 1; }
+    .brand h1 .title-white,
+    .hero-title .title-white { color: var(--text); text-shadow: none; }
+    .brand h1 .title-blue,
+    .hero-title .title-blue { color: var(--accent-light); text-shadow: 0 0 28px rgba(44,126,255,0.22); }
+    .brand p { margin: 6px 0 0; color: var(--muted); }
+    .top-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    /* panels */
+    .panel, .hero-card, .stat-card, .log-card, .modal-card {
+      position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(4,10,24,0.96), rgba(3,8,20,0.93));
+      border: 1px solid rgba(44,126,255,0.20); border-radius: var(--radius-lg); box-shadow: 0 14px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055); backdrop-filter: blur(18px);
+    }
+    .panel::after, .hero-card::after, .stat-card::after, .log-card::after, .modal-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(115deg, transparent 0%, transparent 34%, rgba(255,255,255,0.045) 42%, transparent 50%, transparent 100%); transform: translateX(-120%); animation: panelSheen 13s linear infinite; opacity: 0.5; }
+    .panel-content { position: relative; z-index: 1; }
+    .hero-card { padding: 24px; animation: panelFloatIn 650ms cubic-bezier(0.2,0.8,0.2,1) both; }
+    .hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: stretch; }
+    .eyebrow, .badge, .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 999px; background: rgba(11,61,145,0.08); border: 1px solid rgba(44,126,255,0.18); color: var(--accent-2); font-size: 0.78rem; white-space: nowrap; }
+    .hero-title { margin: 12px 0 10px; font-size: clamp(1.6rem, 3vw, 2.45rem); letter-spacing: -0.03em; }
+    .hero-title span { display: inline; }
+    .muted { color: var(--muted); line-height: 1.6; }
+    .local-note { border: 1px dashed rgba(44,126,255,0.32); border-radius: 16px; padding: 13px; background: rgba(6,26,64,0.42); color: var(--muted); line-height: 1.55; }
+
+    /* stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(8, minmax(120px, 1fr)); gap: 12px; }
+    .stat-card { padding: 14px; min-height: 92px; }
+    .stat-card span { position: relative; z-index: 1; color: var(--muted); font-size: 0.76rem; display: block; }
+    .stat-card strong { position: relative; z-index: 1; display: block; margin-top: 8px; font-size: 1.25rem; overflow-wrap: anywhere; }
+
+    /* layout */
+    .dashboard { display: grid; grid-template-columns: minmax(290px, 0.86fr) minmax(0, 1.42fr) minmax(315px, 0.95fr); gap: 18px; align-items: start; }
+    .left-stack, .center-stack, .right-stack { display: grid; gap: 18px; min-width: 0; }
+    .panel { padding: 18px; }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .section-head h2 { margin: 0; font-size: 1.12rem; }
+    .section-head p { margin: 5px 0 0; color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
+
+    /* controls */
+    .btn { appearance: none; border: 1px solid rgba(44,126,255,0.22); border-radius: 14px; padding: 10px 14px; cursor: pointer; color: var(--field-text); background: rgba(255,255,255,0.04); transition: 180ms ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn:hover { transform: translateY(-2px); border-color: rgba(44,126,255,0.55); background: var(--button-hover); box-shadow: 0 8px 20px rgba(0,0,0,0.28), 0 0 18px rgba(44,126,255,0.14); }
+    .btn.primary { background: var(--button-gradient); border-color: rgba(44,126,255,0.76); color: white; }
+    .btn.small { padding: 8px 10px; border-radius: 12px; font-size: 0.82rem; }
+    .btn.danger { border-color: rgba(255,157,157,0.35); color: #ffd8d8; background: rgba(255,120,120,0.055); }
+    .btn.good { border-color: rgba(184,255,213,0.35); color: var(--good); }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .field { display: grid; gap: 7px; }
+    .field label { color: var(--accent-2); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em; }
+    .input, .select, .textarea { width: 100%; border: 1px solid var(--field-border); background: linear-gradient(180deg, rgba(6,26,64,0.96), rgba(3,12,30,0.96)); color: var(--field-text); border-radius: 14px; padding: 11px 12px; outline: none; transition: 160ms ease; color-scheme: dark; }
+    .textarea { min-height: 106px; resize: vertical; line-height: 1.55; }
+    .input:focus, .select:focus, .textarea:focus { border-color: rgba(44,126,255,0.66); box-shadow: 0 0 0 3px rgba(11,61,145,0.1), 0 0 22px rgba(44,126,255,0.1); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+    .search-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .divider { height: 1px; background: rgba(44,126,255,0.15); margin: 14px 0; }
+
+    /* lists */
+    .session-list, .equipment-list, .location-list, .plan-list, .log-list { display: grid; gap: 10px; }
+    .mini-card, .session-item, .equipment-item, .location-item, .plan-item { border: 1px solid rgba(44,126,255,0.14); background: rgba(3,8,20,0.48); border-radius: 16px; padding: 12px; transition: 160ms ease; }
+    .session-item, .equipment-item, .location-item { cursor: pointer; }
+    .session-item:hover, .equipment-item:hover, .location-item:hover, .plan-item:hover, .log-card:hover { transform: translateY(-2px); border-color: rgba(44,126,255,0.5); box-shadow: 0 0 18px rgba(44,126,255,0.12); }
+    .session-item.active, .log-card.active { border-color: rgba(44,126,255,0.72); box-shadow: 0 0 0 1px rgba(11,61,145,0.24), 0 0 26px rgba(44,126,255,0.14); }
+    .mini-title { margin: 0; font-size: 0.96rem; }
+    .mini-line { margin: 5px 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+    .chip { font-size: 0.72rem; padding: 5px 8px; }
+
+    /* log cards */
+    .view-tabs, .editor-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tab { border: 1px solid rgba(44,126,255,0.18); background: rgba(44,126,255,0.06); color: var(--text); border-radius: 999px; padding: 8px 10px; cursor: pointer; }
+    .tab.active { border-color: rgba(44,126,255,0.72); background: rgba(11,61,145,0.26); color: white; }
+    .log-card { padding: 15px; animation: chipFloatIn 430ms cubic-bezier(0.2,0.8,0.2,1) both; }
+    .log-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; position: relative; z-index: 1; }
+    .log-title { margin: 0; font-size: 1.08rem; }
+    .log-meta { margin: 6px 0 0; color: var(--muted); font-size: 0.84rem; line-height: 1.4; }
+    .log-body { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 88px; gap: 12px; margin-top: 12px; }
+    .thumb { width: 88px; height: 88px; border-radius: 15px; border: 1px solid rgba(44,126,255,0.2); background: rgba(0,0,0,0.35); object-fit: cover; display: grid; place-items: center; color: var(--muted); font-size: 0.8rem; overflow: hidden; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .rating { color: var(--accent-light); letter-spacing: 2px; white-space: nowrap; }
+    .timeline-month { margin: 10px 0 4px; color: var(--accent-light); font-weight: 800; }
+    .timeline-session { margin: 8px 0; padding-left: 12px; border-left: 2px solid rgba(44,126,255,0.32); }
+    .calendar-mini { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
+    .calendar-cell { min-height: 48px; border: 1px solid rgba(44,126,255,0.12); border-radius: 12px; padding: 6px; color: var(--muted); background: rgba(255,255,255,0.025); font-size: 0.78rem; }
+    .calendar-cell.has { color: var(--text); border-color: rgba(44,126,255,0.45); background: rgba(11,61,145,0.12); }
+
+    /* editor */
+    .editor-body { margin-top: 14px; }
+    .editor-pane { display: none; }
+    .editor-pane.active { display: grid; gap: 12px; }
+    .save-status { color: var(--muted); font-size: 0.82rem; }
+    .target-helper { display: grid; gap: 8px; max-height: 240px; overflow: auto; padding-right: 4px; }
+    .target-helper button { text-align: left; justify-content: flex-start; }
+
+    /* sketch */
+    .sketch-wrap { display: grid; gap: 10px; }
+    .sketch-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .sketch-canvas-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 520px; border-radius: 18px; border: 1px solid rgba(44,126,255,0.25); background: radial-gradient(circle, rgba(6,26,64,0.9), rgba(0,0,0,0.96)); overflow: hidden; }
+    #sketchCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    .sketch-overlay { position: absolute; inset: 8%; border: 1px dashed rgba(244,248,255,0.28); border-radius: 50%; pointer-events: none; display: none; }
+    .sketch-overlay.show { display: block; }
+    .sketch-crosshair { position: absolute; inset: 0; pointer-events: none; display: none; }
+    .sketch-crosshair.show { display: block; }
+    .sketch-crosshair::before, .sketch-crosshair::after { content:""; position:absolute; background: rgba(244,248,255,0.18); }
+    .sketch-crosshair::before { width: 1px; height: 82%; left: 50%; top: 9%; }
+    .sketch-crosshair::after { height: 1px; width: 82%; top: 50%; left: 9%; }
+
+    /* media */
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px,1fr)); gap: 10px; }
+    .photo-card { border: 1px solid rgba(44,126,255,0.15); border-radius: 15px; overflow: hidden; background: rgba(0,0,0,0.35); }
+    .photo-card img { width: 100%; height: 105px; object-fit: cover; display: block; }
+    .photo-card input { border: 0; border-top: 1px solid rgba(44,126,255,0.13); border-radius: 0; background: rgba(6,26,64,0.8); }
+
+    /* charts */
+    .chart { width: 100%; height: 130px; border: 1px solid rgba(44,126,255,0.13); border-radius: 15px; background: rgba(0,0,0,0.22); }
+    .progress-bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .progress-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
+    .messier-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; max-height: 200px; overflow: auto; }
+    .messier-btn { border: 1px solid rgba(44,126,255,0.12); border-radius: 8px; padding: 6px 2px; background: rgba(255,255,255,0.03); color: var(--muted); cursor: pointer; font-size: 0.72rem; }
+    .messier-btn.done { color: white; border-color: rgba(44,126,255,0.58); background: rgba(11,61,145,0.25); }
+
+    /* modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(10px); z-index: 20; display: none; place-items: center; padding: 18px; }
+    .modal-backdrop.show { display: grid; }
+    .modal-card { width: min(920px, 100%); max-height: 90vh; overflow: auto; padding: 20px; }
+    .modal-title { margin: 0 0 12px; }
+
+    /* utility */
+    .hidden { display: none !important; }
+    .danger-text { color: var(--danger); }
+    .good-text { color: var(--good); }
+    .warn-text { color: var(--warn); }
+    .right { text-align: right; }
+    .kbd { border: 1px solid rgba(44,126,255,0.22); background: rgba(255,255,255,0.05); border-radius: 6px; padding: 2px 6px; color: var(--muted); font-size: 0.75rem; }
+
+    @keyframes glowFloat { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(14px,-12px,0) scale(1.05); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes panelSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(140%); } }
+    @keyframes panelFloatIn { from { opacity: 0; transform: translateY(20px) scale(0.985); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+    @keyframes chipFloatIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    @media (max-width: 1350px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } .dashboard { grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr); } .right-stack { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 980px) { .app-shell { padding: 18px 14px; } .hero-grid, .dashboard, .right-stack { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .brand { align-items: flex-start; } .brand-icon { display: none; } .top-actions, .btn-row { width: 100%; } .btn { flex: 1 1 auto; } .stats-grid, .grid-2, .grid-3, .grid-4, .search-row, .log-body { grid-template-columns: 1fr; } .thumb { width: 100%; height: 140px; } .messier-grid { grid-template-columns: repeat(5, 1fr); } }
+  </style>
+</head>
+<body>
+  <!-- this is the background stars -->
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <!-- this is the main notebook shell -->
+  <div class="app-shell">
+    <main class="main-inner">
+      <!-- this is the notebook overview -->
+      <section class="hero-card">
+        <div class="hero-grid">
+          <div class="panel-content">
+            <h2 class="hero-title"><span class="title-white">Astro</span> <span class="title-blue">Notebook</span></h2>
+            <p class="muted">StellaSim field journal for telescope sessions, sketches, photos, and target history.</p>
+            <p class="muted">Create sessions, add observations, record telescope settings, rate sky conditions, sketch through the eyepiece, attach photos, track Messier progress, and export backups.</p>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn primary" id="newSessionTopBtn">＋ Session</button>
+              <button class="btn primary" id="newObsTopBtn">＋ Observation</button>
+              <button class="btn" id="quickLogTopBtn">Quick Log</button>
+              <button class="btn" id="fieldModeBtn">Field Mode</button>
+              <button class="btn" id="redModeBtn">Red-Light</button>
+            </div>
+            <div class="btn-row" style="margin-top:10px;">
+              <button class="btn primary" id="generateSummaryBtn">Generate Session Summary</button>
+              <button class="btn" id="printSessionBtn">Printable Session</button>
+              <button class="btn" id="exportAllBtn">Export JSON</button>
+              <label class="btn" for="importFile">Import JSON</label>
+              <input class="hidden" id="importFile" type="file" accept="application/json,.json" />
+            </div>
+          </div>
+          <div class="panel-content local-note">
+            <strong>Storage note:</strong> Your notebook is saved locally in this browser unless you export it. Clearing browser data can delete it. Export backups regularly.
+            <div class="divider"></div>
+            <div id="storageStatus">Checking storage...</div>
+            <div id="saveStatus" class="save-status" style="margin-top:8px;">saved</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- this shows quick stats -->
+      <section class="stats-grid" id="overviewStats"></section>
+
+      <!-- this is the dashboard layout -->
+      <section class="dashboard">
+        <aside class="left-stack">
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Notebook Controls</h2><p>Create, search, filter, and sort logs.</p></div></div>
+              <div class="btn-row">
+                <button class="btn primary" id="createSessionBtn">Create Session</button>
+                <button class="btn primary" id="createObservationBtn">New Observation</button>
+              </div>
+              <div class="divider"></div>
+              <div class="search-row">
+                <div class="field"><label for="searchInput">Search</label><input class="input" id="searchInput" placeholder="target, notes, tags, location..." /></div>
+                <button class="btn" id="focusSearchBtn" title="shortcut: /">/</button>
+              </div>
+              <div class="grid-2" style="margin-top:10px;">
+                <div class="field"><label for="typeFilter">Object Type</label><select class="select" id="typeFilter"></select></div>
+                <div class="field"><label for="sortSelect">Sort</label><select class="select" id="sortSelect"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="rating">Highest rating</option><option value="target">Target name</option><option value="type">Object type</option><option value="location">Location</option><option value="sky">Sky quality</option><option value="session">Session</option></select></div>
+                <div class="field"><label for="locationFilter">Location</label><select class="select" id="locationFilter"></select></div>
+                <div class="field"><label for="telescopeFilter">Telescope</label><select class="select" id="telescopeFilter"></select></div>
+                <div class="field"><label for="dateFromFilter">From</label><input class="input" id="dateFromFilter" type="date" /></div>
+                <div class="field"><label for="dateToFilter">To</label><input class="input" id="dateToFilter" type="date" /></div>
+                <div class="field"><label for="bortleFilter">Bortle ≤</label><input class="input" id="bortleFilter" type="number" min="1" max="9" placeholder="any" /></div>
+                <div class="field"><label for="ratingFilter">Rating ≥</label><input class="input" id="ratingFilter" type="number" min="1" max="5" placeholder="any" /></div>
+              </div>
+              <div class="btn-row" style="margin-top:10px;">
+                <button class="btn" id="favoritesFilterBtn">Favorites Only</button>
+                <button class="btn" id="hasSketchFilterBtn">Has Sketch</button>
+                <button class="btn" id="hasPhotoFilterBtn">Has Photo</button>
+                <button class="btn danger" id="clearFiltersBtn">Clear</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Saved Sessions</h2><p>Select a night to view and edit.</p></div></div>
+              <div class="session-list" id="sessionList"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Equipment Presets</h2><p>Scopes, eyepieces, filters, cameras.</p></div><button class="btn small" id="addEquipmentBtn">Add</button></div>
+              <div class="equipment-list" id="equipmentList"></div>
+              <div class="divider"></div>
+              <div class="mini-card">
+                <h3 class="mini-title">Optics Calculator</h3>
+                <p class="mini-line" id="opticsCalc">Choose a telescope and eyepiece in the editor.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="center-stack">
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head">
+                <div><h2 id="selectedSessionTitle">Selected Session</h2><p id="selectedSessionMeta">Choose or create an observing session.</p></div>
+                <div class="btn-row"><button class="btn small" id="editSessionBtn">Edit Session</button><button class="btn danger small" id="deleteSessionBtn">Delete</button></div>
+              </div>
+              <div id="sessionOverview" class="mini-card"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head">
+                <div><h2>Observation Timeline</h2><p id="resultCount">0 observations</p></div>
+                <div class="view-tabs" id="viewTabs"><button class="tab active" data-view="cards">Cards</button><button class="tab" data-view="timeline">Timeline</button><button class="tab" data-view="calendar">Calendar</button></div>
+              </div>
+              <div class="log-list" id="observationList"></div>
+            </div>
+          </section>
+
+          <section class="panel" id="editorPanel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Observation Editor</h2><p id="editorHint">Create or select an observation.</p></div><span class="save-status" id="draftStatus">draft saved</span></div>
+              <div class="editor-tabs" id="editorTabs">
+                <button class="tab active" data-pane="target">Target</button><button class="tab" data-pane="conditions">Conditions</button><button class="tab" data-pane="equipment">Equipment</button><button class="tab" data-pane="notes">Notes</button><button class="tab" data-pane="sketch">Sketch</button><button class="tab" data-pane="photos">Photos</button><button class="tab" data-pane="review">Review</button>
+              </div>
+              <div class="editor-body" id="editorBody"></div>
+            </div>
+          </section>
+        </section>
+
+        <aside class="right-stack">
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Selected Details</h2><p>Preview, actions, and current observation.</p></div></div>
+              <div id="detailPanel" class="mini-card"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Stats Dashboard</h2><p>Personal observing analytics.</p></div></div>
+              <div class="grid-2"><canvas class="chart" id="typeChart"></canvas><canvas class="chart" id="monthChart"></canvas></div>
+              <div class="grid-2" style="margin-top:10px;"><canvas class="chart" id="equipChart"></canvas><canvas class="chart" id="bortleChart"></canvas></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Messier Progress</h2><p id="messierText">0 / 110</p></div></div>
+              <div class="progress-bar"><span id="messierBar" style="width:0%"></span></div>
+              <div class="messier-grid" id="messierGrid" style="margin-top:12px;"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Locations</h2><p>Save observing sites and Bortle notes.</p></div><button class="btn small" id="addLocationBtn">Add</button></div>
+              <button class="btn small" id="useGeoBtn">Use My Location</button>
+              <div class="location-list" id="locationList" style="margin-top:10px;"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Planned Targets</h2><p>Wishlist that can connect to Observation Planner later.</p></div><button class="btn small" id="addPlanBtn">Add</button></div>
+              <div class="plan-list" id="plannedList"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-head"><div><h2>Safety Notes</h2><p>Small field reminders.</p></div></div>
+              <div class="mini-card"><p class="mini-line">Never look at the Sun without a proper solar filter. Check site rules and access, dress for weather, bring backup power, and avoid white light at dark-sky sites.</p></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <!-- this is the quick log modal -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="panel-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    // this holds fixed options
+    const OBJECT_TYPES = ["Moon", "Planet", "Sun", "Star", "Double Star", "Open Cluster", "Globular Cluster", "Nebula", "Planetary Nebula", "Galaxy", "Supernova Remnant", "Comet", "Asteroid", "Satellite", "Meteor Shower", "Aurora", "Other"];
+    const EQUIP_CATEGORIES = ["telescope", "mount", "eyepiece", "barlow/reducer", "filter", "camera", "binoculars", "finder scope", "accessories"];
+    const STORAGE_KEY = "stellasimAstroNotebookV1";
+
+    // this is the built in target helper
+    const TARGETS = [
+      { name:"Moon", type:"Moon", catalog:"", constellation:"", magnitude:"-12.7", tip:"Sketch along the terminator for strongest shadows." },
+      { name:"Sun", type:"Sun", catalog:"", constellation:"", magnitude:"-26.7", tip:"Use only a proper solar filter before the telescope objective." },
+      { name:"Mercury", type:"Planet", catalog:"", constellation:"", magnitude:"varies", tip:"Best near greatest elongation and low horizon." },
+      { name:"Venus", type:"Planet", catalog:"", constellation:"", magnitude:"-4", tip:"Look for phase, not surface detail." },
+      { name:"Mars", type:"Planet", catalog:"", constellation:"", magnitude:"varies", tip:"Small unless near opposition. Wait for steady air." },
+      { name:"Jupiter", type:"Planet", catalog:"", constellation:"", magnitude:"-2", tip:"Watch cloud belts and Galilean moons." },
+      { name:"Saturn", type:"Planet", catalog:"", constellation:"", magnitude:"0.7", tip:"Use moderate power after optics cool down." },
+      { name:"Uranus", type:"Planet", catalog:"", constellation:"", magnitude:"5.7", tip:"Small blue-green disk in a telescope." },
+      { name:"Neptune", type:"Planet", catalog:"", constellation:"", magnitude:"7.8", tip:"Use a finder chart to confirm the tiny disk." },
+      { name:"Orion Nebula", type:"Nebula", catalog:"M42", constellation:"Orion", magnitude:"4.0", tip:"Start low power and look for the Trapezium." },
+      { name:"Andromeda Galaxy", type:"Galaxy", catalog:"M31", constellation:"Andromeda", magnitude:"3.4", tip:"Use low power or binoculars. It appears as a soft glow." },
+      { name:"Pleiades", type:"Open Cluster", catalog:"M45", constellation:"Taurus", magnitude:"1.6", tip:"Best in binoculars or wide-field eyepiece." },
+      { name:"Beehive Cluster", type:"Open Cluster", catalog:"M44", constellation:"Cancer", magnitude:"3.7", tip:"Sweep slowly until the mist resolves into stars." },
+      { name:"Hercules Cluster", type:"Globular Cluster", catalog:"M13", constellation:"Hercules", magnitude:"5.8", tip:"Increase power to resolve outer stars." },
+      { name:"Ring Nebula", type:"Planetary Nebula", catalog:"M57", constellation:"Lyra", magnitude:"8.8", tip:"Use averted vision for the smoke-ring shape." },
+      { name:"Dumbbell Nebula", type:"Planetary Nebula", catalog:"M27", constellation:"Vulpecula", magnitude:"7.5", tip:"A UHC/OIII filter can improve contrast." },
+      { name:"Lagoon Nebula", type:"Nebula", catalog:"M8", constellation:"Sagittarius", magnitude:"6.0", tip:"Needs a darker southern view." },
+      { name:"Eagle Nebula", type:"Nebula", catalog:"M16", constellation:"Serpens", magnitude:"6.4", tip:"Look for the cluster first." },
+      { name:"Trifid Nebula", type:"Nebula", catalog:"M20", constellation:"Sagittarius", magnitude:"6.3", tip:"Dark skies help show the divided glow." },
+      { name:"Whirlpool Galaxy", type:"Galaxy", catalog:"M51", constellation:"Canes Venatici", magnitude:"8.4", tip:"Use dark skies and averted vision." },
+      { name:"Triangulum Galaxy", type:"Galaxy", catalog:"M33", constellation:"Triangulum", magnitude:"5.7", tip:"Large and low surface brightness." },
+      { name:"Double Cluster", type:"Open Cluster", catalog:"NGC 869/884", constellation:"Perseus", magnitude:"4.3", tip:"Low power shows both clusters together." },
+      { name:"North America Nebula", type:"Nebula", catalog:"NGC 7000", constellation:"Cygnus", magnitude:"4.0", tip:"Wide field and dark skies are best." },
+      { name:"Sombrero Galaxy", type:"Galaxy", catalog:"M104", constellation:"Virgo", magnitude:"8.0", tip:"Look for a thin bright core under dark skies." },
+      { name:"Bode’s Galaxy", type:"Galaxy", catalog:"M81", constellation:"Ursa Major", magnitude:"6.9", tip:"Pair it with M82 in the same session." },
+      { name:"Cigar Galaxy", type:"Galaxy", catalog:"M82", constellation:"Ursa Major", magnitude:"8.4", tip:"Elongated shape is visible in moderate scopes." },
+      { name:"Albireo", type:"Double Star", catalog:"β Cygni", constellation:"Cygnus", magnitude:"3.1/5.1", tip:"Gold and blue color contrast." },
+      { name:"Mizar", type:"Double Star", catalog:"ζ UMa", constellation:"Ursa Major", magnitude:"2.2", tip:"Great simple double star target." },
+      { name:"Castor", type:"Double Star", catalog:"α Gem", constellation:"Gemini", magnitude:"1.6", tip:"Needs moderate magnification." },
+      { name:"Epsilon Lyrae", type:"Double Star", catalog:"ε Lyr", constellation:"Lyra", magnitude:"4.7", tip:"The famous double-double." },
+      { name:"Almach", type:"Double Star", catalog:"γ And", constellation:"Andromeda", magnitude:"2.1", tip:"Pretty color contrast double." },
+      { name:"Comet", type:"Comet", catalog:"", constellation:"", magnitude:"", tip:"Record sky motion and coma/tail shape." },
+      { name:"Meteor shower", type:"Meteor Shower", catalog:"", constellation:"", magnitude:"", tip:"Log time window, radiant, and meteor count." },
+      { name:"Aurora", type:"Aurora", catalog:"", constellation:"", magnitude:"", tip:"Record colors, direction, and camera settings." },
+      { name:"Satellite pass", type:"Satellite", catalog:"", constellation:"", magnitude:"", tip:"Record path, time, brightness, and direction." }
+    ];
+
+    // this is the notebook state
+    let notebookState = { sessions:[], observations:[], equipment:[], locations:[], plannedTargets:[], favorites:[], filters:{ favorites:false, hasSketch:false, hasPhoto:false }, selectedSessionId:null, selectedObservationId:null, viewMode:"cards", sampleLoaded:false };
+    let draftObservation = null;
+    let saveTimer = null;
+    let sketch = { canvas:null, ctx:null, drawing:false, color:"#f4f8ff", size:4, opacity:0.85, tool:"pencil", history:[], template:"eyepiece", crosshair:false };
+
+    // this grabs elements
+    const $ = (id) => document.getElementById(id);
+    const overviewStats = $("overviewStats"), sessionList = $("sessionList"), observationList = $("observationList"), editorBody = $("editorBody"), detailPanel = $("detailPanel"), modalBackdrop = $("modalBackdrop"), modalContent = $("modalContent");
+
+    // this starts the app
+    document.addEventListener("DOMContentLoaded", initApp);
+
+    function initApp() {
+      loadNotebook();
+      if (!notebookState.sessions.length) loadSampleData();
+      bindEvents();
+      fillSelects();
+      renderAll();
+      initStarfield();
+    }
+
+    // this adds event listeners
+    function bindEvents() {
+      ["newSessionTopBtn","createSessionBtn"].forEach(id => $(id).addEventListener("click", () => openSessionModal()));
+      ["newObsTopBtn","createObservationBtn"].forEach(id => $(id).addEventListener("click", () => createObservation()));
+      $("quickLogTopBtn").addEventListener("click", openQuickLogModal);
+      $("fieldModeBtn").addEventListener("click", () => document.body.classList.toggle("field-mode"));
+      $("redModeBtn").addEventListener("click", () => document.body.classList.toggle("red-mode"));
+      $("generateSummaryBtn").addEventListener("click", generateSessionSummary);
+      $("printSessionBtn").addEventListener("click", exportSessionHTML);
+      $("exportAllBtn").addEventListener("click", exportNotebookJSON);
+      $("importFile").addEventListener("change", importNotebookJSON);
+      $("searchInput").addEventListener("input", debounce(renderObservations, 180));
+      ["typeFilter","sortSelect","locationFilter","telescopeFilter","dateFromFilter","dateToFilter","bortleFilter","ratingFilter"].forEach(id => $(id).addEventListener("input", renderObservations));
+      $("favoritesFilterBtn").addEventListener("click", () => toggleFilter("favorites"));
+      $("hasSketchFilterBtn").addEventListener("click", () => toggleFilter("hasSketch"));
+      $("hasPhotoFilterBtn").addEventListener("click", () => toggleFilter("hasPhoto"));
+      $("clearFiltersBtn").addEventListener("click", clearFilters);
+      $("editSessionBtn").addEventListener("click", () => openSessionModal(getSelectedSession()));
+      $("deleteSessionBtn").addEventListener("click", deleteSession);
+      $("addEquipmentBtn").addEventListener("click", () => openEquipmentModal());
+      $("addLocationBtn").addEventListener("click", () => openLocationModal());
+      $("useGeoBtn").addEventListener("click", useMyLocation);
+      $("addPlanBtn").addEventListener("click", () => openPlanModal());
+      $("focusSearchBtn").addEventListener("click", () => $("searchInput").focus());
+      $("viewTabs").addEventListener("click", (e) => { if (e.target.matches(".tab")) { notebookState.viewMode = e.target.dataset.view; renderViewTabs(); renderObservations(); saveNotebook(); } });
+      $("editorTabs").addEventListener("click", (e) => { if (e.target.matches(".tab")) switchEditorPane(e.target.dataset.pane); });
+      modalBackdrop.addEventListener("click", e => { if (e.target === modalBackdrop) closeModal(); });
+      document.addEventListener("keydown", handleKeys);
+    }
+
+    // this handles shortcuts
+    function handleKeys(e) {
+      if (e.target.matches("input, textarea, select")) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveNotebook(); return; }
+      if (e.key === "/") { e.preventDefault(); $("searchInput").focus(); }
+      if (e.key.toLowerCase() === "n") createObservation();
+      if (e.key.toLowerCase() === "s") saveNotebook();
+      if (e.key.toLowerCase() === "f") toggleFavoriteSelected();
+      if (e.key.toLowerCase() === "p") exportSessionHTML();
+      if (e.key === "Escape") closeModal();
+    }
+
+    // this fills dropdowns
+    function fillSelects() {
+      $("typeFilter").innerHTML = `<option value="">All types</option>` + OBJECT_TYPES.map(t => `<option>${t}</option>`).join("");
+      refreshDynamicFilters();
+    }
+
+    function refreshDynamicFilters() {
+      const locs = unique(notebookState.sessions.map(s => s.locationName).filter(Boolean));
+      $("locationFilter").innerHTML = `<option value="">All locations</option>` + locs.map(v => `<option>${escapeHtml(v)}</option>`).join("");
+      const scopes = notebookState.equipment.filter(e => ["telescope","binoculars"].includes(e.category)).map(e => e.name);
+      $("telescopeFilter").innerHTML = `<option value="">All scopes</option>` + scopes.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    }
+
+    // this loads the notebook
+    function loadNotebook() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved) notebookState = { ...notebookState, ...saved, filters:{...notebookState.filters, ...(saved.filters||{})} };
+      } catch (err) { console.warn(err); }
+    }
+
+    // this saves the notebook
+    function saveNotebook() {
+      $("saveStatus").textContent = "saving...";
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(notebookState));
+        $("saveStatus").textContent = "saved";
+        updateStorageStatus();
+      } catch (err) {
+        $("saveStatus").innerHTML = `<span class="danger-text">storage full or unavailable. export a backup and remove large photos/sketches.</span>`;
+      }
+    }
+
+    // this autosaves changes
+    function scheduleSave() {
+      $("saveStatus").textContent = "unsaved changes";
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { saveNotebook(); renderAll(false); }, 450);
+    }
+
+    // this loads sample data
+    function loadSampleData() {
+      const now = new Date();
+      const d1 = isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()-2));
+      const d2 = isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()-8));
+      const backyard = uid(), dark = uid(), skymax = uid(), dob = uid(), ep25 = uid(), ep10 = uid(), uhc = uid();
+      notebookState.locations = [
+        { id:backyard, name:"Backyard", lat:"34.05", lon:"-118.24", bortle:7, skyBrightness:"18.5", horizonNotes:"trees low west", accessNotes:"home site", favorite:true },
+        { id:dark, name:"Dark sky site", lat:"34.52", lon:"-116.88", bortle:3, skyBrightness:"21.4", horizonNotes:"open south", accessNotes:"check park rules", favorite:true }
+      ];
+      notebookState.equipment = [
+        { id:skymax, category:"telescope", name:"Skymax 102", type:"maksutov", apertureMm:102, focalLengthMm:1300, focalRatio:12.7, mount:"AZ-GTi", notes:"compact lunar/planetary scope" },
+        { id:dob, category:"telescope", name:"8 inch Dobsonian", type:"dobsonian", apertureMm:203, focalLengthMm:1200, focalRatio:5.9, mount:"Dobsonian", notes:"deep-sky nights" },
+        { id:ep25, category:"eyepiece", name:"25mm Plossl", eyepieceFocalLengthMm:25, apparentFov:52, barrelSize:"1.25\"", notes:"finder eyepiece" },
+        { id:ep10, category:"eyepiece", name:"10mm Plossl", eyepieceFocalLengthMm:10, apparentFov:52, barrelSize:"1.25\"", notes:"planetary detail" },
+        { id:uhc, category:"filter", name:"UHC Filter", filterType:"UHC", notes:"nebula contrast" }
+      ];
+      const s1 = uid(), s2 = uid();
+      notebookState.sessions = [
+        { id:s1, title:"Backyard Jupiter Session", date:d1, startTime:"20:30", endTime:"22:15", locationId:backyard, locationName:"Backyard", lat:"34.05", lon:"-118.24", bortle:7, skyBrightness:"18.5", moonPhase:"Waxing crescent", moonIllumination:"31%", weather:"cool, calm", seeing:3, transparency:3, wind:"4 mph", humidity:"58%", temperature:"61°F", telescopeUsed:"Skymax 102", mountUsed:"AZ-GTi", cameraUsed:"", notes:"first clear night after clouds", rating:4, tags:["sample","backyard"], createdAt:now.toISOString(), updatedAt:now.toISOString() },
+        { id:s2, title:"Dark Sky Messier Hunt", date:d2, startTime:"21:00", endTime:"00:30", locationId:dark, locationName:"Dark sky site", lat:"34.52", lon:"-116.88", bortle:3, skyBrightness:"21.4", moonPhase:"New Moon", moonIllumination:"4%", weather:"dry and clear", seeing:4, transparency:5, wind:"7 mph", humidity:"34%", temperature:"49°F", telescopeUsed:"8 inch Dobsonian", mountUsed:"Dobsonian", cameraUsed:"", notes:"very dark southern sky", rating:5, tags:["sample","dark sky"], createdAt:now.toISOString(), updatedAt:now.toISOString() }
+      ];
+      notebookState.observations = [
+        makeObs({ sessionId:s1, targetName:"Moon", objectType:"Moon", catalog:"", constellation:"", observedAt:`${d1}T20:42`, telescopeId:skymax, eyepieceId:ep25, seeing:3, transparency:3, rating:4, difficulty:2, notes:"Craters near the terminator looked sharp. Best detail came in short steady moments.", tags:["sample","sketch idea"] }),
+        makeObs({ sessionId:s1, targetName:"Jupiter", objectType:"Planet", catalog:"", constellation:"", observedAt:`${d1}T21:18`, telescopeId:skymax, eyepieceId:ep10, seeing:3, transparency:3, rating:5, difficulty:2, notes:"Two belts visible. Four moons lined up clearly. Slight shimmer from seeing.", tags:["sample","planet"], favorite:true }),
+        makeObs({ sessionId:s2, targetName:"Orion Nebula", objectType:"Nebula", catalog:"M42", constellation:"Orion", observedAt:`${d2}T22:05`, telescopeId:dob, eyepieceId:ep25, filterId:uhc, seeing:4, transparency:5, rating:5, difficulty:2, notes:"Wide glow around the Trapezium. UHC filter made the wings stand out more.", tags:["sample","messier","nebula"], favorite:true })
+      ];
+      notebookState.plannedTargets = [ { id:uid(), target:"M13", season:"spring/summer", priority:"high", requiredSky:"Bortle 4 or better", notes:"Try 10mm after finding it low power.", plannedDate:"", status:"planned" } ];
+      notebookState.selectedSessionId = s1;
+      notebookState.selectedObservationId = notebookState.observations[0].id;
+      notebookState.sampleLoaded = true;
+      saveNotebook();
+    }
+
+    function makeObs(data) {
+      const now = new Date().toISOString();
+      return { id:uid(), sessionId:"", targetName:"", catalog:"", objectType:"Other", constellation:"", observedAt:now.slice(0,16), ra:"", dec:"", altitude:"", azimuth:"", magnitude:"", angularSize:"", telescopeId:"", eyepieceId:"", filterId:"", cameraId:"", magnification:"", exitPupil:"", trueFov:"", seeing:3, transparency:3, skyQuality:"", difficulty:3, rating:3, notes:"", sketchDataUrl:"", photos:[], tags:[], favorite:false, createdAt:now, updatedAt:now, ...data };
+    }
+
+    // this renders everything
+    function renderAll(full=true) {
+      refreshDynamicFilters();
+      renderOverview();
+      renderSessions();
+      renderSessionOverview();
+      renderObservations();
+      renderEditor();
+      renderDetailPanel();
+      renderEquipment();
+      renderLocations();
+      renderPlannedTargets();
+      renderStats();
+      renderMessier();
+      updateStorageStatus();
+      if (full && notebookState.sampleLoaded) $("saveStatus").innerHTML = `<span class="good-text">sample logs loaded</span> <button class="btn small danger" onclick="clearSampleData()">clear sample data</button>`;
+    }
+
+    // this renders overview cards
+    function renderOverview() {
+      const totalSessions = notebookState.sessions.length;
+      const totalObs = notebookState.observations.length;
+      const favoriteTargets = notebookState.observations.filter(o => o.favorite).length;
+      const bestSky = Math.min(...notebookState.sessions.map(s => Number(s.bortle)||9), 9);
+      const mostScope = mostCommon(notebookState.observations.map(o => equipName(o.telescopeId)).filter(Boolean)) || mostCommon(notebookState.sessions.map(s => s.telescopeUsed).filter(Boolean)) || "none yet";
+      const mostType = mostCommon(notebookState.observations.map(o => o.objectType)) || "none yet";
+      const last = notebookState.observations.slice().sort((a,b)=>new Date(b.observedAt)-new Date(a.observedAt))[0];
+      const storage = storageText();
+      const stats = [ ["Sessions", totalSessions], ["Observations", totalObs], ["Favorite Targets", favoriteTargets], ["Best Sky", totalObs?`Bortle ${bestSky}`:"none"], ["Most Used Scope", mostScope], ["Favorite Type", mostType], ["Last Log", last?formatDate(last.observedAt):"none"], ["Storage", storage] ];
+      overviewStats.innerHTML = stats.map(([k,v]) => `<article class="stat-card"><span>${k}</span><strong>${escapeHtml(String(v))}</strong></article>`).join("");
+    }
+
+    // this renders sessions
+    function renderSessions() {
+      const sorted = notebookState.sessions.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+      sessionList.innerHTML = sorted.map(s => {
+        const count = notebookState.observations.filter(o=>o.sessionId===s.id).length;
+        return `<article class="session-item ${s.id===notebookState.selectedSessionId?'active':''}" onclick="selectSession('${s.id}')"><h3 class="mini-title">${escapeHtml(s.title)}</h3><p class="mini-line">${formatDate(s.date)} • ${escapeHtml(s.locationName||'no location')} • ${count} observation${count===1?'':'s'}</p><div class="chips"><span class="chip">Bortle ${s.bortle||'?'}</span><span class="chip">Seeing ${s.seeing||'?'}/5</span><span class="chip">${stars(s.rating||0)}</span></div></article>`;
+      }).join("") || `<div class="mini-card"><p class="mini-line">No sessions yet.</p></div>`;
+    }
+
+    // this renders selected session
+    function renderSessionOverview() {
+      const s = getSelectedSession();
+      if (!s) { $("selectedSessionTitle").textContent = "Selected Session"; $("selectedSessionMeta").textContent = "Choose or create an observing session."; $("sessionOverview").innerHTML = `<p class="mini-line">No session selected.</p>`; return; }
+      const obs = notebookState.observations.filter(o=>o.sessionId===s.id);
+      $("selectedSessionTitle").textContent = s.title;
+      $("selectedSessionMeta").textContent = `${formatDate(s.date)} • ${s.startTime||"?"}-${s.endTime||"?"} • ${s.locationName||"no location"}`;
+      $("sessionOverview").innerHTML = `<div class="grid-4"><div><span class="chip">${obs.length} logs</span></div><div><span class="chip">Bortle ${s.bortle||"?"}</span></div><div><span class="chip">Seeing ${s.seeing||"?"}/5</span></div><div><span class="chip">Transparency ${s.transparency||"?"}/5</span></div></div><p class="mini-line">${escapeHtml(s.notes||"No session notes yet.")}</p><div class="chips">${(s.tags||[]).map(t=>`<span class="chip">#${escapeHtml(t)}</span>`).join("")}</div>`;
+    }
+
+    // this applies filters
+    function applyFilters() {
+      const q = $("searchInput").value.toLowerCase().trim();
+      const type = $("typeFilter").value;
+      const loc = $("locationFilter").value;
+      const scope = $("telescopeFilter").value;
+      const from = $("dateFromFilter").value;
+      const to = $("dateToFilter").value;
+      const bortle = Number($("bortleFilter").value || 0);
+      const rating = Number($("ratingFilter").value || 0);
+      let arr = notebookState.observations.filter(o => {
+        const s = notebookState.sessions.find(x=>x.id===o.sessionId) || {};
+        const hay = [o.targetName,o.catalog,o.objectType,o.constellation,o.notes,o.skyQuality,(o.tags||[]).join(" "),s.title,s.locationName,equipName(o.telescopeId),equipName(o.eyepieceId),equipName(o.filterId)].join(" ").toLowerCase();
+        if (q && !hay.includes(q)) return false;
+        if (type && o.objectType !== type) return false;
+        if (loc && s.locationName !== loc) return false;
+        if (scope && equipName(o.telescopeId) !== scope) return false;
+        if (from && (o.observedAt||"").slice(0,10) < from) return false;
+        if (to && (o.observedAt||"").slice(0,10) > to) return false;
+        if (bortle && Number(s.bortle||9) > bortle) return false;
+        if (rating && Number(o.rating||0) < rating) return false;
+        if (notebookState.filters.favorites && !o.favorite) return false;
+        if (notebookState.filters.hasSketch && !o.sketchDataUrl) return false;
+        if (notebookState.filters.hasPhoto && !(o.photos||[]).length) return false;
+        return true;
+      });
+      const sort = $("sortSelect").value;
+      arr.sort((a,b) => {
+        const sa = notebookState.sessions.find(s=>s.id===a.sessionId)||{}, sb = notebookState.sessions.find(s=>s.id===b.sessionId)||{};
+        if (sort==="oldest") return new Date(a.observedAt)-new Date(b.observedAt);
+        if (sort==="rating") return (b.rating||0)-(a.rating||0);
+        if (sort==="target") return a.targetName.localeCompare(b.targetName);
+        if (sort==="type") return a.objectType.localeCompare(b.objectType);
+        if (sort==="location") return (sa.locationName||"").localeCompare(sb.locationName||"");
+        if (sort==="sky") return Number(sa.bortle||9)-Number(sb.bortle||9);
+        if (sort==="session") return (sa.title||"").localeCompare(sb.title||"");
+        return new Date(b.observedAt)-new Date(a.observedAt);
+      });
+      return arr;
+    }
+
+    // this renders observations
+    function renderObservations() {
+      renderViewTabs();
+      const arr = applyFilters();
+      $("resultCount").textContent = `${arr.length} observation${arr.length===1?"":"s"}`;
+      if (notebookState.viewMode === "timeline") return renderTimeline(arr);
+      if (notebookState.viewMode === "calendar") return renderCalendarView(arr);
+      observationList.innerHTML = arr.map((o,i)=>observationCard(o,i)).join("") || `<div class="mini-card"><p class="mini-line">No observations match your filters.</p></div>`;
+    }
+
+    function observationCard(o,i) {
+      const s = notebookState.sessions.find(x=>x.id===o.sessionId)||{};
+      const thumb = o.sketchDataUrl ? `<img src="${o.sketchDataUrl}" alt="sketch thumbnail">` : (o.photos&&o.photos[0] ? `<img src="${o.photos[0].dataUrl}" alt="photo thumbnail">` : `no image`);
+      return `<article class="log-card ${o.id===notebookState.selectedObservationId?'active':''}" onclick="selectObservation('${o.id}')" style="animation-delay:${i*35}ms"><div class="log-top"><div><h3 class="log-title">${o.favorite?'★ ':''}${escapeHtml(o.targetName||'Untitled target')}</h3><p class="log-meta">${escapeHtml(o.objectType)} • ${formatDate(o.observedAt)} • ${escapeHtml(s.locationName||'no location')}</p></div><div class="rating">${stars(o.rating||0)}</div></div><div class="log-body"><div><p class="mini-line">${escapeHtml((o.notes||'No notes yet.').slice(0,170))}${(o.notes||'').length>170?'...':''}</p><div class="chips"><span class="chip">${escapeHtml(equipName(o.telescopeId)||'no scope')}</span><span class="chip">Seeing ${o.seeing||'?'} / 5</span><span class="chip">Transparency ${o.transparency||'?'} / 5</span>${(o.tags||[]).slice(0,4).map(t=>`<span class="chip">#${escapeHtml(t)}</span>`).join('')}</div></div><div class="thumb">${thumb}</div></div></article>`;
+    }
+
+    function renderTimeline(arr) {
+      const groups = groupBy(arr, o => (o.observedAt||"").slice(0,7));
+      observationList.innerHTML = Object.keys(groups).sort().reverse().map(month => `<div class="timeline-month">${month}</div>${groups[month].map(o=>`<div class="timeline-session">${observationCard(o,0)}</div>`).join("")}`).join("") || `<div class="mini-card"><p class="mini-line">No timeline data.</p></div>`;
+    }
+
+    function renderCalendarView(arr) {
+      const current = new Date();
+      const year = current.getFullYear(), month = current.getMonth();
+      const days = new Date(year, month+1, 0).getDate();
+      let html = `<div class="calendar-mini">`;
+      for (let d=1; d<=days; d++) {
+        const key = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const dayObs = arr.filter(o => (o.observedAt||"").slice(0,10)===key);
+        html += `<div class="calendar-cell ${dayObs.length?'has':''}"><strong>${d}</strong><br>${dayObs.length?dayObs.length+' logs':''}</div>`;
+      }
+      observationList.innerHTML = html + `</div>`;
+    }
+
+    function renderViewTabs() { document.querySelectorAll("#viewTabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.view===notebookState.viewMode)); }
+
+    // this renders the editor
+    function renderEditor() {
+      const o = getSelectedObservation();
+      if (!o) { editorBody.innerHTML = `<div class="mini-card"><p class="mini-line">Create an observation to start logging.</p></div>`; return; }
+      $("editorHint").textContent = `Editing ${o.targetName || "untitled observation"}`;
+      editorBody.innerHTML = editorTemplate(o);
+      bindEditorInputs(o);
+      updateOpticsCard(o);
+      setTimeout(initSketchCanvas, 0);
+    }
+
+    function editorTemplate(o) {
+      return `
+      <div class="editor-pane active" data-pane="target">
+        <div class="grid-3"><div class="field"><label>Target</label><input class="input edit" data-k="targetName" value="${escapeAttr(o.targetName)}" list="targetNames"></div><div class="field"><label>Object Type</label><select class="select edit" data-k="objectType">${OBJECT_TYPES.map(t=>`<option ${o.objectType===t?'selected':''}>${t}</option>`).join("")}</select></div><div class="field"><label>Catalog</label><input class="input edit" data-k="catalog" value="${escapeAttr(o.catalog)}"></div></div>
+        <datalist id="targetNames">${TARGETS.map(t=>`<option value="${escapeAttr(t.name)}"></option>`).join("")}</datalist>
+        <div class="grid-4"><div class="field"><label>Constellation</label><input class="input edit" data-k="constellation" value="${escapeAttr(o.constellation)}"></div><div class="field"><label>Observed At</label><input class="input edit" type="datetime-local" data-k="observedAt" value="${escapeAttr(o.observedAt)}"></div><div class="field"><label>RA</label><input class="input edit" data-k="ra" value="${escapeAttr(o.ra)}"></div><div class="field"><label>Dec</label><input class="input edit" data-k="dec" value="${escapeAttr(o.dec)}"></div></div>
+        <div class="grid-4"><div class="field"><label>Altitude</label><input class="input edit" data-k="altitude" value="${escapeAttr(o.altitude||'')}"></div><div class="field"><label>Azimuth</label><input class="input edit" data-k="azimuth" value="${escapeAttr(o.azimuth||'')}"></div><div class="field"><label>Magnitude</label><input class="input edit" data-k="magnitude" value="${escapeAttr(o.magnitude)}"></div><div class="field"><label>Angular Size</label><input class="input edit" data-k="angularSize" value="${escapeAttr(o.angularSize)}"></div></div>
+        <div class="section-head"><div><h2>Target Helper</h2><p>Built-in object info is approximate and for convenience.</p></div></div><div class="target-helper">${TARGETS.slice(0,32).map(t=>`<button class="btn small" onclick="applyTargetHelper('${escapeAttr(t.name)}')">${escapeHtml(t.name)} <span class="chip">${escapeHtml(t.catalog||t.type)}</span></button>`).join("")}</div>
+      </div>
+      <div class="editor-pane" data-pane="conditions">
+        <div class="grid-4"><div class="field"><label>Seeing 1-5</label><input class="input edit" type="number" min="1" max="5" data-k="seeing" value="${o.seeing||3}"></div><div class="field"><label>Transparency 1-5</label><input class="input edit" type="number" min="1" max="5" data-k="transparency" value="${o.transparency||3}"></div><div class="field"><label>Sky Quality</label><input class="input edit" data-k="skyQuality" value="${escapeAttr(o.skyQuality||'')}"></div><div class="field"><label>Difficulty 1-5</label><input class="input edit" type="number" min="1" max="5" data-k="difficulty" value="${o.difficulty||3}"></div></div>
+        <div class="mini-card"><p class="mini-line"><strong>Seeing:</strong> 1 very poor, stars boiling • 2 poor • 3 average • 4 good • 5 excellent, steady</p><p class="mini-line"><strong>Transparency:</strong> 1 very hazy • 2 hazy • 3 average • 4 clear • 5 extremely clear/dark</p></div>
+        <button class="btn" onclick="fetchWeatherSnapshot()">Fetch Weather Snapshot</button><p class="mini-line" id="weatherMsg">weather not loaded</p>
+      </div>
+      <div class="editor-pane" data-pane="equipment">
+        <div class="grid-4"><div class="field"><label>Telescope</label><select class="select edit equip-change" data-k="telescopeId"><option value="">none</option>${equipmentOptions('telescope', o.telescopeId, true)}</select></div><div class="field"><label>Eyepiece</label><select class="select edit equip-change" data-k="eyepieceId"><option value="">none</option>${equipmentOptions('eyepiece', o.eyepieceId)}</select></div><div class="field"><label>Filter</label><select class="select edit" data-k="filterId"><option value="">none</option>${equipmentOptions('filter', o.filterId)}</select></div><div class="field"><label>Camera</label><select class="select edit" data-k="cameraId"><option value="">none</option>${equipmentOptions('camera', o.cameraId)}</select></div></div>
+        <div class="grid-4"><div class="field"><label>Magnification</label><input class="input edit" data-k="magnification" value="${escapeAttr(o.magnification)}"></div><div class="field"><label>Exit Pupil</label><input class="input edit" data-k="exitPupil" value="${escapeAttr(o.exitPupil)}"></div><div class="field"><label>True FOV</label><input class="input edit" data-k="trueFov" value="${escapeAttr(o.trueFov)}"></div><div class="field"><label>Exposure</label><input class="input edit" data-k="exposureTime" value="${escapeAttr(o.exposureTime||'')}"></div></div>
+        <button class="btn primary" onclick="autoCalculateOptics()">Calculate Optics</button><div class="mini-card"><p class="mini-line" id="editorOptics">${escapeHtml(opticsText(o))}</p></div>
+      </div>
+      <div class="editor-pane" data-pane="notes">
+        <div class="field"><label>Observation Notes</label><textarea class="textarea edit" data-k="notes">${escapeHtml(o.notes||'')}</textarea></div>
+        <div class="grid-2"><div class="field"><label>Tags comma separated</label><input class="input" id="tagInput" value="${escapeAttr((o.tags||[]).join(', '))}"></div><div class="field"><label>Rating 1-5</label><input class="input edit" type="number" min="1" max="5" data-k="rating" value="${o.rating||3}"></div></div>
+        <div class="btn-row"><button class="btn" onclick="saveTags()">Save Tags</button><button class="btn good" onclick="toggleFavoriteSelected()">${o.favorite?'Unfavorite':'Favorite'} ★</button><button class="btn" onclick="duplicateObservation()">Duplicate</button><button class="btn danger" onclick="deleteObservation()">Delete Observation</button></div>
+      </div>
+      <div class="editor-pane" data-pane="sketch">
+        <div class="sketch-wrap"><div class="sketch-toolbar"><select class="select" id="sketchTemplate" style="max-width:180px"><option value="eyepiece">Eyepiece circle</option><option value="moon">Moon disk</option><option value="jupiter">Jupiter disk</option><option value="saturn">Saturn rings</option><option value="mars">Mars disk</option><option value="sun">Sun disk warning</option><option value="deep">Deep-sky field</option></select><select class="select" id="sketchColor" style="max-width:150px"><option value="#f4f8ff">white</option><option value="#b8c7e6">gray</option><option value="#2c7eff">blue</option><option value="#000000">eraser</option></select><input class="input" id="brushSize" type="range" min="1" max="28" value="4" style="max-width:150px"><button class="btn small" onclick="undoSketch()">Undo</button><button class="btn small" onclick="clearSketch()">Clear</button><button class="btn small" onclick="toggleCrosshair()">Crosshair</button><button class="btn primary small" onclick="saveSketch()">Save Sketch</button><button class="btn small" onclick="downloadSketch()">PNG</button></div><div class="sketch-canvas-wrap"><canvas id="sketchCanvas" width="700" height="700"></canvas><div class="sketch-overlay show" id="sketchOverlay"></div><div class="sketch-crosshair" id="sketchCrosshair"></div></div><p class="mini-line">Sketches are saved as compressed local image data. Add a written note too in case storage is cleared.</p></div>
+      </div>
+      <div class="editor-pane" data-pane="photos">
+        <div class="field"><label>Upload Photos</label><input class="input" id="photoInput" type="file" accept="image/*" multiple></div><div class="photo-grid" id="photoGrid">${photoGridHtml(o)}</div><p class="mini-line">Photos are resized before saving, but large images can still fill browser storage.</p>
+      </div>
+      <div class="editor-pane" data-pane="review"><div class="mini-card"><h3 class="mini-title">${escapeHtml(o.targetName||'Untitled')}</h3><p class="mini-line">${escapeHtml(o.objectType)} • ${formatDate(o.observedAt)} • ${stars(o.rating||0)}</p><p class="mini-line">${escapeHtml(o.notes||'No notes yet.')}</p><div class="btn-row"><button class="btn primary" onclick="copyObservationSummary()">Copy Observation Summary</button><button class="btn" onclick="exportSessionHTML()">Print Session</button></div></div></div>`;
+    }
+
+    function bindEditorInputs(o) {
+      editorBody.querySelectorAll(".edit").forEach(el => el.addEventListener("input", () => { o[el.dataset.k] = el.value; o.updatedAt = new Date().toISOString(); if (el.classList.contains("equip-change")) autoCalculateOptics(false); scheduleSave(); renderDetailPanel(); }));
+      const targetInput = editorBody.querySelector('[data-k="targetName"]');
+      if (targetInput) targetInput.addEventListener("change", () => { const t = TARGETS.find(x=>x.name.toLowerCase()===targetInput.value.toLowerCase()); if (t) applyTarget(t); });
+      const photoInput = $("photoInput"); if (photoInput) photoInput.addEventListener("change", handlePhotoUpload);
+    }
+
+    function switchEditorPane(pane) { document.querySelectorAll("#editorTabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.pane===pane)); document.querySelectorAll(".editor-pane").forEach(p=>p.classList.toggle("active", p.dataset.pane===pane)); if (pane==="sketch") setTimeout(initSketchCanvas, 0); }
+
+    // this creates observations
+    function createObservation(seed={}) {
+      let session = getSelectedSession();
+      if (!session) { createSession({ title:"New Observing Session" }); session = getSelectedSession(); }
+      const now = new Date();
+      const obs = makeObs({ sessionId:session.id, observedAt:toLocalDateTime(now), telescopeId:notebookState.equipment.find(e=>["telescope","binoculars"].includes(e.category))?.id||"", eyepieceId:notebookState.equipment.find(e=>e.category==="eyepiece")?.id||"", ...seed });
+      notebookState.observations.push(obs);
+      notebookState.selectedObservationId = obs.id;
+      scheduleSave();
+      renderAll(false);
+      return obs;
+    }
+
+    function updateObservation(id, patch) { const o = notebookState.observations.find(x=>x.id===id); if (!o) return; Object.assign(o, patch, {updatedAt:new Date().toISOString()}); scheduleSave(); }
+    function deleteObservation() { const o = getSelectedObservation(); if (!o || !confirm("Delete observation?")) return; notebookState.observations = notebookState.observations.filter(x=>x.id!==o.id); notebookState.selectedObservationId = notebookState.observations[0]?.id || null; scheduleSave(); renderAll(false); }
+    function duplicateObservation() { const o = getSelectedObservation(); if (!o) return; const copy = {...structuredClone(o), id:uid(), targetName:o.targetName+" copy", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}; notebookState.observations.push(copy); notebookState.selectedObservationId = copy.id; scheduleSave(); renderAll(false); }
+    function selectObservation(id) { notebookState.selectedObservationId = id; renderAll(false); saveNotebook(); }
+    function selectSession(id) { notebookState.selectedSessionId = id; const first = notebookState.observations.find(o=>o.sessionId===id); if (first) notebookState.selectedObservationId = first.id; renderAll(false); saveNotebook(); }
+
+    // this creates sessions
+    function createSession(seed={}) {
+      const now = new Date(); const loc = notebookState.locations[0] || {};
+      const s = { id:uid(), title:"New Observing Session", date:isoDate(now), startTime:"20:30", endTime:"23:00", locationId:loc.id||"", locationName:loc.name||"", lat:loc.lat||"", lon:loc.lon||"", bortle:loc.bortle||5, skyBrightness:loc.skyBrightness||"", moonPhase:"", moonIllumination:"", weather:"weather not loaded", seeing:3, transparency:3, wind:"", humidity:"", temperature:"", telescopeUsed:"", mountUsed:"", cameraUsed:"", notes:"", rating:3, tags:[], createdAt:now.toISOString(), updatedAt:now.toISOString(), ...seed };
+      notebookState.sessions.push(s); notebookState.selectedSessionId = s.id; scheduleSave(); return s;
+    }
+    function updateSession(id, patch) { const s = notebookState.sessions.find(x=>x.id===id); if (!s) return; Object.assign(s, patch, {updatedAt:new Date().toISOString()}); scheduleSave(); }
+    function deleteSession() { const s = getSelectedSession(); if (!s || !confirm("Delete session and all observations?")) return; notebookState.sessions = notebookState.sessions.filter(x=>x.id!==s.id); notebookState.observations = notebookState.observations.filter(o=>o.sessionId!==s.id); notebookState.selectedSessionId = notebookState.sessions[0]?.id || null; notebookState.selectedObservationId = notebookState.observations[0]?.id || null; scheduleSave(); renderAll(false); }
+
+    // this opens session modal
+    function openSessionModal(session=null) {
+      const s = session || { title:"", date:isoDate(new Date()), startTime:"20:30", endTime:"23:00", locationName:"", lat:"", lon:"", bortle:5, skyBrightness:"", moonPhase:"", moonIllumination:"", weather:"", seeing:3, transparency:3, wind:"", humidity:"", temperature:"", telescopeUsed:"", mountUsed:"", cameraUsed:"", notes:"", rating:3, tags:[] };
+      modalContent.innerHTML = `<h2 class="modal-title">${session?'Edit':'Create'} Session</h2><div class="grid-3">${field('Title','title',s.title)}${field('Date','date',s.date,'date')}${field('Start','startTime',s.startTime,'time')}${field('End','endTime',s.endTime,'time')}${field('Location','locationName',s.locationName)}${field('Latitude','lat',s.lat)}${field('Longitude','lon',s.lon)}${field('Bortle','bortle',s.bortle,'number')}${field('Sky brightness','skyBrightness',s.skyBrightness)}${field('Moon phase','moonPhase',s.moonPhase)}${field('Moon illumination','moonIllumination',s.moonIllumination)}${field('Weather','weather',s.weather)}${field('Seeing','seeing',s.seeing,'number')}${field('Transparency','transparency',s.transparency,'number')}${field('Wind','wind',s.wind)}${field('Humidity','humidity',s.humidity)}${field('Temperature','temperature',s.temperature)}${field('Telescope','telescopeUsed',s.telescopeUsed)}${field('Mount','mountUsed',s.mountUsed)}${field('Camera','cameraUsed',s.cameraUsed)}${field('Rating','rating',s.rating,'number')}</div><div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea modal-input" data-k="notes">${escapeHtml(s.notes||'')}</textarea></div><div class="field" style="margin-top:10px"><label>Tags comma separated</label><input class="input modal-input" data-k="tags" value="${escapeAttr((s.tags||[]).join(', '))}"></div><div class="btn-row" style="margin-top:14px"><button class="btn primary" id="saveSessionModal">Save Session</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
+      $("saveSessionModal").onclick = () => { const data = readModalInputs(); data.tags = String(data.tags||"").split(",").map(x=>x.trim()).filter(Boolean); if (session) updateSession(session.id, data); else createSession(data); closeModal(); renderAll(false); };
+      modalBackdrop.classList.add("show");
+    }
+
+    // this opens quick log
+    function openQuickLogModal() {
+      modalContent.innerHTML = `<h2 class="modal-title">Quick Log Mode</h2><p class="muted">Fast entry for when you are outside observing.</p><div class="grid-2">${field('Target','targetName','')}
+      <div class="field"><label>Object Type</label><select class="select modal-input" data-k="objectType">${OBJECT_TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div>${field('Rating','rating',4,'number')}${field('Seeing','seeing',3,'number')}${field('Transparency','transparency',3,'number')}
+      <div class="field"><label>Telescope</label><select class="select modal-input" data-k="telescopeId"><option value="">none</option>${equipmentOptions('telescope','',true)}</select></div><div class="field"><label>Eyepiece</label><select class="select modal-input" data-k="eyepieceId"><option value="">none</option>${equipmentOptions('eyepiece','')}</select></div></div><div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea modal-input" data-k="notes"></textarea></div><div class="btn-row" style="margin-top:14px"><button class="btn primary" id="saveQuickLogBtn">Save Quick Log</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
+      $("saveQuickLogBtn").onclick = () => { createObservation(readModalInputs()); closeModal(); };
+      modalBackdrop.classList.add("show");
+    }
+
+    // this handles equipment modal
+    function openEquipmentModal(eq=null) {
+      const e = eq || { category:"telescope", name:"", type:"", apertureMm:"", focalLengthMm:"", focalRatio:"", mount:"", eyepieceFocalLengthMm:"", apparentFov:"", barrelSize:"", filterType:"", cameraSensor:"", pixelSize:"", notes:"" };
+      modalContent.innerHTML = `<h2 class="modal-title">${eq?'Edit':'Add'} Equipment</h2><div class="grid-3"><div class="field"><label>Category</label><select class="select modal-input" data-k="category">${EQUIP_CATEGORIES.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join("")}</select></div>${field('Name','name',e.name)}${field('Type','type',e.type)}${field('Aperture mm','apertureMm',e.apertureMm,'number')}${field('Focal length mm','focalLengthMm',e.focalLengthMm,'number')}${field('Focal ratio','focalRatio',e.focalRatio,'number')}${field('Mount','mount',e.mount)}${field('Eyepiece focal mm','eyepieceFocalLengthMm',e.eyepieceFocalLengthMm,'number')}${field('Apparent FOV','apparentFov',e.apparentFov,'number')}${field('Barrel size','barrelSize',e.barrelSize)}${field('Filter type','filterType',e.filterType)}${field('Camera sensor','cameraSensor',e.cameraSensor)}${field('Pixel size','pixelSize',e.pixelSize)}</div><div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea modal-input" data-k="notes">${escapeHtml(e.notes||'')}</textarea></div><div class="btn-row" style="margin-top:14px"><button class="btn primary" id="saveEqBtn">Save Equipment</button>${eq?'<button class="btn danger" id="deleteEqBtn">Delete</button>':''}<button class="btn" onclick="closeModal()">Cancel</button></div>`;
+      $("saveEqBtn").onclick = () => { const data = readModalInputs(); if (data.apertureMm && data.focalLengthMm && !data.focalRatio) data.focalRatio = round(Number(data.focalLengthMm)/Number(data.apertureMm),1); if (eq) Object.assign(eq,data); else notebookState.equipment.push({id:uid(),...data}); closeModal(); scheduleSave(); renderAll(false); };
+      if (eq) $("deleteEqBtn").onclick = () => { if(confirm('Delete equipment preset?')) { notebookState.equipment=notebookState.equipment.filter(x=>x.id!==eq.id); closeModal(); scheduleSave(); renderAll(false); } };
+      modalBackdrop.classList.add("show");
+    }
+
+    // this handles location modal
+    function openLocationModal(loc=null) {
+      const l = loc || { name:"", lat:"", lon:"", bortle:5, skyBrightness:"", horizonNotes:"", accessNotes:"", favorite:false };
+      modalContent.innerHTML = `<h2 class="modal-title">${loc?'Edit':'Add'} Location</h2><div class="grid-3">${field('Name','name',l.name)}${field('Latitude','lat',l.lat)}${field('Longitude','lon',l.lon)}${field('Bortle','bortle',l.bortle,'number')}${field('Sky brightness','skyBrightness',l.skyBrightness)}</div><div class="grid-2" style="margin-top:10px"><div class="field"><label>Horizon notes</label><textarea class="textarea modal-input" data-k="horizonNotes">${escapeHtml(l.horizonNotes||'')}</textarea></div><div class="field"><label>Safety/access notes</label><textarea class="textarea modal-input" data-k="accessNotes">${escapeHtml(l.accessNotes||'')}</textarea></div></div><label class="chip" style="margin-top:10px"><input type="checkbox" class="modal-input" data-k="favorite" ${l.favorite?'checked':''}> favorite</label><div class="btn-row" style="margin-top:14px"><button class="btn primary" id="saveLocBtn">Save Location</button>${loc?'<button class="btn danger" id="deleteLocBtn">Delete</button>':''}<button class="btn" onclick="closeModal()">Cancel</button></div>`;
+      $("saveLocBtn").onclick = () => { const data = readModalInputs(); if (loc) Object.assign(loc,data); else notebookState.locations.push({id:uid(),...data}); closeModal(); scheduleSave(); renderAll(false); };
+      if (loc) $("deleteLocBtn").onclick = () => { if(confirm('Delete location preset?')) { notebookState.locations=notebookState.locations.filter(x=>x.id!==loc.id); closeModal(); scheduleSave(); renderAll(false); } };
+      modalBackdrop.classList.add("show");
+    }
+
+    // this handles plan modal
+    function openPlanModal(plan=null) {
+      const p = plan || { target:"", season:"", priority:"medium", requiredSky:"", notes:"", plannedDate:"", status:"planned" };
+      modalContent.innerHTML = `<h2 class="modal-title">${plan?'Edit':'Add'} Planned Target</h2><div class="grid-2">${field('Target','target',p.target)}${field('Season','season',p.season)}${field('Priority','priority',p.priority)}${field('Required sky','requiredSky',p.requiredSky)}${field('Planned date','plannedDate',p.plannedDate,'date')}<div class="field"><label>Status</label><select class="select modal-input" data-k="status"><option ${p.status==='planned'?'selected':''}>planned</option><option ${p.status==='observed'?'selected':''}>observed</option><option ${p.status==='skipped'?'selected':''}>skipped</option></select></div></div><div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea modal-input" data-k="notes">${escapeHtml(p.notes||'')}</textarea></div><div class="btn-row" style="margin-top:14px"><button class="btn primary" id="savePlanModalBtn">Save Plan</button>${plan?'<button class="btn danger" id="deletePlanBtn">Delete</button>':''}<button class="btn" onclick="closeModal()">Cancel</button></div>`;
+      $("savePlanModalBtn").onclick = () => { const data = readModalInputs(); if (plan) Object.assign(plan,data); else notebookState.plannedTargets.push({id:uid(),...data}); closeModal(); scheduleSave(); renderAll(false); };
+      if (plan) $("deletePlanBtn").onclick = () => { notebookState.plannedTargets=notebookState.plannedTargets.filter(x=>x.id!==plan.id); closeModal(); scheduleSave(); renderAll(false); };
+      modalBackdrop.classList.add("show");
+    }
+
+    function readModalInputs() { const data = {}; modalContent.querySelectorAll(".modal-input").forEach(el => data[el.dataset.k] = el.type === "checkbox" ? el.checked : el.value); return data; }
+    function closeModal() { modalBackdrop.classList.remove("show"); modalContent.innerHTML = ""; }
+    function field(label,k,v,type="text") { return `<div class="field"><label>${label}</label><input class="input modal-input" data-k="${k}" type="${type}" value="${escapeAttr(v??'')}"></div>`; }
+
+    // this renders side panels
+    function renderEquipment() { equipmentList.innerHTML = notebookState.equipment.map(e=>`<article class="equipment-item" onclick="openEquipmentModalById('${e.id}')"><h3 class="mini-title">${escapeHtml(e.name||'unnamed')}</h3><p class="mini-line">${escapeHtml(e.category)}${e.focalLengthMm?` • ${e.focalLengthMm}mm`:''}${e.apertureMm?` • ${e.apertureMm}mm aperture`:''}</p></article>`).join("") || `<div class="mini-card"><p class="mini-line">No equipment yet.</p></div>`; }
+    function renderLocations() { locationList.innerHTML = notebookState.locations.map(l=>`<article class="location-item" onclick="openLocationModalById('${l.id}')"><h3 class="mini-title">${l.favorite?'★ ':''}${escapeHtml(l.name||'unnamed')}</h3><p class="mini-line">Bortle ${l.bortle||'?'} • ${escapeHtml(l.lat||'?')}, ${escapeHtml(l.lon||'?')}</p></article>`).join("") || `<div class="mini-card"><p class="mini-line">No locations saved.</p></div>`; }
+    function renderPlannedTargets() { plannedList.innerHTML = notebookState.plannedTargets.map(p=>`<article class="plan-item" onclick="openPlanModalById('${p.id}')"><h3 class="mini-title">${escapeHtml(p.target)}</h3><p class="mini-line">${escapeHtml(p.status)} • ${escapeHtml(p.priority)} priority • ${escapeHtml(p.season||'any season')}</p></article>`).join("") || `<div class="mini-card"><p class="mini-line">No planned targets yet.</p></div>`; }
+    window.openEquipmentModalById = id => openEquipmentModal(notebookState.equipment.find(e=>e.id===id));
+    window.openLocationModalById = id => openLocationModal(notebookState.locations.find(l=>l.id===id));
+    window.openPlanModalById = id => openPlanModal(notebookState.plannedTargets.find(p=>p.id===id));
+
+    // this renders details
+    function renderDetailPanel() {
+      const o = getSelectedObservation();
+      if (!o) { detailPanel.innerHTML = `<p class="mini-line">No observation selected.</p>`; return; }
+      const s = notebookState.sessions.find(x=>x.id===o.sessionId)||{};
+      const media = o.sketchDataUrl ? `<img src="${o.sketchDataUrl}" style="width:100%;border-radius:14px;border:1px solid rgba(44,126,255,.2)">` : (o.photos&&o.photos[0] ? `<img src="${o.photos[0].dataUrl}" style="width:100%;border-radius:14px;border:1px solid rgba(44,126,255,.2)">` : `<p class="mini-line">No sketch/photo yet.</p>`);
+      detailPanel.innerHTML = `<h3 class="mini-title">${o.favorite?'★ ':''}${escapeHtml(o.targetName||'Untitled')}</h3><p class="mini-line">${escapeHtml(o.objectType)} • ${formatDate(o.observedAt)}</p><div style="margin:10px 0">${media}</div><div class="chips"><span class="chip">${stars(o.rating||0)}</span><span class="chip">${escapeHtml(s.locationName||'no location')}</span><span class="chip">${escapeHtml(equipName(o.telescopeId)||'no scope')}</span></div><p class="mini-line">${escapeHtml(o.notes||'No notes yet.')}</p><div class="btn-row"><button class="btn small good" onclick="toggleFavoriteSelected()">Favorite</button><button class="btn small" onclick="copyObservationSummary()">Copy</button><button class="btn small" onclick="duplicateObservation()">Duplicate</button><button class="btn small danger" onclick="deleteObservation()">Trash</button></div>`;
+    }
+
+    // this renders stats charts
+    function renderStats() {
+      drawBarChart("typeChart", countBy(notebookState.observations, o=>o.objectType), "types");
+      drawBarChart("monthChart", countBy(notebookState.observations, o=>(o.observedAt||"").slice(0,7)), "months");
+      drawBarChart("equipChart", countBy(notebookState.observations, o=>equipName(o.telescopeId)||"none"), "scopes");
+      const sessionById = Object.fromEntries(notebookState.sessions.map(s=>[s.id,s]));
+      drawBarChart("bortleChart", countBy(notebookState.observations, o=>`B${sessionById[o.sessionId]?.bortle||"?"}`), "bortle");
+    }
+
+    function drawBarChart(id, data, label) {
+      const c = $(id), ctx = c.getContext("2d"), rect = c.getBoundingClientRect(); c.width = rect.width*devicePixelRatio; c.height = rect.height*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); ctx.clearRect(0,0,rect.width,rect.height);
+      const entries = Object.entries(data).sort((a,b)=>b[1]-a[1]).slice(0,6); const max = Math.max(1,...entries.map(e=>e[1]));
+      ctx.fillStyle = "rgba(184,199,230,.9)"; ctx.font = "12px system-ui"; ctx.fillText(label, 10, 18);
+      entries.forEach((e,i)=>{ const y=30+i*16, w=(rect.width-92)*(e[1]/max); ctx.fillStyle="rgba(44,126,255,.22)"; ctx.fillRect(78,y,w,9); ctx.strokeStyle="rgba(44,126,255,.65)"; ctx.strokeRect(78,y,w,9); ctx.fillStyle="rgba(244,248,255,.86)"; ctx.fillText(String(e[0]).slice(0,10),10,y+9); ctx.fillText(e[1],84+w,y+9); });
+    }
+
+    // this renders messier progress
+    function renderMessier() {
+      const logged = new Set();
+      notebookState.observations.forEach(o => { [o.catalog,o.targetName].join(" ").toUpperCase().match(/M\s?([1-9][0-9]?|10[0-9]|110)/g)?.forEach(m => logged.add(Number(m.replace(/\D/g,"")))); });
+      $("messierText").textContent = `Messier Progress: ${logged.size} / 110`;
+      $("messierBar").style.width = `${(logged.size/110)*100}%`;
+      $("messierGrid").innerHTML = Array.from({length:110},(_,i)=>`<button class="messier-btn ${logged.has(i+1)?'done':''}" onclick="startMessier(${i+1})">M${i+1}</button>`).join("");
+    }
+    window.startMessier = n => createObservation({ targetName:`M${n}`, catalog:`M${n}`, tags:["messier"] });
+
+    // this handles target helper
+    window.applyTargetHelper = name => { const t = TARGETS.find(x=>x.name===name); if (t) { applyTarget(t); renderEditor(); } };
+    function applyTarget(t) { const o = getSelectedObservation(); if (!o) return; Object.assign(o, { targetName:t.name, objectType:t.type, catalog:t.catalog, constellation:t.constellation, magnitude:t.magnitude, notes:o.notes || t.tip }); scheduleSave(); }
+
+    // this handles optics
+    function autoCalculateOptics(render=true) {
+      const o = getSelectedObservation(); if (!o) return;
+      const scope = notebookState.equipment.find(e=>e.id===o.telescopeId); const ep = notebookState.equipment.find(e=>e.id===o.eyepieceId);
+      if (scope && ep) { const mag = calculateMagnification(scope, ep); const exit = calculateExitPupil(scope, ep); const fov = calculateTrueFov(scope, ep); o.magnification = mag ? `${mag}x` : ""; o.exitPupil = exit ? `${exit} mm` : ""; o.trueFov = fov ? `${fov}°` : ""; }
+      scheduleSave(); if (render) renderEditor(); updateOpticsCard(o);
+    }
+    function calculateMagnification(scope, ep) { return scope.focalLengthMm && ep.eyepieceFocalLengthMm ? round(Number(scope.focalLengthMm)/Number(ep.eyepieceFocalLengthMm),1) : ""; }
+    function calculateExitPupil(scope, ep) { return scope.focalRatio && ep.eyepieceFocalLengthMm ? round(Number(ep.eyepieceFocalLengthMm)/Number(scope.focalRatio),2) : ""; }
+    function calculateTrueFov(scope, ep) { const mag = calculateMagnification(scope, ep); return mag && ep.apparentFov ? round(Number(ep.apparentFov)/Number(mag),2) : ""; }
+    function updateOpticsCard(o) { opticsCalc.textContent = opticsText(o); const eo = $("editorOptics"); if (eo) eo.textContent = opticsText(o); }
+    function opticsText(o) { return `Magnification: ${o.magnification||'?'} • Exit pupil: ${o.exitPupil||'?'} • True FOV: ${o.trueFov||'?'}`; }
+
+    // this handles sketch pad
+    function initSketchCanvas() {
+      const canvas = $("sketchCanvas"); if (!canvas) return; sketch.canvas = canvas; sketch.ctx = canvas.getContext("2d"); drawSketchBase(); const o = getSelectedObservation(); if (o?.sketchDataUrl) { const img = new Image(); img.onload = () => sketch.ctx.drawImage(img,0,0,canvas.width,canvas.height); img.src = o.sketchDataUrl; }
+      canvas.onpointerdown = e => { sketch.drawing=true; sketch.history.push(canvas.toDataURL("image/jpeg",.72)); drawPoint(e,true); };
+      canvas.onpointermove = e => { if(sketch.drawing) drawPoint(e,false); };
+      canvas.onpointerup = () => sketch.drawing=false; canvas.onpointerleave = () => sketch.drawing=false;
+      $("sketchColor").oninput = e => { sketch.color=e.target.value; sketch.tool = e.target.value==="#000000"?"eraser":"pencil"; };
+      $("brushSize").oninput = e => sketch.size=Number(e.target.value);
+      $("sketchTemplate").oninput = e => { sketch.template=e.target.value; drawSketchBase(); };
+    }
+    function drawSketchBase() { if(!sketch.ctx) return; const c=sketch.canvas, ctx=sketch.ctx; ctx.fillStyle="#02040a"; ctx.fillRect(0,0,c.width,c.height); ctx.strokeStyle="rgba(244,248,255,.26)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c.width/2,c.height/2,c.width*.42,0,Math.PI*2); ctx.stroke(); ctx.fillStyle="rgba(184,199,230,.85)"; ctx.font="16px system-ui"; if(sketch.template==="sun") ctx.fillText("solar filter required before observing the sun",120,70); if(sketch.template==="jupiter") { ctx.strokeRect(160,310,380,80); ctx.strokeRect(160,350,380,34); } if(sketch.template==="saturn") { ctx.beginPath(); ctx.ellipse(350,350,210,58,0,0,Math.PI*2); ctx.stroke(); } if(sketch.template==="moon"||sketch.template==="mars"||sketch.template==="sun") { ctx.beginPath(); ctx.arc(350,350,185,0,Math.PI*2); ctx.stroke(); } }
+    function drawPoint(e,start) { const r=sketch.canvas.getBoundingClientRect(); const x=(e.clientX-r.left)*(sketch.canvas.width/r.width), y=(e.clientY-r.top)*(sketch.canvas.height/r.height); const ctx=sketch.ctx; ctx.globalAlpha = sketch.opacity; ctx.lineWidth = sketch.size; ctx.lineCap="round"; ctx.lineJoin="round"; ctx.strokeStyle = sketch.color; if(start){ ctx.beginPath(); ctx.moveTo(x,y); } else { ctx.lineTo(x,y); ctx.stroke(); } ctx.globalAlpha=1; }
+    function saveSketch() { const o=getSelectedObservation(); if(!o||!sketch.canvas) return; o.sketchDataUrl = sketch.canvas.toDataURL("image/jpeg", .78); scheduleSave(); renderAll(false); }
+    function undoSketch() { if(!sketch.history.length||!sketch.ctx) return; const img=new Image(); img.onload=()=>sketch.ctx.drawImage(img,0,0); img.src=sketch.history.pop(); }
+    function clearSketch() { if(confirm("Clear sketch?")) drawSketchBase(); }
+    function toggleCrosshair() { $("sketchCrosshair")?.classList.toggle("show"); }
+    function downloadSketch() { if(!sketch.canvas) return; downloadData(sketch.canvas.toDataURL("image/png"), "stellasim-sketch.png"); }
+
+    // this handles photos
+    async function handlePhotoUpload(e) {
+      const o = getSelectedObservation(); if(!o) return;
+      for (const file of e.target.files) { const dataUrl = await resizeImage(file, 1200, .75); o.photos = o.photos || []; o.photos.push({ id:uid(), dataUrl, caption:"", name:file.name }); }
+      scheduleSave(); renderEditor(); renderDetailPanel();
+    }
+    function resizeImage(file, max=1200, quality=.75) { return new Promise(resolve => { const img=new Image(); const reader=new FileReader(); reader.onload=()=>{ img.onload=()=>{ const scale=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale); c.getContext('2d').drawImage(img,0,0,c.width,c.height); resolve(c.toDataURL('image/jpeg',quality)); }; img.src=reader.result; }; reader.readAsDataURL(file); }); }
+    function photoGridHtml(o) { return (o.photos||[]).map(p=>`<div class="photo-card"><img src="${p.dataUrl}" alt="uploaded observation photo"><input class="input" value="${escapeAttr(p.caption||'')}" placeholder="caption" oninput="updatePhotoCaption('${p.id}',this.value)"><button class="btn small danger" onclick="removePhoto('${p.id}')">Remove</button></div>`).join("") || `<div class="mini-card"><p class="mini-line">No photos attached.</p></div>`; }
+    function updatePhotoCaption(id,value){ const o=getSelectedObservation(); const p=o?.photos?.find(x=>x.id===id); if(p){p.caption=value; scheduleSave();} }
+    function removePhoto(id){ const o=getSelectedObservation(); if(o&&confirm('Remove photo?')){ o.photos=o.photos.filter(p=>p.id!==id); scheduleSave(); renderEditor(); } }
+
+    // this handles export and import
+    function exportNotebookJSON() { downloadText(JSON.stringify(notebookState,null,2), `stellasim-astro-notebook-${isoDate(new Date())}.json`, "application/json"); }
+    function importNotebookJSON(e) { const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); const mode=confirm("Importing may merge or replace existing data. Press OK to merge, Cancel to replace all.") ? "merge" : "replace"; if(mode==="replace") notebookState={...notebookState,...data}; else { notebookState.sessions.push(...(data.sessions||[])); notebookState.observations.push(...(data.observations||[])); notebookState.equipment.push(...(data.equipment||[])); notebookState.locations.push(...(data.locations||[])); notebookState.plannedTargets.push(...(data.plannedTargets||[])); } saveNotebook(); renderAll(false); }catch(err){ alert("Could not import this JSON file."); } }; reader.readAsText(file); }
+    function exportSessionHTML() { const s=getSelectedSession(); if(!s) return alert("No session selected."); const obs=notebookState.observations.filter(o=>o.sessionId===s.id); const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(s.title)}</title><style>body{font-family:system-ui;background:#fff;color:#111;padding:28px}img{max-width:220px;border:1px solid #ccc;border-radius:10px}.obs{border-top:1px solid #ccc;padding:14px 0}</style></head><body><h1>${escapeHtml(s.title)}</h1><p>${formatDate(s.date)} • ${escapeHtml(s.locationName||'')} • Bortle ${s.bortle||'?'}</p><p>${escapeHtml(s.notes||'')}</p><h2>Observations</h2>${obs.map(o=>`<div class="obs"><h3>${escapeHtml(o.targetName)}</h3><p>${escapeHtml(o.objectType)} • ${stars(o.rating||0)}</p><p>${escapeHtml(o.notes||'')}</p>${o.sketchDataUrl?`<img src="${o.sketchDataUrl}">`:''}${(o.photos||[]).map(p=>`<img src="${p.dataUrl}">`).join('')}</div>`).join('')}</body></html>`; const w=window.open("","_blank"); w.document.write(html); w.document.close(); }
+    function copyObservationSummary() { const o=getSelectedObservation(); if(!o) return; const s=getSelectedSession()||{}; const text=`${o.targetName} (${o.objectType})\nDate: ${formatDate(o.observedAt)}\nSession: ${s.title||''}\nEquipment: ${equipName(o.telescopeId)||''} + ${equipName(o.eyepieceId)||''}\nSeeing: ${o.seeing}/5, Transparency: ${o.transparency}/5\nRating: ${o.rating}/5\nNotes: ${o.notes||''}`; navigator.clipboard?.writeText(text); $("saveStatus").textContent="observation summary copied"; }
+
+    // this creates offline session summary
+    function generateSessionSummary() { const s=getSelectedSession(); if(!s) return; const obs=notebookState.observations.filter(o=>o.sessionId===s.id); const best=obs.slice().sort((a,b)=>(b.rating||0)-(a.rating||0))[0]; const summary=`Observed ${obs.length} target${obs.length===1?'':'s'} from ${s.locationName||'an observing site'} with Bortle ${s.bortle||'?'} skies. Seeing was ${scaleWord(s.seeing)} and transparency was ${scaleWord(s.transparency)}. ${best?`${best.targetName} was the strongest observation of the night.`:'No standout target selected yet.'} Equipment noted: ${s.telescopeUsed||mostCommon(obs.map(o=>equipName(o.telescopeId)).filter(Boolean))||'not recorded'}.`; modalContent.innerHTML=`<h2 class="modal-title">Generated Session Summary</h2><p class="muted">${escapeHtml(summary)}</p><div class="btn-row"><button class="btn primary" onclick="navigator.clipboard.writeText('${escapeAttr(summary)}')">Copy</button><button class="btn" onclick="closeModal()">Close</button></div>`; modalBackdrop.classList.add("show"); }
+
+    // this gets weather without requiring it
+    async function fetchWeatherSnapshot() { const s=getSelectedSession(); if(!s||!s.lat||!s.lon) { $("weatherMsg").textContent="weather not loaded: add latitude and longitude to the session."; return; } try { const url=`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,cloud_cover`; const res=await fetch(url); const data=await res.json(); if(!data.current) throw new Error(); s.weather=`${data.current.temperature_2m}°C, humidity ${data.current.relative_humidity_2m}%, wind ${data.current.wind_speed_10m} km/h, clouds ${data.current.cloud_cover}%`; s.temperature=`${data.current.temperature_2m}°C`; s.humidity=`${data.current.relative_humidity_2m}%`; s.wind=`${data.current.wind_speed_10m} km/h`; $("weatherMsg").textContent=s.weather; scheduleSave(); } catch { $("weatherMsg").textContent="weather not loaded"; } }
+
+    // this uses browser geolocation
+    function useMyLocation() { if(!navigator.geolocation) return alert("Geolocation unavailable."); navigator.geolocation.getCurrentPosition(pos=>{ openLocationModal({ name:"Current location", lat:round(pos.coords.latitude,4), lon:round(pos.coords.longitude,4), bortle:5, skyBrightness:"", horizonNotes:"", accessNotes:"check safety/access", favorite:false }); },()=>alert("Could not get location.")); }
+
+    // this toggles filters
+    function toggleFilter(k) { notebookState.filters[k]=!notebookState.filters[k]; $({favorites:"favoritesFilterBtn",hasSketch:"hasSketchFilterBtn",hasPhoto:"hasPhotoFilterBtn"}[k]).classList.toggle("primary", notebookState.filters[k]); renderObservations(); saveNotebook(); }
+    function clearFilters() { ["searchInput","typeFilter","locationFilter","telescopeFilter","dateFromFilter","dateToFilter","bortleFilter","ratingFilter"].forEach(id=>$(id).value=""); notebookState.filters={favorites:false,hasSketch:false,hasPhoto:false}; renderAll(false); saveNotebook(); }
+    function toggleFavoriteSelected() { const o=getSelectedObservation(); if(!o) return; o.favorite=!o.favorite; scheduleSave(); renderAll(false); }
+    function saveTags() { const o=getSelectedObservation(); if(!o) return; o.tags = $("tagInput").value.split(",").map(t=>t.trim()).filter(Boolean); scheduleSave(); renderAll(false); }
+
+    // this updates storage status
+    function updateStorageStatus() { $("storageStatus").textContent = `Data saved locally in this browser • ${storageText()} used • not synced to cloud`; }
+    function storageText(){ try{ return `${round((new Blob([localStorage.getItem(STORAGE_KEY)||""]).size)/1024/1024,2)} MB`; }catch{return "unknown";} }
+    function clearSampleData(){ if(!confirm('Clear sample data?')) return; notebookState.sessions=[]; notebookState.observations=[]; notebookState.sampleLoaded=false; notebookState.selectedSessionId=null; notebookState.selectedObservationId=null; saveNotebook(); renderAll(false); }
+
+    // this is the starfield from the planner style
+    function initStarfield() {
+      const canvas = document.getElementById("starfield"), ctx = canvas.getContext("2d"); let width=0,height=0,stars=[],lines=[],meteors=[],mx=0,my=0,tx=0,ty=0,last=0;
+      function resize(){ width=innerWidth; height=innerHeight; canvas.width=width*devicePixelRatio; canvas.height=height*devicePixelRatio; canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); create(); }
+      function create(){ stars=[]; const n=Math.min(360,Math.floor(width*height/5600)); for(let i=0;i<n;i++){ const d=Math.random(), b=Math.random(); stars.push({x:Math.random()*width,y:Math.random()*height,r:b>.95?1.8:0.5+Math.random()*1.2,a:.2+Math.random()*.7,c:Math.random()<.72?"255,255,255":Math.random()<.9?"44,126,255":"11,61,145",s:.003+Math.random()*.02,o:Math.random()*7,dx:(Math.random()-.5)*.04,dy:(Math.random()-.5)*.04,p:.15+d*.85}); } lines=[]; const big=stars.filter(s=>s.r>1.25).slice(0,24); for(let i=0;i<big.length-1;i++){ if(Math.hypot(big[i].x-big[i+1].x,big[i].y-big[i+1].y)<210) lines.push([big[i],big[i+1],.05+Math.random()*.08]); } }
+      function meteor(t){ if(t-last<2200||Math.random()>.012)return; last=t; const ang=Math.PI/4+Math.random()*.25; meteors.push({x:Math.random()*width*.85,y:Math.random()*height*.28,vx:Math.cos(ang)*(11+Math.random()*6),vy:Math.sin(ang)*(11+Math.random()*6),life:0,max:36+Math.random()*15}); }
+      function draw(t){ ctx.clearRect(0,0,width,height); mx+=(tx-mx)*.03; my+=(ty-my)*.03; const g=ctx.createRadialGradient(width*.18,height*.16,0,width*.18,height*.16,300); g.addColorStop(0,"rgba(11,61,145,.08)"); g.addColorStop(1,"rgba(11,61,145,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,width,height); lines.forEach(l=>{ctx.beginPath();ctx.moveTo(l[0].x+mx*l[0].p*.012,l[0].y+my*l[0].p*.012);ctx.lineTo(l[1].x+mx*l[1].p*.012,l[1].y+my*l[1].p*.012);ctx.strokeStyle=`rgba(44,126,255,${l[2]})`;ctx.stroke();}); stars.forEach(s=>{s.x+=s.dx;s.y+=s.dy;if(s.x<0)s.x=width;if(s.x>width)s.x=0;if(s.y<0)s.y=height;if(s.y>height)s.y=0; const a=s.a*(.55+.45*Math.sin(t*s.s+s.o)); const x=s.x+mx*s.p*.015,y=s.y+my*s.p*.015; ctx.beginPath();ctx.arc(x,y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(${s.c},${a})`;ctx.shadowBlur=s.r*6;ctx.shadowColor=`rgba(${s.c},${a*.55})`;ctx.fill();}); ctx.shadowBlur=0; meteor(t); meteors.forEach((m,i)=>{const grad=ctx.createLinearGradient(m.x,m.y,m.x-m.vx*8,m.y-m.vy*8);grad.addColorStop(0,"rgba(255,255,255,.95)");grad.addColorStop(.25,"rgba(44,126,255,.8)");grad.addColorStop(1,"rgba(11,61,145,0)");ctx.strokeStyle=grad;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(m.x-m.vx*8,m.y-m.vy*8);ctx.stroke();m.x+=m.vx;m.y+=m.vy;m.life++;if(m.life>m.max)meteors.splice(i,1);}); requestAnimationFrame(draw); }
+      addEventListener("mousemove",e=>{tx=((e.clientX-width/2)/width)*26;ty=((e.clientY-height/2)/height)*26;}); addEventListener("resize",resize); resize(); requestAnimationFrame(draw);
+    }
+
+    // this has small helpers
+    function getSelectedSession(){ return notebookState.sessions.find(s=>s.id===notebookState.selectedSessionId); }
+    function getSelectedObservation(){ return notebookState.observations.find(o=>o.id===notebookState.selectedObservationId); }
+    function equipName(id){ return notebookState.equipment.find(e=>e.id===id)?.name || ""; }
+    function equipmentOptions(category, selected, includeBinoculars=false){ return notebookState.equipment.filter(e=>e.category===category || (includeBinoculars&&e.category==="binoculars")).map(e=>`<option value="${e.id}" ${e.id===selected?'selected':''}>${escapeHtml(e.name)}</option>`).join(""); }
+    function uid(){ return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+    function isoDate(d){ return new Date(d).toISOString().slice(0,10); }
+    function toLocalDateTime(d){ const pad=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    function formatDate(v){ if(!v) return "not dated"; const d=new Date(v); return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
+    function stars(n){ return "★★★★★".slice(0,Number(n)||0) + "☆☆☆☆☆".slice(0,5-(Number(n)||0)); }
+    function round(n,p=1){ const m=10**p; return Math.round(n*m)/m; }
+    function unique(a){ return [...new Set(a)]; }
+    function mostCommon(a){ const c=countBy(a,x=>x); return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]; }
+    function countBy(a,fn){ return a.reduce((m,x)=>{ const k=fn(x)||"none"; m[k]=(m[k]||0)+1; return m; },{}); }
+    function groupBy(a,fn){ return a.reduce((m,x)=>{ const k=fn(x); (m[k] ||= []).push(x); return m; },{}); }
+    function scaleWord(n){ return ({1:"very poor",2:"poor",3:"average",4:"good",5:"excellent"})[Number(n)] || "not recorded"; }
+    function debounce(fn,ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args),ms); }; }
+    function escapeHtml(s=""){ return String(s).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
+    function escapeAttr(s=""){ return escapeHtml(s).replace(/`/g,"&#96;"); }
+    function downloadText(text,name,type="text/plain"){ const blob=new Blob([text],{type}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+    function downloadData(dataUrl,name){ const a=document.createElement("a"); a.href=dataUrl; a.download=name; a.click(); }
+  </script>
+</body>
+</html>

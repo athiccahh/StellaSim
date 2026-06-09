@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Telescope</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    /* main ui colors */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --text: #edf4ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --btn: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --btn-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.76));
+      --btn-disabled: linear-gradient(180deg, #061a40, #020816);
+      --danger: #ff9b9b;
+      --good: #a6ffd1;
+    }
+
+    /* base page setup */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: var(--text);
+      font-family: Inter, system-ui, Arial, sans-serif;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+
+    /* shared panel style */
+    .hud-panel {
+      position: absolute;
+      background:
+        linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.055),
+        inset 0 -1px 0 rgba(44,126,255,0.03);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* left controls */
+    #controlPanel {
+      left: 18px;
+      top: 18px;
+      width: 390px;
+      max-height: calc(100vh - 36px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      resize: both;
+      min-width: 340px;
+      min-height: 260px;
+      z-index: 20;
+    }
+
+    #panelHeader {
+      cursor: move;
+      user-select: none;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid rgba(44,126,255,0.16);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.18), rgba(0,0,0,0));
+    }
+
+    .title-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .panel-title { font-size: 18px; font-weight: 700; letter-spacing: 0.01em; }
+    .panel-subtitle { color: var(--muted); font-size: 12px; }
+    #panelBody { overflow: auto; padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* section blocks */
+    details.section {
+      border: 1px solid rgba(44,126,255,0.14);
+      border-radius: 14px;
+      padding: 8px 10px 10px;
+      background: rgba(255,255,255,0.018);
+    }
+    details.section[open] { background: rgba(11,61,145,0.05); }
+    details.section > summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      color: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .section-inner { margin-top: 10px; display: grid; gap: 10px; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* forms */
+    label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.96), rgba(3, 12, 30, 0.96));
+      color: var(--field-text);
+      border-radius: 10px;
+      padding: 9px 11px;
+      outline: none;
+      font-size: 13px;
+    }
+    input[type="range"] { padding: 0; background: transparent; border: none; }
+    input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
+
+    button {
+      border: 1px solid rgba(44,126,255,0.2);
+      background: var(--btn);
+      color: white;
+      border-radius: 11px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.24);
+    }
+    button:hover {
+      background: var(--btn-hover);
+      filter: brightness(1.06);
+      box-shadow:
+        0 8px 20px rgba(0,0,0,0.28),
+        0 0 18px rgba(11,61,145,0.18);
+    }
+    button:active { transform: translateY(1px); }
+    .small { padding: 7px 9px; font-size: 12px; }
+
+    /* viewport area */
+    #viewportShell {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+
+    #eyepieceWrap {
+      position: relative;
+      width: min(74vh, 74vw, 760px);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(44, 126, 255, 0.72);
+      box-shadow:
+        0 0 0 16px rgba(8, 10, 16, 0.94),
+        0 0 0 25px rgba(3, 17, 44, 0.78),
+        0 24px 60px rgba(0, 0, 0, 0.56),
+        0 0 34px rgba(11, 61, 145, 0.22);
+      background: radial-gradient(circle at center, rgba(3, 8, 20, 0.96), rgba(0, 0, 0, 1));
+      pointer-events: auto;
+    }
+
+    #eyepieceCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+    }
+
+    /* right info side */
+    #sidePanel {
+      right: 18px;
+      top: 18px;
+      width: 330px;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      z-index: 10;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .info-title { font-size: 18px; font-weight: 700; color: #eaf5ff; }
+    .info-type { color: var(--accent-light); font-size: 13px; font-weight: 600; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; font-size: 12px; }
+    .info-item { display: grid; gap: 2px; }
+    .info-item span:first-child { color: var(--muted); }
+    .muted { color: var(--muted); }
+    .good { color: var(--good); }
+    .bad { color: var(--danger); }
+
+    /* top badge */
+    .badge {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      z-index: 14;
+      padding: 10px 14px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      pointer-events: none;
+    }
+
+    /* bottom bar */
+    #hintBar {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      z-index: 10;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 18px;
+      white-space: nowrap;
+    }
+
+    /* quick builder list */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 10px;
+      font-size: 12px;
+    }
+
+    .stat-item { display: grid; gap: 2px; }
+    .stat-item span:first-child { color: var(--muted); }
+
+    /* toast */
+    #toast {
+      position: absolute;
+      left: 50%;
+      top: 64px;
+      transform: translateX(-50%);
+      z-index: 30;
+      padding: 10px 14px;
+      display: none;
+      font-size: 12px;
+    }
+
+    /* mobile tweaks */
+    @media (max-width: 1100px) {
+      #controlPanel { width: min(390px, calc(100vw - 20px)); left: 10px; top: 10px; max-height: calc(100vh - 20px); }
+      #sidePanel { width: min(330px, calc(100vw - 20px)); right: 10px; top: 10px; }
+      .badge { top: 10px; }
+      #hintBar { bottom: 8px; }
+      #eyepieceWrap { width: min(64vw, 62vh, 620px); }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- main center viewport -->
+  <div id="viewportShell">
+    <div id="eyepieceWrap">
+      <canvas id="eyepieceCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- left control panel -->
+  <div id="controlPanel" class="hud-panel">
+    <div id="panelHeader">
+      <div class="title-wrap">
+        <div class="panel-title">StellaSim Telescope Simulator</div>
+        <div class="panel-subtitle">build a telescope and preview what you would actually see</div>
+      </div>
+      <button id="collapseBtn" class="small">−</button>
+    </div>
+    <div id="panelBody">
+      <details class="section" open>
+        <!-- telescope design controls -->
+        <summary>Telescope Builder</summary>
+        <div class="section-inner">
+          <div class="field-grid">
+            <label>Telescope type
+              <select id="scopeTypeSelect">
+                <option value="refractor">Refractor</option>
+                <option value="reflector">Reflector</option>
+                <option value="dobsonian" selected>Dobsonian</option>
+                <option value="sct">Schmidt-Cassegrain</option>
+                <option value="mak">Maksutov-Cassegrain</option>
+                <option value="newtonian">Newtonian</option>
+              </select>
+            </label>
+            <label>Mount type
+              <select id="mountTypeSelect">
+                <option value="altaz" selected>Alt-Az</option>
+                <option value="eq">Equatorial</option>
+                <option value="dob">Dob mount</option>
+                <option value="fork">Fork</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>Aperture (mm)<input id="apertureInput" type="number" min="40" max="1000" step="1" value="203" /></label>
+            <label>Telescope focal length (mm)<input id="scopeFocalInput" type="number" min="100" max="10000" step="1" value="1200" /></label>
+          </div>
+
+          <div class="field-grid">
+            <label>Eyepiece focal length (mm)<input id="eyepieceFocalInput" type="number" min="2" max="80" step="0.1" value="25" /></label>
+            <label>Apparent field of view (°)<input id="afovInput" type="number" min="20" max="120" step="1" value="52" /></label>
+          </div>
+
+          <div class="field-grid">
+            <label>Barlow
+              <select id="barlowSelect">
+                <option value="1" selected>1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+                <option value="2.5">2.5x</option>
+                <option value="3">3x</option>
+                <option value="5">5x</option>
+              </select>
+            </label>
+            <label>Diagonal / image mode
+              <select id="orientationSelect">
+                <option value="auto" selected>Auto</option>
+                <option value="upright">Upright</option>
+                <option value="inverted">Inverted</option>
+                <option value="mirror">Mirror reversed</option>
+                <option value="inverted-mirror">Inverted + mirror</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- target controls -->
+        <summary>Target & Visuals</summary>
+        <div class="section-inner">
+          <div class="field-grid">
+            <label>Target type
+              <select id="targetTypeSelect">
+                <option value="moon">Moon</option>
+                <option value="planet">Planet</option>
+                <option value="star">Bright star</option>
+                <option value="cluster">Star cluster</option>
+                <option value="nebula">Nebula</option>
+                <option value="galaxy">Galaxy</option>
+              </select>
+            </label>
+            <label>Target
+              <select id="targetSelect"></select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>Seeing <span id="seeingReadout" class="good">2.0″</span><input id="seeingSlider" type="range" min="0.5" max="5.0" step="0.1" value="2.0" /></label>
+            <label>Bortle sky <span id="bortleReadout" class="good">4</span><input id="bortleSlider" type="range" min="1" max="9" step="1" value="4" /></label>
+          </div>
+
+          <div class="field-grid">
+            <label>Transparency <span id="transparencyReadout" class="good">8</span><input id="transparencySlider" type="range" min="1" max="10" step="1" value="8" /></label>
+            <label>Eyepiece size
+              <select id="eyepieceSizeSelect">
+                <option value="500">Small</option>
+                <option value="620" selected>Medium</option>
+                <option value="760">Large</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="row">
+            <label class="check"><input id="crosshairToggle" type="checkbox" />Crosshair</label>
+            <label class="check"><input id="showFieldRingToggle" type="checkbox" checked />Field ring</label>
+            <label class="check"><input id="showDiffractionToggle" type="checkbox" checked />Diffraction</label>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- quick presets -->
+        <summary>Quick Telescope Presets</summary>
+        <div class="section-inner">
+          <div class="preset-grid">
+            <button class="presetBtn" data-preset="80ed">80mm ED refractor</button>
+            <button class="presetBtn" data-preset="8dob">8 inch dob</button>
+            <button class="presetBtn" data-preset="10dob">10 inch dob</button>
+            <button class="presetBtn" data-preset="8sct">8 inch sct</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <!-- later starmap link tools -->
+        <summary>Interlink Later</summary>
+        <div class="section-inner">
+          <label>Pending target import
+            <textarea id="linkDataInput" rows="4" placeholder='later you can paste selected object data here from your sky map'></textarea>
+          </label>
+          <div class="row">
+            <button id="testLinkBtn">Test Interlock</button>
+            <button id="exportConfigBtn">Copy Telescope Config</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- top badge -->
+  <div class="badge hud-panel" id="modeBadge">visual eyepiece mode</div>
+
+  <!-- right info panel -->
+  <div id="sidePanel" class="hud-panel">
+    <div>
+      <div class="info-title" id="infoTitle">Moon</div>
+      <div class="info-type" id="infoSubtitle">visual telescope simulation</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-item"><span>Magnification</span><span id="magOut">—</span></div>
+      <div class="stat-item"><span>True FOV</span><span id="tfovOut">—</span></div>
+      <div class="stat-item"><span>Exit pupil</span><span id="exitPupilOut">—</span></div>
+      <div class="stat-item"><span>Light gathering</span><span id="lightOut">—</span></div>
+      <div class="stat-item"><span>Dawes limit</span><span id="dawesOut">—</span></div>
+      <div class="stat-item"><span>Limiting mag</span><span id="limitMagOut">—</span></div>
+      <div class="stat-item"><span>Useful power</span><span id="powerBandOut">—</span></div>
+      <div class="stat-item"><span>Orientation</span><span id="orientationOut">—</span></div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item"><span>Object class</span><span id="objectClassOut">—</span></div>
+      <div class="info-item"><span>Surface brightness</span><span id="surfaceOut">—</span></div>
+      <div class="info-item"><span>Sky penalty</span><span id="skyPenaltyOut">—</span></div>
+      <div class="info-item"><span>Seeing blur</span><span id="seeingOut">—</span></div>
+      <div class="info-item"><span>Framing</span><span id="framingOut">—</span></div>
+      <div class="info-item"><span>Best use</span><span id="bestUseOut">—</span></div>
+    </div>
+
+    <div class="muted" id="targetDescription">pick a target and tune the scope to compare what changes in the eyepiece.</div>
+    <div class="muted" id="targetAdvice">advice will update here.</div>
+  </div>
+
+  <!-- bottom hints -->
+  <div id="hintBar" class="hud-panel">
+    <span>change telescope parts</span>
+    <span>swap eyepieces</span>
+    <span>test seeing + bortle</span>
+    <span>use test interlock later</span>
+  </div>
+
+  <!-- toast -->
+  <div id="toast" class="hud-panel"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // grab dom refs once
+  const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
+  ui.presetBtns = [...document.querySelectorAll('.presetBtn')];
+
+  // main eyepiece canvas
+  const canvas = ui.eyepieceCanvas;
+  const ctx = canvas.getContext('2d', { alpha: true });
+
+  // reusable offscreen canvases
+  const workCanvas = document.createElement('canvas');
+  const workCtx = workCanvas.getContext('2d');
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+
+  // target catalog with more realistic visual tuning
+  const TARGETS = {
+    moon: [
+      { id: 'moon', name: 'Moon', kind: 'moon', angularSizeArcsec: 1860, brightness: 1.0, surfaceBrightness: 1.0, desc: 'large bright lunar target with maria, crater rims, and limb shading.', advice: 'the moon handles high magnification well when seeing is steady.' }
+    ],
+    planet: [
+      { id: 'jupiter', name: 'Jupiter', kind: 'planet', angularSizeArcsec: 42, brightness: 0.95, surfaceBrightness: 0.92, desc: 'bright gas giant with belts, zones, and faint moon points.', advice: 'jupiter usually looks best at medium to high magnification in steady air.' },
+      { id: 'saturn', name: 'Saturn', kind: 'planet', angularSizeArcsec: 19, brightness: 0.82, surfaceBrightness: 0.76, desc: 'smaller disc with rings and subtle banding.', advice: 'saturn often prefers moderate to high magnification with good seeing.' },
+      { id: 'mars', name: 'Mars', kind: 'planet', angularSizeArcsec: 10, brightness: 0.74, surfaceBrightness: 0.72, desc: 'tiny warm disc with subtle dark features and possible polar cap.', advice: 'mars is hard unless it is large in apparent size and the air is steady.' },
+      { id: 'venus', name: 'Venus', kind: 'planet', angularSizeArcsec: 22, brightness: 0.92, surfaceBrightness: 0.95, desc: 'very bright phase object with glare and soft edge bloom.', advice: 'venus is mainly a phase target in visual observing.' },
+      { id: 'uranus', name: 'Uranus', kind: 'planet', angularSizeArcsec: 3.8, brightness: 0.55, surfaceBrightness: 0.5, desc: 'small aqua disc that may barely separate from a point source.', advice: 'uranus often needs aperture and power before it stops looking stellar.' },
+      { id: 'neptune', name: 'Neptune', kind: 'planet', angularSizeArcsec: 2.3, brightness: 0.42, surfaceBrightness: 0.38, desc: 'extremely tiny bluish disc with little visible detail.', advice: 'neptune is mainly about detecting the tiny bluish disc.' }
+    ],
+    star: [
+      { id: 'sirius', name: 'Sirius', kind: 'star', angularSizeArcsec: 0.01, brightness: 1.0, color: '#dce9ff', surfaceBrightness: 1.0, desc: 'brilliant white-blue point source with glare and diffraction.', advice: 'stars stay point-like visually, so the realism is mostly in glare and seeing.' },
+      { id: 'betelgeuse', name: 'Betelgeuse', kind: 'star', angularSizeArcsec: 0.01, brightness: 0.88, color: '#ffd6b5', surfaceBrightness: 0.9, desc: 'bright warm orange point source.', advice: 'bright stars are useful for checking focus and seeing.' },
+      { id: 'vega', name: 'Vega', kind: 'star', angularSizeArcsec: 0.01, brightness: 0.96, color: '#eef3ff', surfaceBrightness: 0.96, desc: 'bright white-blue star with strong glare.', advice: 'vega is helpful for testing sharpness and scattered light.' }
+    ],
+    cluster: [
+      { id: 'pleiades', name: 'Pleiades (M45)', kind: 'cluster', angularSizeArcsec: 6600, brightness: 0.75, surfaceBrightness: 0.7, desc: 'large open cluster that wants low power and wide field.', advice: 'wide field eyepieces usually frame open clusters much better.' },
+      { id: 'doublecluster', name: 'Double Cluster', kind: 'cluster', angularSizeArcsec: 3600, brightness: 0.68, surfaceBrightness: 0.68, desc: 'rich double cluster with many stellar points across the field.', advice: 'moderate power can make the field feel denser without overcropping it.' }
+    ],
+    nebula: [
+      { id: 'orionnebula', name: 'Orion Nebula (M42)', kind: 'nebula', angularSizeArcsec: 3900, brightness: 0.62, surfaceBrightness: 0.45, desc: 'bright nebula with central glow and faint outer wings.', advice: 'nebulae care a lot about sky darkness, transparency, and exit pupil.' },
+      { id: 'ringnebula', name: 'Ring Nebula (M57)', kind: 'nebula', angularSizeArcsec: 84, brightness: 0.42, surfaceBrightness: 0.34, desc: 'small planetary nebula that likes more power.', advice: 'compact nebulae can take more magnification than large diffuse nebulae.' }
+    ],
+    galaxy: [
+      { id: 'andromeda', name: 'Andromeda Galaxy (M31)', kind: 'galaxy', angularSizeArcsec: 10800, brightness: 0.52, surfaceBrightness: 0.18, desc: 'large galaxy with bright core and much fainter outer disc.', advice: 'large galaxies are usually best at low power under dark skies.' },
+      { id: 'bode', name: "Bode's Galaxy (M81)", kind: 'galaxy', angularSizeArcsec: 1560, brightness: 0.38, surfaceBrightness: 0.22, desc: 'compact galaxy with brighter core and soft oval halo.', advice: 'galaxies respond strongly to bortle class and transparency.' }
+    ]
+  };
+
+  // app state
+  const state = {
+    panelCollapsed: false,
+    telescope: {
+      scopeType: 'dobsonian',
+      mountType: 'altaz',
+      apertureMm: 203,
+      scopeFocalMm: 1200,
+      eyepieceFocalMm: 25,
+      afovDeg: 52,
+      barlow: 1,
+      orientationMode: 'auto',
+      seeingArcsec: 2.0,
+      bortle: 4,
+      transparency: 8,
+      eyepieceSize: 620,
+      showCrosshair: false,
+      showFieldRing: true,
+      showDiffraction: true
+    },
+    targetType: 'moon',
+    targetId: 'moon',
+    assetsReady: false,
+    assets: new Map()
+  };
+
+  // quick toast helper
+  function showToast(text, ms = 2200) {
+    ui.toast.textContent = text;
+    ui.toast.style.display = 'block';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => ui.toast.style.display = 'none', ms);
+  }
+
+  // math helpers
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function smoothstep01(x) { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); }
+  function log10(x) { return Math.log(x) / Math.LN10; }
+  function randFromSeed(seed) {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453123;
+    return x - Math.floor(x);
+  }
+  function mix(a, b, t) { return a * (1 - t) + b * t; }
+  function rgba(r, g, b, a = 1) { return `rgba(${r|0}, ${g|0}, ${b|0}, ${a})`; }
+
+  // keep image orientation sensible
+  function getOrientationLabel() {
+    const mode = state.telescope.orientationMode;
+    if (mode !== 'auto') return mode;
+    if (state.telescope.scopeType === 'refractor') return 'inverted-mirror';
+    if (state.telescope.scopeType === 'reflector' || state.telescope.scopeType === 'newtonian' || state.telescope.scopeType === 'dobsonian') return 'inverted';
+    return 'mirror';
+  }
+
+  // telescope calculations
+  function getTelescopeStats() {
+    const t = state.telescope;
+    const apertureMm = Math.max(1, t.apertureMm);
+    const effectiveFocalMm = Math.max(1, t.scopeFocalMm * t.barlow);
+    const magnification = effectiveFocalMm / Math.max(0.1, t.eyepieceFocalMm);
+    const tfovDeg = t.afovDeg / Math.max(1, magnification);
+    const exitPupilMm = apertureMm / Math.max(1, magnification);
+    const lightGathering = Math.pow(apertureMm / 7, 2);
+    const dawesArcsec = 116 / apertureMm;
+    const limitMag = 7.7 + 5 * log10(apertureMm / 10);
+    const lowPower = Math.round(apertureMm * 0.15);
+    const highPower = Math.round(apertureMm * 2.0);
+    const airyDiscArcsec = clamp(dawesArcsec * 1.6, 0.5, 6);
+    return { apertureMm, effectiveFocalMm, magnification, tfovDeg, exitPupilMm, lightGathering, dawesArcsec, limitMag, lowPower, highPower, airyDiscArcsec };
+  }
+
+  // get active target
+  function getActiveTarget() {
+    return (TARGETS[state.targetType] || []).find(t => t.id === state.targetId) || TARGETS.moon[0];
+  }
+
+  // convert angle to eyepiece pixels
+  function angularToPixels(arcsec, tfovDeg, sizePx) {
+    return (arcsec / Math.max(1e-6, tfovDeg * 3600)) * sizePx;
+  }
+
+  // darker sky under better conditions
+  function getSkyFactor() {
+    const bortlePenalty = 1 - ((state.telescope.bortle - 1) / 8) * 0.84;
+    const transparencyFactor = lerp(0.45, 1.0, (state.telescope.transparency - 1) / 9);
+    return clamp(bortlePenalty * transparencyFactor, 0.08, 1.0);
+  }
+
+  // realism factor for extended stuff
+  function getExtendedObjectFactor(target, stats) {
+    const sky = getSkyFactor();
+    const exitBoost = clamp(stats.exitPupilMm / 5.5, 0.18, 1.0);
+    const apertureBoost = clamp(Math.pow(stats.apertureMm / 120, 0.35), 0.72, 1.6);
+    if (target.kind === 'nebula' || target.kind === 'galaxy') return clamp(sky * exitBoost * apertureBoost, 0.05, 1.0);
+    if (target.kind === 'cluster') return clamp((0.55 + sky * 0.45) * apertureBoost, 0.2, 1.0);
+    return 1.0;
+  }
+
+  // seeing blur in pixels
+  function getSeeingBlurPx(stats, sizePx) {
+    return angularToPixels(state.telescope.seeingArcsec, stats.tfovDeg, sizePx);
+  }
+
+  // detect framing
+  function getFramingText(target, stats) {
+    const ratio = target.angularSizeArcsec / (stats.tfovDeg * 3600);
+    if (ratio < 0.08) return 'very small';
+    if (ratio < 0.28) return 'comfortable';
+    if (ratio < 0.55) return 'fills field nicely';
+    if (ratio < 0.9) return 'tight framing';
+    return 'too large for field';
+  }
+
+  // advice based on setup
+  function getAdvice(target, stats) {
+    if (target.kind === 'moon' && stats.magnification < 60) return 'try more magnification for crater detail.';
+    if (target.kind === 'planet' && state.telescope.seeingArcsec > 3.5) return 'poor seeing is going to smear planetary detail a lot.';
+    if ((target.kind === 'nebula' || target.kind === 'galaxy') && state.telescope.bortle >= 7) return 'heavy light pollution will erase faint outer structure.';
+    if (stats.exitPupilMm < 0.5) return 'exit pupil is very small now, so the view may feel dim and floaters become more obvious.';
+    if (stats.exitPupilMm > 7) return 'the exit pupil is very large now, so some light may be wasted.';
+    if (stats.magnification > stats.highPower) return 'you are past the normal useful magnification range for this aperture.';
+    return target.advice;
+  }
+
+  // populate target list
+  function rebuildTargetSelect() {
+    const items = TARGETS[state.targetType] || [];
+    ui.targetSelect.innerHTML = items.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+    if (!items.some(item => item.id === state.targetId)) state.targetId = items[0]?.id || '';
+    ui.targetSelect.value = state.targetId;
+  }
+
+  // sync state from ui
+  function syncStateFromInputs() {
+    state.telescope.scopeType = ui.scopeTypeSelect.value;
+    state.telescope.mountType = ui.mountTypeSelect.value;
+    state.telescope.apertureMm = clamp(parseFloat(ui.apertureInput.value) || 203, 40, 1000);
+    state.telescope.scopeFocalMm = clamp(parseFloat(ui.scopeFocalInput.value) || 1200, 100, 10000);
+    state.telescope.eyepieceFocalMm = clamp(parseFloat(ui.eyepieceFocalInput.value) || 25, 2, 80);
+    state.telescope.afovDeg = clamp(parseFloat(ui.afovInput.value) || 52, 20, 120);
+    state.telescope.barlow = clamp(parseFloat(ui.barlowSelect.value) || 1, 1, 5);
+    state.telescope.orientationMode = ui.orientationSelect.value;
+    state.telescope.seeingArcsec = clamp(parseFloat(ui.seeingSlider.value) || 2, 0.5, 5);
+    state.telescope.bortle = clamp(parseInt(ui.bortleSlider.value, 10) || 4, 1, 9);
+    state.telescope.transparency = clamp(parseInt(ui.transparencySlider.value, 10) || 8, 1, 10);
+    state.telescope.eyepieceSize = clamp(parseInt(ui.eyepieceSizeSelect.value, 10) || 620, 420, 820);
+    state.telescope.showCrosshair = ui.crosshairToggle.checked;
+    state.telescope.showFieldRing = ui.showFieldRingToggle.checked;
+    state.telescope.showDiffraction = ui.showDiffractionToggle.checked;
+    state.targetType = ui.targetTypeSelect.value;
+    state.targetId = ui.targetSelect.value;
+    ui.seeingReadout.textContent = `${state.telescope.seeingArcsec.toFixed(1)}″`;
+    ui.bortleReadout.textContent = `${state.telescope.bortle}`;
+    ui.transparencyReadout.textContent = `${state.telescope.transparency}`;
+  }
+
+  // resize eyepiece canvas
+  function resizeCanvas() {
+    ui.eyepieceWrap.style.width = `${state.telescope.eyepieceSize}px`;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
+  // resize a work canvas
+  function sizeWorkCanvas(w, h) {
+    workCanvas.width = w;
+    workCanvas.height = h;
+    tempCanvas.width = w;
+    tempCanvas.height = h;
+  }
+
+  // add film-like grain
+  function addGrain(context, w, h, amount, alpha) {
+    const img = context.getImageData(0, 0, w, h);
+    const data = img.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const n = (randFromSeed(x * 13.37 + y * 91.73 + amount * 17.1) - 0.5) * amount;
+        data[i] = clamp(data[i] + n, 0, 255);
+        data[i + 1] = clamp(data[i + 1] + n, 0, 255);
+        data[i + 2] = clamp(data[i + 2] + n, 0, 255);
+        data[i + 3] = clamp(data[i + 3] + alpha, 0, 255);
+      }
+    }
+    context.putImageData(img, 0, 0);
+  }
+
+  // shift toward human-eye visual look
+  function applyVisualHumanEyeLook(context, w, h, target, stats) {
+    const sky = getSkyFactor();
+    const targetFactor = getExtendedObjectFactor(target, stats);
+    const img = context.getImageData(0, 0, w, h);
+    const data = img.data;
+    const desatBase = target.kind === 'planet' || target.kind === 'moon' ? 0.45 : 0.82;
+    const desat = clamp(desatBase + (1 - targetFactor) * 0.3, 0, 1);
+    const blackLift = lerp(0, 22, 1 - sky);
+    const contrast = lerp(0.82, 1.05, sky);
+    const gamma = target.kind === 'planet' || target.kind === 'moon' ? 0.96 : lerp(1.18, 1.02, targetFactor);
+    const brightnessScale = target.kind === 'galaxy'
+      ? lerp(0.38, 0.82, targetFactor)
+      : target.kind === 'nebula'
+      ? lerp(0.45, 0.88, targetFactor)
+      : target.kind === 'cluster'
+      ? lerp(0.65, 0.98, targetFactor)
+      : lerp(0.82, 1.0, sky);
+
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
+      const a = data[i + 3];
+
+      if (a === 0) continue;
+
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      r = mix(r, luma, desat);
+      g = mix(g, luma, desat);
+      b = mix(b, luma, desat);
+
+      r = ((r - 128) * contrast + 128 + blackLift) * brightnessScale;
+      g = ((g - 128) * contrast + 128 + blackLift) * brightnessScale;
+      b = ((b - 128) * contrast + 128 + blackLift) * brightnessScale;
+
+      r = 255 * Math.pow(clamp(r / 255, 0, 1), gamma);
+      g = 255 * Math.pow(clamp(g / 255, 0, 1), gamma);
+      b = 255 * Math.pow(clamp(b / 255, 0, 1), gamma);
+
+      data[i] = clamp(r, 0, 255);
+      data[i + 1] = clamp(g, 0, 255);
+      data[i + 2] = clamp(b, 0, 255);
+      data[i + 3] = a;
+    }
+
+    context.putImageData(img, 0, 0);
+  }
+
+  // make a realistic moon texture
+  function buildMoonAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1200;
+    c.height = 1200;
+    const x = c.getContext('2d');
+    const cx = 600;
+    const cy = 600;
+    const r = 520;
+
+    x.clearRect(0, 0, c.width, c.height);
+
+    // moon base
+    const g = x.createRadialGradient(cx - 120, cy - 120, 30, cx, cy, r);
+    g.addColorStop(0, 'rgb(245,245,245)');
+    g.addColorStop(0.45, 'rgb(210,210,210)');
+    g.addColorStop(1, 'rgb(116,116,116)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.fill();
+
+    // maria and darker regions
+    x.save();
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.clip();
+    for (let i = 0; i < 170; i++) {
+      const a = randFromSeed(i * 1.17) * Math.PI * 2;
+      const rr = Math.sqrt(randFromSeed(i * 2.03)) * r * 0.78;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      const cr = mix(16, 72, randFromSeed(i * 6.1));
+      const opacity = mix(0.04, 0.18, randFromSeed(i * 9.7));
+      x.fillStyle = `rgba(105,110,120,${opacity})`;
+      x.beginPath();
+      x.ellipse(px, py, cr * 1.6, cr, randFromSeed(i * 4.4) * Math.PI, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    // crater rims
+    for (let i = 0; i < 460; i++) {
+      const a = randFromSeed(i * 14.13) * Math.PI * 2;
+      const rr = Math.sqrt(randFromSeed(i * 7.31)) * r * 0.96;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      const cr = mix(3, 30, Math.pow(randFromSeed(i * 2.2), 1.7));
+      const rimA = mix(0.02, 0.16, randFromSeed(i * 1.3));
+
+      x.strokeStyle = `rgba(235,235,235,${rimA})`;
+      x.lineWidth = Math.max(0.7, cr * 0.08);
+      x.beginPath();
+      x.arc(px, py, cr, 0, Math.PI * 2);
+      x.stroke();
+
+      x.strokeStyle = `rgba(70,70,76,${rimA * 0.8})`;
+      x.beginPath();
+      x.arc(px + cr * 0.08, py + cr * 0.08, cr * 0.82, 0, Math.PI * 2);
+      x.stroke();
+    }
+
+    // limb shade
+    const limb = x.createRadialGradient(cx, cy, r * 0.75, cx, cy, r);
+    limb.addColorStop(0, 'rgba(0,0,0,0)');
+    limb.addColorStop(1, 'rgba(0,0,0,0.32)');
+    x.fillStyle = limb;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.fill();
+    x.restore();
+
+    return c;
+  }
+
+  // make a realistic jupiter texture
+  function buildJupiterAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1600;
+    c.height = 900;
+    const x = c.getContext('2d');
+
+    const g = x.createLinearGradient(0, 0, 0, c.height);
+    g.addColorStop(0, 'rgb(227,203,171)');
+    g.addColorStop(0.25, 'rgb(212,181,144)');
+    g.addColorStop(0.5, 'rgb(194,154,120)');
+    g.addColorStop(0.75, 'rgb(218,187,155)');
+    g.addColorStop(1, 'rgb(188,151,116)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, c.width, c.height);
+
+    for (let i = 0; i < 38; i++) {
+      const y = (i / 37) * c.height;
+      const bandH = mix(10, 48, randFromSeed(i * 4.1));
+      const bandA = mix(0.06, 0.28, randFromSeed(i * 8.2));
+      const hue = i % 2 === 0 ? [155, 110, 74] : [233, 214, 190];
+      x.fillStyle = rgba(hue[0], hue[1], hue[2], bandA);
+      x.beginPath();
+      x.moveTo(0, y);
+      for (let px = 0; px <= c.width; px += 18) {
+        const wiggle = Math.sin(px * 0.018 + i * 0.7) * mix(3, 18, randFromSeed(i * 9.4));
+        x.lineTo(px, y + wiggle);
+      }
+      x.lineTo(c.width, y + bandH);
+      for (let px = c.width; px >= 0; px -= 18) {
+        const wiggle = Math.sin(px * 0.019 + i * 0.71 + 2.1) * mix(3, 18, randFromSeed(i * 6.1));
+        x.lineTo(px, y + bandH + wiggle);
+      }
+      x.closePath();
+      x.fill();
+    }
+
+    // storm and zones
+    x.save();
+    x.translate(c.width * 0.62, c.height * 0.56);
+    x.rotate(-0.16);
+    const storm = x.createRadialGradient(0, 0, 18, 0, 0, 120);
+    storm.addColorStop(0, 'rgba(227,164,136,0.92)');
+    storm.addColorStop(0.55, 'rgba(194,108,84,0.72)');
+    storm.addColorStop(1, 'rgba(110,65,55,0)');
+    x.fillStyle = storm;
+    x.beginPath();
+    x.ellipse(0, 0, 170, 108, 0, 0, Math.PI * 2);
+    x.fill();
+    x.restore();
+
+    // soft texture noise
+    for (let i = 0; i < 2200; i++) {
+      const px = randFromSeed(i * 1.7) * c.width;
+      const py = randFromSeed(i * 2.9) * c.height;
+      const rr = mix(4, 28, randFromSeed(i * 4.6));
+      const a = mix(0.015, 0.06, randFromSeed(i * 6.8));
+      x.fillStyle = randFromSeed(i * 8.1) > 0.5 ? `rgba(255,255,255,${a})` : `rgba(95,70,50,${a})`;
+      x.beginPath();
+      x.ellipse(px, py, rr * 1.6, rr * 0.4, randFromSeed(i * 7.2) * Math.PI, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    return c;
+  }
+
+  // make a realistic saturn texture
+  function buildSaturnAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1500;
+    c.height = 900;
+    const x = c.getContext('2d');
+
+    // disc
+    x.save();
+    x.translate(750, 450);
+    const g = x.createRadialGradient(-80, -110, 15, 0, 0, 220);
+    g.addColorStop(0, 'rgb(237,219,178)');
+    g.addColorStop(0.65, 'rgb(211,190,146)');
+    g.addColorStop(1, 'rgb(146,128,93)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(0, 0, 205, 0, Math.PI * 2);
+    x.fill();
+
+    for (let i = 0; i < 20; i++) {
+      const y = mix(-170, 170, i / 19);
+      x.fillStyle = i % 2 ? 'rgba(120,105,78,0.08)' : 'rgba(255,246,220,0.06)';
+      x.fillRect(-180, y, 360, 10 + randFromSeed(i * 4.8) * 22);
+    }
+    x.restore();
+
+    // rings
+    x.save();
+    x.translate(750, 450);
+    x.rotate(-0.28);
+    for (let i = 0; i < 95; i++) {
+      const t = i / 94;
+      const rx = mix(250, 520, t);
+      const ry = rx * 0.28;
+      const a = mix(0.42, 0.04, t);
+      const col = i % 6 === 0 ? `rgba(120,112,100,${a})` : `rgba(225,215,195,${a})`;
+      x.strokeStyle = col;
+      x.lineWidth = 2 + (i % 9 === 0 ? 1.2 : 0);
+      x.beginPath();
+      x.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      x.stroke();
+    }
+
+    // cassini-ish dark gap
+    x.strokeStyle = 'rgba(64,58,55,0.35)';
+    x.lineWidth = 8;
+    x.beginPath();
+    x.ellipse(0, 0, 400, 112, 0, 0, Math.PI * 2);
+    x.stroke();
+    x.restore();
+
+    return c;
+  }
+
+  // make a realistic mars texture
+  function buildMarsAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1000;
+    c.height = 1000;
+    const x = c.getContext('2d');
+    const cx = 500;
+    const cy = 500;
+    const r = 420;
+
+    const g = x.createRadialGradient(cx - 100, cy - 110, 20, cx, cy, r);
+    g.addColorStop(0, 'rgb(241,172,123)');
+    g.addColorStop(0.7, 'rgb(196,103,65)');
+    g.addColorStop(1, 'rgb(116,54,38)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.fill();
+
+    x.save();
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.clip();
+
+    // dark maria
+    for (let i = 0; i < 55; i++) {
+      const a = randFromSeed(i * 2.3) * Math.PI * 2;
+      const rr = Math.sqrt(randFromSeed(i * 7.9)) * r * 0.72;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      const ew = mix(18, 90, randFromSeed(i * 5.2));
+      const eh = ew * mix(0.4, 1.2, randFromSeed(i * 9.4));
+      x.fillStyle = `rgba(98,58,44,${mix(0.08, 0.28, randFromSeed(i * 6.1))})`;
+      x.beginPath();
+      x.ellipse(px, py, ew, eh, randFromSeed(i * 4.5) * Math.PI, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    // dusty clouds
+    for (let i = 0; i < 90; i++) {
+      const px = randFromSeed(i * 1.2) * c.width;
+      const py = randFromSeed(i * 1.7) * c.height;
+      const rr = mix(18, 70, randFromSeed(i * 3.4));
+      x.fillStyle = `rgba(255,220,190,${mix(0.02, 0.08, randFromSeed(i * 8.1))})`;
+      x.beginPath();
+      x.arc(px, py, rr, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    // polar cap
+    x.fillStyle = 'rgba(250,250,250,0.9)';
+    x.beginPath();
+    x.arc(cx, cy - r * 0.72, r * 0.16, 0, Math.PI * 2);
+    x.fill();
+
+    x.restore();
+
+    return c;
+  }
+
+  // venus soft phase asset
+  function buildVenusAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1000;
+    c.height = 1000;
+    const x = c.getContext('2d');
+    const cx = 500;
+    const cy = 500;
+    const r = 390;
+
+    const g = x.createRadialGradient(cx - 120, cy - 120, 20, cx, cy, r);
+    g.addColorStop(0, 'rgb(255,244,210)');
+    g.addColorStop(1, 'rgb(214,196,153)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(cx, cy, r, 0, Math.PI * 2);
+    x.fill();
+
+    x.globalCompositeOperation = 'destination-out';
+    x.beginPath();
+    x.arc(cx + r * 0.32, cy, r * 0.96, 0, Math.PI * 2);
+    x.fill();
+    x.globalCompositeOperation = 'source-over';
+
+    return c;
+  }
+
+  // uranus and neptune
+  function buildSimpleIceGiantAsset(innerColor, outerColor) {
+    const c = document.createElement('canvas');
+    c.width = 800;
+    c.height = 800;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(280, 250, 10, 400, 400, 320);
+    g.addColorStop(0, innerColor);
+    g.addColorStop(1, outerColor);
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(400, 400, 320, 0, Math.PI * 2);
+    x.fill();
+    return c;
+  }
+
+  // andromeda style asset
+  function buildAndromedaAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1800;
+    c.height = 1000;
+    const x = c.getContext('2d');
+    x.translate(900, 500);
+    x.rotate(-0.34);
+
+    const halo = x.createRadialGradient(0, 0, 30, 0, 0, 620);
+    halo.addColorStop(0, 'rgba(245,240,230,0.95)');
+    halo.addColorStop(0.15, 'rgba(222,222,230,0.75)');
+    halo.addColorStop(0.4, 'rgba(175,180,198,0.24)');
+    halo.addColorStop(1, 'rgba(130,140,170,0)');
+    x.fillStyle = halo;
+    x.beginPath();
+    x.ellipse(0, 0, 760, 160, 0, 0, Math.PI * 2);
+    x.fill();
+
+    // dust lanes
+    x.strokeStyle = 'rgba(60,64,75,0.20)';
+    for (let i = 0; i < 8; i++) {
+      x.lineWidth = 8 + i * 2;
+      x.beginPath();
+      x.ellipse(0, 20 - i * 9, 360 + i * 55, 84 + i * 8, 0, Math.PI * 0.98, Math.PI * 1.95);
+      x.stroke();
+    }
+
+    // star clouds
+    for (let i = 0; i < 2000; i++) {
+      const px = (randFromSeed(i * 1.2) - 0.5) * 1500;
+      const py = (randFromSeed(i * 2.1) - 0.5) * 420;
+      const fall = Math.exp(-(Math.abs(py) / 155)) * Math.exp(-(Math.abs(px) / 700));
+      const rr = mix(0.2, 1.6, randFromSeed(i * 4.4));
+      const a = fall * mix(0.02, 0.18, randFromSeed(i * 6.7));
+      x.fillStyle = `rgba(240,240,250,${a})`;
+      x.beginPath();
+      x.arc(px, py, rr, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    return c;
+  }
+
+  // bode style asset
+  function buildBodeAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1200;
+    c.height = 1200;
+    const x = c.getContext('2d');
+    x.translate(600, 600);
+    x.rotate(0.3);
+
+    const halo = x.createRadialGradient(0, 0, 18, 0, 0, 420);
+    halo.addColorStop(0, 'rgba(255,246,226,0.95)');
+    halo.addColorStop(0.2, 'rgba(230,225,220,0.7)');
+    halo.addColorStop(0.45, 'rgba(185,190,210,0.24)');
+    halo.addColorStop(1, 'rgba(120,140,180,0)');
+    x.fillStyle = halo;
+    x.beginPath();
+    x.ellipse(0, 0, 360, 200, 0, 0, Math.PI * 2);
+    x.fill();
+
+    x.strokeStyle = 'rgba(115,125,145,0.12)';
+    for (let i = 0; i < 7; i++) {
+      x.lineWidth = 10 - i;
+      x.beginPath();
+      x.ellipse(0, 0, 120 + i * 46, 66 + i * 28, 0, 0.2, Math.PI * 1.8);
+      x.stroke();
+    }
+
+    return c;
+  }
+
+  // orion nebula asset
+  function buildOrionAsset() {
+    const c = document.createElement('canvas');
+    c.width = 1500;
+    c.height = 1200;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(710, 520, 30, 760, 600, 520);
+    g.addColorStop(0, 'rgba(255,255,245,0.95)');
+    g.addColorStop(0.08, 'rgba(200,225,230,0.75)');
+    g.addColorStop(0.22, 'rgba(120,170,175,0.32)');
+    g.addColorStop(0.58, 'rgba(75,125,135,0.12)');
+    g.addColorStop(1, 'rgba(40,60,80,0)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, c.width, c.height);
+
+    for (let i = 0; i < 220; i++) {
+      const px = randFromSeed(i * 1.3) * c.width;
+      const py = randFromSeed(i * 2.1) * c.height;
+      const rr = mix(15, 140, randFromSeed(i * 5.7));
+      const a = mix(0.01, 0.06, randFromSeed(i * 9.8));
+      x.fillStyle = randFromSeed(i * 3.2) > 0.55 ? `rgba(140,190,195,${a})` : `rgba(180,185,210,${a})`;
+      x.beginPath();
+      x.arc(px, py, rr, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    // trap core stars
+    [[735, 590], [772, 574], [758, 615], [790, 598]].forEach(([px, py], i) => {
+      x.fillStyle = i === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(220,235,240,0.88)';
+      x.beginPath();
+      x.arc(px, py, 3.2 - i * 0.4, 0, Math.PI * 2);
+      x.fill();
+    });
+
+    return c;
+  }
+
+  // ring nebula asset
+  function buildRingAsset() {
+    const c = document.createElement('canvas');
+    c.width = 900;
+    c.height = 900;
+    const x = c.getContext('2d');
+    x.translate(450, 450);
+    const halo = x.createRadialGradient(0, 0, 10, 0, 0, 180);
+    halo.addColorStop(0, 'rgba(245,250,255,0.75)');
+    halo.addColorStop(0.28, 'rgba(150,180,210,0.30)');
+    halo.addColorStop(0.65, 'rgba(120,145,190,0.08)');
+    halo.addColorStop(1, 'rgba(100,100,120,0)');
+    x.fillStyle = halo;
+    x.beginPath();
+    x.arc(0, 0, 170, 0, Math.PI * 2);
+    x.fill();
+
+    x.strokeStyle = 'rgba(190,210,235,0.65)';
+    x.lineWidth = 34;
+    x.beginPath();
+    x.arc(0, 0, 90, 0, Math.PI * 2);
+    x.stroke();
+
+    x.fillStyle = 'rgba(0,0,0,0.55)';
+    x.beginPath();
+    x.arc(0, 0, 60, 0, Math.PI * 2);
+    x.fill();
+
+    return c;
+  }
+
+  // cluster star field assets
+  function buildClusterAsset(doubleMode = false) {
+    const c = document.createElement('canvas');
+    c.width = 1400;
+    c.height = 1000;
+    const x = c.getContext('2d');
+
+    const centers = doubleMode ? [[490, 500], [890, 470]] : [[700, 500]];
+    const count = doubleMode ? 580 : 340;
+
+    for (let i = 0; i < count; i++) {
+      const center = centers[i % centers.length];
+      const a = randFromSeed(i * 3.2) * Math.PI * 2;
+      const rr = Math.sqrt(randFromSeed(i * 5.8)) * (doubleMode ? 170 : 270);
+      const px = center[0] + Math.cos(a) * rr * mix(0.65, 1.25, randFromSeed(i * 7.1));
+      const py = center[1] + Math.sin(a) * rr * mix(0.55, 1.0, randFromSeed(i * 8.4));
+      const starR = mix(0.6, 2.8, randFromSeed(i * 1.4));
+      const warm = randFromSeed(i * 2.5) > 0.78;
+      x.fillStyle = warm ? `rgba(255,233,210,${mix(0.5,1,randFromSeed(i*4.9))})` : `rgba(238,244,255,${mix(0.45,1,randFromSeed(i*4.9))})`;
+      x.beginPath();
+      x.arc(px, py, starR, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    return c;
+  }
+
+  // build all texture assets once
+  function prepareAssets() {
+    if (state.assetsReady) return;
+
+    state.assets.set('moon', buildMoonAsset());
+    state.assets.set('jupiter', buildJupiterAsset());
+    state.assets.set('saturn', buildSaturnAsset());
+    state.assets.set('mars', buildMarsAsset());
+    state.assets.set('venus', buildVenusAsset());
+    state.assets.set('uranus', buildSimpleIceGiantAsset('rgb(205,255,250)', 'rgb(103,186,190)'));
+    state.assets.set('neptune', buildSimpleIceGiantAsset('rgb(160,195,255)', 'rgb(55,94,192)'));
+    state.assets.set('andromeda', buildAndromedaAsset());
+    state.assets.set('bode', buildBodeAsset());
+    state.assets.set('orionnebula', buildOrionAsset());
+    state.assets.set('ringnebula', buildRingAsset());
+    state.assets.set('pleiades', buildClusterAsset(false));
+    state.assets.set('doublecluster', buildClusterAsset(true));
+
+    state.assetsReady = true;
+  }
+
+  // get texture asset
+  function getAssetForTarget(target) {
+    return state.assets.get(target.id) || null;
+  }
+
+  // draw eyepiece background
+  function drawEyepieceBackground(w, h) {
+    const sky = getSkyFactor();
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const r = Math.min(w, h) * 0.5;
+    const bg = ctx.createRadialGradient(cx, cy, r * 0.08, cx, cy, r);
+    const lift = Math.round(lerp(4, 34, 1 - sky));
+    bg.addColorStop(0, `rgba(${lift}, ${lift + 4}, ${lift + 10}, 1)`);
+    bg.addColorStop(1, 'rgba(0, 0, 0, 1)');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const vignette = ctx.createRadialGradient(cx, cy, r * 0.58, cx, cy, r);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.58)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // draw a processed texture object
+  function drawProcessedTextureTarget(target, stats, w, h) {
+    const asset = getAssetForTarget(target);
+    if (!asset) return;
+
+    const size = Math.min(w, h);
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+
+    // how large the object should look inside the eyepiece
+    const apparentPx = angularToPixels(target.angularSizeArcsec, stats.tfovDeg, size);
+    const minPx = target.kind === 'planet' || target.kind === 'moon' ? 4 : 14;
+    const drawnPx = Math.max(minPx, apparentPx);
+    const seeingBlurPx = getSeeingBlurPx(stats, size);
+    const extendedFactor = getExtendedObjectFactor(target, stats);
+
+    sizeWorkCanvas(w, h);
+    workCtx.clearRect(0, 0, w, h);
+
+    // place object
+    let drawW = drawnPx;
+    let drawH = drawnPx;
+    if (target.kind === 'galaxy') {
+      drawW *= target.id === 'andromeda' ? 2.25 : 1.35;
+      drawH *= target.id === 'andromeda' ? 0.42 : 0.72;
+    } else if (target.kind === 'nebula') {
+      drawW *= target.id === 'orionnebula' ? 1.45 : 1.0;
+      drawH *= target.id === 'orionnebula' ? 1.15 : 1.0;
+    } else if (target.kind === 'cluster') {
+      drawW *= target.id === 'pleiades' ? 1.45 : 1.05;
+      drawH *= target.id === 'pleiades' ? 1.05 : 0.92;
+    } else if (target.id === 'saturn') {
+      drawW *= 2.4;
+      drawH *= 1.35;
+    }
+
+    workCtx.save();
+    workCtx.translate(cx, cy);
+
+    // subtle object rotation so things feel less synthetic
+    if (target.id === 'andromeda') workCtx.rotate(-0.35);
+    else if (target.id === 'bode') workCtx.rotate(0.25);
+    else if (target.id === 'saturn') workCtx.rotate(-0.25);
+
+    workCtx.globalAlpha = target.kind === 'moon' || target.kind === 'planet'
+      ? 1
+      : clamp(target.surfaceBrightness * 0.55 + extendedFactor * 0.65, 0.12, 1);
+
+    // blur before drawing for low aperture + seeing
+    const apertureSoftening = clamp(140 / stats.apertureMm, 0.12, 1.4);
+    workCtx.filter = `blur(${(seeingBlurPx * (target.kind === 'star' ? 0.65 : 0.95) + apertureSoftening * (target.kind === 'planet' || target.kind === 'moon' ? 0.35 : 0.8)).toFixed(2)}px)`;
+    workCtx.drawImage(asset, -drawW / 2, -drawH / 2, drawW, drawH);
+    workCtx.restore();
+
+    // add realistic glare for very bright objects
+    if (target.kind === 'moon' || target.kind === 'planet') {
+      workCtx.save();
+      const glowR = target.kind === 'moon' ? drawW * 0.62 : drawW * 0.32;
+      const glow = workCtx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+      const glowAlpha = target.id === 'venus' ? 0.2 : target.kind === 'moon' ? 0.13 : 0.09;
+      glow.addColorStop(0, `rgba(255,255,245,${glowAlpha})`);
+      glow.addColorStop(1, 'rgba(255,255,245,0)');
+      workCtx.fillStyle = glow;
+      workCtx.beginPath();
+      workCtx.arc(cx, cy, glowR, 0, Math.PI * 2);
+      workCtx.fill();
+      workCtx.restore();
+    }
+
+    // dso realism pass
+    applyVisualHumanEyeLook(workCtx, w, h, target, stats);
+
+    // low level grain to stop perfect digital look
+    addGrain(workCtx, w, h, target.kind === 'moon' ? 3 : 8, 0);
+
+    ctx.drawImage(workCanvas, 0, 0);
+  }
+
+  // realistic stars with seeing and diffraction
+  function drawStar(target, stats, w, h) {
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const size = Math.min(w, h);
+    const blur = getSeeingBlurPx(stats, size);
+    const airy = Math.max(1.2, angularToPixels(Math.max(stats.airyDiscArcsec, 0.5), stats.tfovDeg, size));
+    const color = target.color || '#f3f6ff';
+    const sky = getSkyFactor();
+
+    // core
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.shadowBlur = blur + airy * 3.2;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, airy, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // airy ring-ish glow
+    ctx.save();
+    ctx.strokeStyle = `rgba(225,235,255,${0.13 * sky})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, airy * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // diffraction spikes if enabled
+    if (state.telescope.showDiffraction) {
+      const spikeAlpha = state.telescope.scopeType === 'refractor' ? 0.07 : 0.24;
+      ctx.save();
+      ctx.strokeStyle = `rgba(220, 232, 255, ${spikeAlpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - airy * 5.0, cy);
+      ctx.lineTo(cx + airy * 5.0, cy);
+      ctx.moveTo(cx, cy - airy * 5.0);
+      ctx.lineTo(cx, cy + airy * 5.0);
+      if (state.telescope.scopeType !== 'refractor') {
+        ctx.moveTo(cx - airy * 3.9, cy - airy * 3.9);
+        ctx.lineTo(cx + airy * 3.9, cy + airy * 3.9);
+        ctx.moveTo(cx - airy * 3.9, cy + airy * 3.9);
+        ctx.lineTo(cx + airy * 3.9, cy - airy * 3.9);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // optional field overlays
+  function drawEyepieceOverlays(w, h) {
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const r = Math.min(w, h) * 0.5;
+
+    if (state.telescope.showFieldRing) {
+      ctx.strokeStyle = 'rgba(44, 126, 255, 0.28)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (state.telescope.showCrosshair) {
+      ctx.strokeStyle = 'rgba(44, 126, 255, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.92, cy);
+      ctx.lineTo(cx + r * 0.92, cy);
+      ctx.moveTo(cx, cy - r * 0.92);
+      ctx.lineTo(cx, cy + r * 0.92);
+      ctx.stroke();
+    }
+  }
+
+  // main eyepiece renderer
+  function renderEyepiece() {
+    resizeCanvas();
+    prepareAssets();
+
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const r = Math.min(w, h) * 0.5;
+    const stats = getTelescopeStats();
+    const target = getActiveTarget();
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    drawEyepieceBackground(w, h);
+
+    // apply orientation transform
+    ctx.translate(cx, cy);
+    const orientation = getOrientationLabel();
+    if (orientation === 'inverted' || orientation === 'inverted-mirror') ctx.rotate(Math.PI);
+    if (orientation === 'mirror' || orientation === 'inverted-mirror') ctx.scale(-1, 1);
+    ctx.translate(-cx, -cy);
+
+    if (target.kind === 'star') drawStar(target, stats, w, h);
+    else drawProcessedTextureTarget(target, stats, w, h);
+
+    ctx.restore();
+
+    // field overlays
+    drawEyepieceOverlays(w, h);
+  }
+
+  // update side info
+  function updateInfoPanel() {
+    const target = getActiveTarget();
+    const stats = getTelescopeStats();
+    const skyFactor = getSkyFactor();
+    const framing = getFramingText(target, stats);
+
+    ui.infoTitle.textContent = target.name;
+    ui.infoSubtitle.textContent = `${state.telescope.scopeType} • ${state.telescope.mountType} • visual telescope simulation`;
+
+    ui.magOut.textContent = `${stats.magnification.toFixed(1)}×`;
+    ui.tfovOut.textContent = `${stats.tfovDeg.toFixed(2)}°`;
+    ui.exitPupilOut.textContent = `${stats.exitPupilMm.toFixed(2)} mm`;
+    ui.lightOut.textContent = `${Math.round(stats.lightGathering).toLocaleString()}× eye`;
+    ui.dawesOut.textContent = `${stats.dawesArcsec.toFixed(2)}″`;
+    ui.limitMagOut.textContent = `${stats.limitMag.toFixed(1)}`;
+    ui.powerBandOut.textContent = `${stats.lowPower}×–${stats.highPower}×`;
+    ui.orientationOut.textContent = getOrientationLabel();
+
+    ui.objectClassOut.textContent = target.kind;
+    ui.surfaceOut.textContent = target.kind === 'star' || target.kind === 'planet' || target.kind === 'moon'
+      ? 'high'
+      : target.kind === 'cluster'
+      ? 'medium'
+      : target.kind === 'galaxy'
+      ? 'very low'
+      : 'low';
+
+    ui.skyPenaltyOut.textContent = `${Math.round((1 - skyFactor) * 100)}%`;
+    ui.seeingOut.textContent = `${state.telescope.seeingArcsec.toFixed(1)}″`;
+    ui.framingOut.textContent = framing;
+    ui.bestUseOut.textContent = target.kind === 'moon' || target.kind === 'planet'
+      ? 'detail'
+      : target.kind === 'star'
+      ? 'focus / color'
+      : 'deep sky';
+
+    ui.targetDescription.textContent = target.desc;
+    ui.targetAdvice.textContent = getAdvice(target, stats);
+    ui.modeBadge.textContent = `${target.name} • ${stats.magnification.toFixed(1)}× • ${stats.tfovDeg.toFixed(2)}° tfov`;
+  }
+
+  // presets
+  function applyPreset(key) {
+    const presets = {
+      '80ed': { scopeType: 'refractor', mountType: 'altaz', apertureMm: 80, scopeFocalMm: 600, eyepieceFocalMm: 20, afovDeg: 68, barlow: 1, orientationMode: 'auto' },
+      '8dob': { scopeType: 'dobsonian', mountType: 'dob', apertureMm: 203, scopeFocalMm: 1200, eyepieceFocalMm: 25, afovDeg: 52, barlow: 1, orientationMode: 'auto' },
+      '10dob': { scopeType: 'dobsonian', mountType: 'dob', apertureMm: 254, scopeFocalMm: 1250, eyepieceFocalMm: 24, afovDeg: 68, barlow: 1, orientationMode: 'auto' },
+      '8sct': { scopeType: 'sct', mountType: 'fork', apertureMm: 203, scopeFocalMm: 2032, eyepieceFocalMm: 32, afovDeg: 50, barlow: 1, orientationMode: 'auto' }
+    };
+    const preset = presets[key];
+    if (!preset) return;
+    Object.assign(state.telescope, preset);
+    ui.scopeTypeSelect.value = state.telescope.scopeType;
+    ui.mountTypeSelect.value = state.telescope.mountType;
+    ui.apertureInput.value = state.telescope.apertureMm;
+    ui.scopeFocalInput.value = state.telescope.scopeFocalMm;
+    ui.eyepieceFocalInput.value = state.telescope.eyepieceFocalMm;
+    ui.afovInput.value = state.telescope.afovDeg;
+    ui.barlowSelect.value = String(state.telescope.barlow);
+    ui.orientationSelect.value = state.telescope.orientationMode;
+    syncStateFromInputs();
+    showToast('preset loaded');
+  }
+
+  // copy config block for later linking
+  async function copyTelescopeConfig() {
+    const stats = getTelescopeStats();
+    const payload = {
+      type: 'stellasim-telescope-config',
+      telescope: { ...state.telescope },
+      targetType: state.targetType,
+      targetId: state.targetId,
+      stats: {
+        magnification: Number(stats.magnification.toFixed(3)),
+        tfovDeg: Number(stats.tfovDeg.toFixed(3)),
+        exitPupilMm: Number(stats.exitPupilMm.toFixed(3)),
+        dawesArcsec: Number(stats.dawesArcsec.toFixed(3)),
+        limitingMagnitude: Number(stats.limitMag.toFixed(3))
+      }
+    };
+    const text = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('telescope config copied');
+    } catch {
+      showToast('could not copy config');
+    }
+  }
+
+  // simple future interlock reader
+  function testInterlock() {
+    const raw = ui.linkDataInput.value.trim();
+    if (!raw) {
+      showToast('paste future starmap object data here later');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      const name = parsed.name || parsed.displayName || 'imported object';
+      ui.infoTitle.textContent = name;
+      showToast(`test interlock read: ${name}`);
+    } catch {
+      showToast('interlock test expects json');
+    }
+  }
+
+  // panel collapse behavior
+  ui.collapseBtn.addEventListener('click', () => {
+    state.panelCollapsed = !state.panelCollapsed;
+    ui.panelBody.style.display = state.panelCollapsed ? 'none' : 'flex';
+    ui.controlPanel.style.minHeight = state.panelCollapsed ? 'unset' : '260px';
+    ui.controlPanel.style.resize = state.panelCollapsed ? 'none' : 'both';
+    ui.collapseBtn.textContent = state.panelCollapsed ? '+' : '−';
+  });
+
+  // make panel draggable
+  let draggingPanel = false;
+  let panelDrag = { x: 0, y: 0, left: 0, top: 0 };
+  ui.panelHeader.addEventListener('pointerdown', e => {
+    if (e.target === ui.collapseBtn) return;
+    draggingPanel = true;
+    const rect = ui.controlPanel.getBoundingClientRect();
+    panelDrag = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
+    ui.panelHeader.setPointerCapture(e.pointerId);
+  });
+  ui.panelHeader.addEventListener('pointermove', e => {
+    if (!draggingPanel) return;
+    ui.controlPanel.style.left = `${panelDrag.left + (e.clientX - panelDrag.x)}px`;
+    ui.controlPanel.style.top = `${panelDrag.top + (e.clientY - panelDrag.y)}px`;
+    ui.controlPanel.style.right = 'auto';
+  });
+  function endPanelDrag(e) {
+    draggingPanel = false;
+    try { ui.panelHeader.releasePointerCapture(e.pointerId); } catch {}
+  }
+  ui.panelHeader.addEventListener('pointerup', endPanelDrag);
+  ui.panelHeader.addEventListener('pointercancel', endPanelDrag);
+
+  // rebuild targets when class changes
+  ui.targetTypeSelect.addEventListener('change', () => {
+    state.targetType = ui.targetTypeSelect.value;
+    rebuildTargetSelect();
+    syncStateFromInputs();
+  });
+  ui.targetSelect.addEventListener('change', syncStateFromInputs);
+
+  // sync all regular controls
+  [
+    ui.scopeTypeSelect,
+    ui.mountTypeSelect,
+    ui.apertureInput,
+    ui.scopeFocalInput,
+    ui.eyepieceFocalInput,
+    ui.afovInput,
+    ui.barlowSelect,
+    ui.orientationSelect,
+    ui.seeingSlider,
+    ui.bortleSlider,
+    ui.transparencySlider,
+    ui.eyepieceSizeSelect,
+    ui.crosshairToggle,
+    ui.showFieldRingToggle,
+    ui.showDiffractionToggle
+  ].forEach(el => el.addEventListener('input', syncStateFromInputs));
+
+  // preset buttons
+  ui.presetBtns.forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
+
+  // interlink tools
+  ui.exportConfigBtn.addEventListener('click', copyTelescopeConfig);
+  ui.testLinkBtn.addEventListener('click', testInterlock);
+  window.addEventListener('resize', resizeCanvas);
+
+  // main loop
+  function loop() {
+    requestAnimationFrame(loop);
+    renderEyepiece();
+    updateInfoPanel();
+  }
+
+  // initial setup
+  rebuildTargetSelect();
+  ui.targetSelect.value = state.targetId;
+  syncStateFromInputs();
+  prepareAssets();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ AI</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <style>
+    /* nasa blue + black theme */
+    :root {
+      --page-bg: #02040a;
+      --panel-bg: rgba(3, 8, 20, 0.94);
+      --panel-soft: rgba(6, 26, 64, 0.52);
+      --panel-border: rgba(44, 126, 255, 0.22);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --muted-2: #7f94bc;
+      --accent: #0b3d91;
+      --accent-2: #2c7eff;
+      --danger: #ff9d9d;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+      --shadow: 0 18px 44px rgba(0, 0, 0, 0.48);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --sidebar-width: 318px;
+      --composer-height: 128px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--field-text);
+      background: var(--page-bg);
+      overflow: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 18% 12%, rgba(44, 126, 255, 0.11), transparent 0 22%),
+        radial-gradient(circle at 86% 22%, rgba(11, 61, 145, 0.12), transparent 0 19%),
+        radial-gradient(circle at 60% 92%, rgba(44, 126, 255, 0.07), transparent 0 21%),
+        linear-gradient(180deg, #000000 0%, #02040a 45%, #000000 100%);
+    }
+
+
+    body.focus-mode .left-rail,
+    body.focus-mode .right-panel,
+    body.focus-mode .top-pills {
+      display: none;
+    }
+
+    body.focus-mode .app-shell {
+      grid-template-columns: 1fr;
+    }
+
+    body.focus-mode .chat-shell {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font: inherit; }
+    button { user-select: none; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.2;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 { width: 370px; height: 370px; top: 6%; left: 9%; background: radial-gradient(circle, rgba(11,61,145,.22), transparent 72%); }
+    .glow-2 { width: 450px; height: 450px; right: 5%; top: 10%; background: radial-gradient(circle, rgba(44,126,255,.14), transparent 72%); animation-delay: -6s; }
+    .glow-3 { width: 390px; height: 390px; left: 50%; bottom: 2%; background: radial-gradient(circle, rgba(44,126,255,.11), transparent 74%); animation-delay: -11s; }
+
+    /* static moon, no moving eyes */
+    .moon-wrap {
+      position: fixed;
+      top: 76px;
+      right: 86px;
+      width: 138px;
+      height: 138px;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.52;
+      filter: drop-shadow(0 0 30px rgba(44, 126, 255, 0.14));
+    }
+
+    .moon-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.97), rgba(223,238,255,.95) 34%, rgba(169,201,255,.55) 58%, rgba(11,61,145,.06) 76%, rgba(11,61,145,0) 82%);
+      box-shadow: 0 0 40px rgba(44,126,255,.18), 0 0 95px rgba(11,61,145,.11);
+    }
+
+    .moon-dark {
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #02040a;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65), inset 8px 0 12px rgba(255, 255, 255, 0.02);
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 310px;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .glass {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(4, 10, 24, 0.94), rgba(3, 8, 20, 0.9));
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+      backdrop-filter: blur(18px);
+    }
+
+    .glass::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0%, transparent 36%, rgba(255,255,255,.045) 45%, transparent 52%, transparent 100%);
+      transform: translateX(-120%);
+      animation: panelSheen 13s linear infinite;
+      opacity: 0.5;
+    }
+
+    .panel-content { position: relative; z-index: 1; }
+
+    .left-rail,
+    .right-panel {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .left-rail {
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 6px 14px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.14);
+    }
+
+    .brand-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 17px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      border: 1px solid rgba(44, 126, 255, 0.4);
+      box-shadow: 0 0 20px rgba(44,126,255,.12);
+      overflow: hidden;
+    }
+
+    .brand-icon img { width: 38px; height: 38px; object-fit: contain; }
+
+    .brand-title h1 {
+      margin: 0;
+      font-size: 1.16rem;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+    }
+
+    .title-white { color: #fff; }
+    .title-blue { color: var(--accent-2); text-shadow: 0 0 24px rgba(44,126,255,.22); }
+
+    .brand-title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .rail-actions,
+    .chat-actions,
+    .message-actions,
+    .top-pills,
+    .prompt-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* this keeps preset buttons lined up cleanly */
+    .prompt-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 9px;
+    }
+
+    .prompt-row .btn {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      white-space: normal;
+      line-height: 1.25;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(44,126,255,.22);
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255,255,255,.045);
+      transition: 170ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(44,126,255,.55);
+      background: linear-gradient(180deg, rgba(44,126,255,.2), rgba(11,61,145,.18));
+      box-shadow: 0 10px 22px rgba(0,0,0,.24), 0 0 18px rgba(44,126,255,.12);
+    }
+
+    .btn.primary {
+      color: white;
+      background: linear-gradient(180deg, rgba(11, 61, 145, 0.62), rgba(3, 17, 44, 0.86));
+      border-color: rgba(44,126,255,.72);
+    }
+
+    .btn.danger { color: #ffd7d7; border-color: rgba(255,157,157,.34); background: rgba(255,120,120,.055); }
+    .btn.good { color: var(--good); border-color: rgba(184,255,213,.32); }
+    .btn.small { min-height: 34px; padding: 7px 9px; border-radius: 11px; font-size: 0.82rem; }
+    .btn.icon { width: 40px; padding: 0; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .input,
+    .select,
+    .composer-input {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6,26,64,.92), rgba(3,12,30,.92));
+      color: var(--field-text);
+      border-radius: 14px;
+      padding: 11px 12px;
+      outline: none;
+      color-scheme: dark;
+      transition: 160ms ease;
+    }
+
+    .input:focus,
+    .select:focus,
+    .composer-input:focus {
+      border-color: rgba(44,126,255,.68);
+      box-shadow: 0 0 0 3px rgba(11,61,145,.1), 0 0 22px rgba(44,126,255,.1);
+    }
+
+    .field { display: grid; gap: 7px; }
+    .field label { color: var(--accent-2); font-size: 0.76rem; font-weight: 800; letter-spacing: 0.03em; }
+
+    .chat-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+    .conversation-list {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .conversation-item {
+      display: grid;
+      gap: 5px;
+      padding: 12px;
+      border-radius: 15px;
+      border: 1px solid rgba(44,126,255,.13);
+      background: rgba(255,255,255,.035);
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .conversation-item:hover,
+    .conversation-item.active {
+      transform: translateY(-1px);
+      border-color: rgba(44,126,255,.48);
+      background: rgba(11,61,145,.12);
+      box-shadow: 0 0 18px rgba(44,126,255,.1);
+    }
+
+    .conversation-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 760;
+      font-size: 0.94rem;
+    }
+
+    .conversation-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .chat-shell {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(44,126,255,.14);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .chat-heading { min-width: 0; }
+
+    .chat-heading h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      letter-spacing: -0.015em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-heading p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pill,
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(44,126,255,.18);
+      background: rgba(11,61,145,.08);
+      color: var(--accent-2);
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+
+    .chat-scroll {
+      min-height: 0;
+      overflow: auto;
+      padding: 24px 18px 18px;
+      scroll-behavior: smooth;
+    }
+
+    .welcome {
+      max-width: 900px;
+      margin: 5vh auto 24px;
+      text-align: center;
+      display: grid;
+      gap: 14px;
+    }
+
+
+    .welcome h1 {
+      margin: 0;
+      font-size: clamp(2.1rem, 5vw, 4rem);
+      letter-spacing: -0.055em;
+      line-height: 0.98;
+    }
+
+    .welcome p {
+      margin: 0 auto;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .prompt-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      max-width: 920px;
+      margin: 8px auto 0;
+    }
+
+    .prompt-card {
+      text-align: left;
+      border: 1px solid rgba(44,126,255,.18);
+      border-radius: 18px;
+      background: rgba(255,255,255,.035);
+      color: var(--field-text);
+      padding: 15px;
+      cursor: pointer;
+      transition: 170ms ease;
+    }
+
+    .prompt-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(44,126,255,.52);
+      background: rgba(11,61,145,.11);
+      box-shadow: 0 12px 26px rgba(0,0,0,.22), 0 0 22px rgba(44,126,255,.1);
+    }
+
+    .prompt-card strong { display: block; margin-bottom: 6px; }
+    .prompt-card span { display: block; color: var(--muted); font-size: 0.84rem; line-height: 1.45; }
+
+    .message-list {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      animation: messageIn 240ms ease both;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(44,126,255,.2);
+      background: rgba(255,255,255,.04);
+      color: var(--accent-2);
+      overflow: hidden;
+      box-shadow: 0 0 18px rgba(44,126,255,.08);
+    }
+
+    .avatar img { width: 34px; height: 34px; object-fit: contain; }
+
+    .bubble {
+      border: 1px solid rgba(44,126,255,.16);
+      border-radius: 20px;
+      padding: 14px 15px;
+      background: rgba(255,255,255,.04);
+      min-width: 0;
+    }
+
+    .message.user .bubble {
+      background: linear-gradient(180deg, rgba(11,61,145,.28), rgba(6,26,64,.32));
+      border-color: rgba(44,126,255,.32);
+    }
+
+    .message.assistant .bubble {
+      background: linear-gradient(180deg, rgba(4,10,24,.72), rgba(3,8,20,.68));
+    }
+
+    .message.system .bubble {
+      background: rgba(255,227,160,.055);
+      border-color: rgba(255,227,160,.22);
+    }
+
+    .message-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .message-name { font-weight: 800; font-size: 0.88rem; }
+    .message-time { color: var(--muted-2); font-size: 0.75rem; }
+
+    .message-text {
+      color: var(--field-text);
+      line-height: 1.72;
+      overflow-wrap: anywhere;
+    }
+
+    .message-text p {
+      margin: 0 0 0.9em;
+    }
+
+    .message-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    .message-text h1,
+    .message-text h2,
+    .message-text h3 {
+      margin: 1.05em 0 0.45em;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .message-text h1:first-child,
+    .message-text h2:first-child,
+    .message-text h3:first-child {
+      margin-top: 0;
+    }
+
+    .message-text ul,
+    .message-text ol {
+      margin: 0.45em 0 0.9em 1.35em;
+      padding: 0;
+    }
+
+    .message-text li {
+      margin: 0.28em 0;
+    }
+
+    .message-text code {
+      border: 1px solid rgba(44,126,255,.18);
+      background: rgba(6,26,64,.46);
+      border-radius: 7px;
+      padding: 1px 5px;
+    }
+
+    .message-text pre {
+      margin: 0.8em 0;
+      padding: 13px;
+      border-radius: 14px;
+      border: 1px solid rgba(44,126,255,.18);
+      background: rgba(2,4,10,.46);
+      overflow: auto;
+    }
+
+    .message-text pre code {
+      border: 0;
+      background: transparent;
+      padding: 0;
+    }
+
+    .message-text .katex-display {
+      margin: 1em 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.45em 0.25em;
+    }
+
+    .message-text .katex {
+      color: var(--field-text);
+      font-size: 1.04em;
+    }
+
+    .message-actions {
+      margin-top: 10px;
+      opacity: 0.75;
+    }
+
+    .message:hover .message-actions { opacity: 1; }
+
+    .typing-dots {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .typing-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      animation: typingBounce 1s ease-in-out infinite;
+    }
+
+    .typing-dots span:nth-child(2) { animation-delay: .15s; }
+    .typing-dots span:nth-child(3) { animation-delay: .3s; }
+
+    .composer-wrap {
+      padding: 14px 18px 18px;
+      border-top: 1px solid rgba(44,126,255,.14);
+      background: linear-gradient(180deg, rgba(3,8,20,.15), rgba(3,8,20,.7));
+    }
+
+    .composer {
+      max-width: 980px;
+      margin: 0 auto;
+      border: 1px solid rgba(44,126,255,.25);
+      border-radius: 24px;
+      background: rgba(3,8,20,.78);
+      box-shadow: 0 18px 42px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.055);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .composer-input {
+      min-height: 54px;
+      max-height: 190px;
+      resize: none;
+      border: 0;
+      background: transparent;
+      padding: 10px;
+      line-height: 1.55;
+      box-shadow: none !important;
+    }
+
+    .composer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .composer-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      color: var(--muted-2);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .right-panel {
+      padding: 14px;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    .mini-panel {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(44,126,255,.14);
+      border-radius: 18px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .mini-panel h3 {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+
+    .mini-panel p,
+    .mini-line {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid rgba(44,126,255,.1);
+    }
+
+    .toggle-row:first-child { border-top: 0; }
+
+    .toggle {
+      width: 46px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid rgba(44,126,255,.28);
+      background: rgba(255,255,255,.05);
+      position: relative;
+      cursor: pointer;
+      transition: 160ms ease;
+      flex-shrink: 0;
+    }
+
+    .toggle::before {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 2px;
+      left: 3px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: 160ms ease;
+    }
+
+    .toggle.on {
+      background: rgba(44,126,255,.26);
+      border-color: rgba(44,126,255,.58);
+    }
+
+    .toggle.on::before {
+      left: 21px;
+      background: white;
+      box-shadow: 0 0 14px rgba(44,126,255,.35);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-backdrop.show { display: grid; }
+
+    .modal-card {
+      width: min(740px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    .modal-card h2 { margin: 0 0 12px; }
+
+    .empty-state {
+      color: var(--muted);
+      text-align: center;
+      padding: 18px 10px;
+      border: 1px dashed rgba(44,126,255,.18);
+      border-radius: 16px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .mobile-rail-btn {
+      display: none;
+      position: fixed;
+      z-index: 25;
+      top: 14px;
+      left: 14px;
+    }
+
+    @keyframes glowFloat { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(14px,-12px,0) scale(1.05); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes panelSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(140%); } }
+    @keyframes messageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes typingBounce { 0%, 80%, 100% { transform: translateY(0); opacity: .45; } 40% { transform: translateY(-4px); opacity: 1; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell { grid-template-columns: 300px minmax(0, 1fr); }
+      .right-panel { display: none; }
+    }
+
+    @media (max-width: 860px) {
+      html, body { overflow: hidden; }
+      .app-shell { grid-template-columns: 1fr; padding: 10px; }
+      .left-rail {
+        position: fixed;
+        inset: 10px auto 10px 10px;
+        width: min(86vw, 340px);
+        z-index: 30;
+        transform: translateX(calc(-100% - 18px));
+        transition: transform 180ms ease;
+      }
+      .left-rail.open { transform: translateX(0); }
+      .mobile-rail-btn { display: inline-flex; }
+      .chat-header { padding-left: 60px; }
+      .prompt-grid { grid-template-columns: 1fr; }
+      .message { grid-template-columns: 34px minmax(0, 1fr); gap: 9px; }
+      .avatar { width: 34px; height: 34px; border-radius: 12px; }
+      .avatar img { width: 28px; height: 28px; }
+      .moon-wrap { width: 96px; height: 96px; right: 20px; top: 76px; opacity: .36; }
+      .moon-dark { width: 76px; height: 76px; top: 9px; left: 30px; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- this is the space background -->
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+
+  <!-- this is the same moon style but without moving eyes -->
+  <div class="moon-wrap" aria-hidden="true">
+    <div class="moon-shell"></div>
+    <div class="moon-dark"></div>
+  </div>
+
+  <button class="btn icon mobile-rail-btn" id="mobileRailBtn" type="button" aria-label="Open chats">☰</button>
+
+  <div class="app-shell">
+    <!-- this is the chatgpt style history rail -->
+    <aside class="left-rail glass" id="leftRail">
+      <div class="panel-content brand-row">
+        <div class="brand-icon" aria-hidden="true">
+          <img src="/assets/stellasim-mascot.png" alt="" />
+        </div>
+        <div class="brand-title">
+          <h1><span class="title-white">StellaSim</span> <span class="title-blue">AI</span></h1>
+            </div>
+      </div>
+
+      <div class="panel-content rail-actions">
+        <button class="btn primary" id="newChatBtn" type="button">＋ New Chat</button>
+        <a class="btn" href="index.html">Home</a>
+      </div>
+
+      <div class="panel-content chat-search">
+        <input class="input" id="chatSearchInput" placeholder="Search chats..." />
+        <button class="btn icon" id="clearSearchBtn" type="button">×</button>
+      </div>
+
+      <div class="panel-content conversation-list" id="conversationList"></div>
+
+      <div class="panel-content mini-panel">
+        <h3>Chat Library</h3>
+        <p id="libraryMeta">0 chats saved</p>
+        <div class="rail-actions">
+          <button class="btn small" id="exportChatsBtn" type="button">Export</button>
+          <label class="btn small" for="importChatsInput">Import</label>
+          <input id="importChatsInput" type="file" accept="application/json,.json" hidden />
+          <button class="btn small danger" id="deleteAllChatsBtn" type="button">Delete All</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- this is the main ai workspace -->
+    <main class="chat-shell glass">
+      <header class="chat-header panel-content">
+        <div class="chat-heading">
+          <h2 id="activeChatTitle">StellaSim AI</h2>
+          <p id="activeChatMeta">Ask astronomy, astrophysics, telescope, and skywatching questions.</p>
+        </div>
+
+        <div class="chat-actions">
+          <button class="btn small" id="renameChatBtn" type="button">Rename</button>
+          <button class="btn small" id="pinChatBtn" type="button">Pin</button>
+          <button class="btn small" id="focusModeBtn" type="button">Focus</button>
+          <button class="btn small danger" id="deleteChatBtn" type="button">Delete</button>
+        </div>
+      </header>
+
+      <section class="chat-scroll" id="chatScroll">
+        <div class="welcome" id="welcomeScreen">
+          <h1><span class="title-white">What are we</span> <span class="title-blue">exploring?</span></h1>
+          <p>
+            Ask questions about stars, planets, telescopes, black holes, galaxies, exoplanets, skywatching, and space science.
+            Your conversations are saved locally so you can come back, ask follow-up questions, and keep exploring.
+          </p>
+
+          <div class="top-pills">
+
+          </div>
+
+          <div class="prompt-grid" id="promptGrid"></div>
+        </div>
+
+        <div class="message-list" id="messageList"></div>
+      </section>
+
+      <section class="composer-wrap panel-content">
+        <div class="composer">
+          <textarea id="composerInput" class="composer-input" placeholder="Ask StellaSim AI anything about astronomy..." rows="1"></textarea>
+          <div class="composer-bottom">
+            <div class="composer-tools">
+              <select class="select" id="modeSelect" style="width: 185px;">
+                <option value="balanced">Balanced</option>
+                <option value="tutor">Tutor</option>
+                <option value="research">Research</option>
+                <option value="telescope">Telescope Helper</option>
+              </select>
+              <button class="btn small" id="enhancePromptBtn" type="button">Enhance Prompt</button>
+              <button class="btn small" id="clearComposerBtn" type="button">Clear</button>
+            </div>
+            <div class="composer-tools">
+              <span class="hint" id="statusText">Enter to send • Shift + Enter for a new line</span>
+              <button class="btn primary" id="sendBtn" type="button">Send ↑</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- this is the right settings panel -->
+    <aside class="right-panel glass">
+      <div class="panel-content mini-panel">
+        <h3>AI Settings</h3>
+        <div class="field">
+          <label for="answerLengthSelect">Answer Length</label>
+          <select class="select" id="answerLengthSelect">
+            <option value="concise">Concise</option>
+            <option value="normal" selected>Normal</option>
+            <option value="deep">Deep</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel-content mini-panel">
+        <h3>Prompt Presets</h3>
+        <div class="prompt-row" id="sidePrompts"></div>
+      </div>
+
+      <div class="panel-content mini-panel">
+        <h3>Current Chat</h3>
+        <p id="chatStats" class="mini-line">No messages yet.</p>
+        <div class="rail-actions">
+          <button class="btn small" id="copyChatBtn" type="button">Copy</button>
+          <button class="btn small" id="downloadChatBtn" type="button">Download</button>
+        </div>
+      </div>
+
+      <div class="panel-content mini-panel">
+        <h3>Shortcuts</h3>
+        <p class="mini-line">Ctrl/⌘ + K: new chat</p>
+        <p class="mini-line">Ctrl/⌘ + /: focus message box</p>
+        <p class="mini-line">Enter: send</p>
+        <p class="mini-line">Shift + Enter: new line</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- this is used for rename and confirm modals -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+    <div class="modal-card glass">
+      <div class="panel-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    // this is the backend route used by the node server
+    const API_CONFIG = {
+      endpoint: "/api/ask",
+      method: "POST"
+    };
+
+    // this stores chats locally like a lightweight chatgpt history
+    const STORAGE_KEY = "stellasimAiChatsV2";
+    const SETTINGS_KEY = "stellasimAiSettingsV1";
+
+    const DEFAULT_PROMPTS = [
+      {
+        title: "Explain a concept",
+        subtitle: "Make black holes easy to understand.",
+        prompt: "Explain how black holes bend light like I am learning astrophysics for the first time. Include a simple analogy and one useful equation."
+      },
+      {
+        title: "Telescope help",
+        subtitle: "Plan what to observe tonight.",
+        prompt: "Help me choose good telescope targets for tonight. Ask me for my location, telescope, sky conditions, and what kind of objects I want to see."
+      },
+      {
+        title: "Skywatching guide",
+        subtitle: "Learn what is visible in the night sky.",
+        prompt: "Explain how to plan a beginner-friendly night of skywatching. Include what to look for with the naked eye, binoculars, and a small telescope."
+      },
+      {
+        title: "Research mode",
+        subtitle: "Build a deeper astrophysics answer.",
+        prompt: "Give me a research-style explanation of exoplanet transit photometry, including what a light curve shows and how false positives are ruled out."
+      }
+    ];
+
+    const SIDE_PROMPTS = [
+      "Why are orbits elliptical?",
+      "What does redshift tell us?",
+      "How do telescopes gather light?",
+      "What makes a planet habitable?",
+      "How does JWST study atmospheres?",
+      "What can I see with a small telescope?"
+    ];
+
+    let state = {
+      chats: [],
+      activeChatId: null
+    };
+
+    let settings = {
+      mode: "balanced",
+      answerLength: "normal"
+    };
+
+    let isSending = false;
+    let lastUserPrompt = "";
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      leftRail: $("leftRail"),
+      mobileRailBtn: $("mobileRailBtn"),
+      conversationList: $("conversationList"),
+      chatSearchInput: $("chatSearchInput"),
+      clearSearchBtn: $("clearSearchBtn"),
+      libraryMeta: $("libraryMeta"),
+      activeChatTitle: $("activeChatTitle"),
+      activeChatMeta: $("activeChatMeta"),
+      chatScroll: $("chatScroll"),
+      welcomeScreen: $("welcomeScreen"),
+      messageList: $("messageList"),
+      composerInput: $("composerInput"),
+      sendBtn: $("sendBtn"),
+      statusText: $("statusText"),
+      modeSelect: $("modeSelect"),
+      answerLengthSelect: $("answerLengthSelect"),
+      chatStats: $("chatStats"),
+      modalBackdrop: $("modalBackdrop"),
+      modalContent: $("modalContent")
+    };
+
+    document.addEventListener("DOMContentLoaded", initApp);
+
+    function initApp() {
+      loadState();
+      loadSettings();
+      if (!state.chats.length) createChat(false);
+      if (!state.activeChatId) state.activeChatId = state.chats[0].id;
+      bindEvents();
+      renderPromptCards();
+      renderSidePrompts();
+      applySettings();
+      renderAll();
+      initStarfield();
+      autoResizeComposer();
+    }
+
+    function bindEvents() {
+      $("newChatBtn").addEventListener("click", () => createChat(true));
+      $("deleteChatBtn").addEventListener("click", deleteActiveChat);
+      $("renameChatBtn").addEventListener("click", openRenameModal);
+      $("pinChatBtn").addEventListener("click", togglePinActiveChat);
+      $("focusModeBtn").addEventListener("click", () => document.body.classList.toggle("focus-mode"));
+      $("exportChatsBtn").addEventListener("click", exportChats);
+      $("importChatsInput").addEventListener("change", importChats);
+      $("deleteAllChatsBtn").addEventListener("click", deleteAllChats);
+      $("copyChatBtn").addEventListener("click", copyCurrentChat);
+      $("downloadChatBtn").addEventListener("click", downloadCurrentChat);
+      $("enhancePromptBtn").addEventListener("click", enhancePrompt);
+      $("clearComposerBtn").addEventListener("click", () => { els.composerInput.value = ""; autoResizeComposer(); });
+      els.sendBtn.addEventListener("click", sendMessage);
+      els.chatSearchInput.addEventListener("input", renderConversationList);
+      els.clearSearchBtn.addEventListener("click", () => { els.chatSearchInput.value = ""; renderConversationList(); });
+      els.mobileRailBtn.addEventListener("click", () => els.leftRail.classList.toggle("open"));
+      els.modeSelect.addEventListener("change", () => { settings.mode = els.modeSelect.value; saveSettings(); });
+      els.answerLengthSelect.addEventListener("change", () => { settings.answerLength = els.answerLengthSelect.value; saveSettings(); });
+      els.modalBackdrop.addEventListener("click", (event) => { if (event.target === els.modalBackdrop) closeModal(); });
+
+      els.composerInput.addEventListener("input", autoResizeComposer);
+      els.composerInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          createChat(true);
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+          event.preventDefault();
+          els.composerInput.focus();
+        }
+        if (event.key === "Escape") {
+          closeModal();
+          els.leftRail.classList.remove("open");
+        }
+      });
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.chats)) state = { ...state, ...saved };
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+        if (saved) settings = { ...settings, ...saved };
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      applySettings();
+    }
+
+    function applySettings() {
+      els.modeSelect.value = settings.mode;
+      els.answerLengthSelect.value = settings.answerLength;
+    }
+
+
+    function createChat(focusComposer) {
+      const now = new Date().toISOString();
+      const chat = {
+        id: uid(),
+        title: "New astronomy chat",
+        pinned: false,
+        createdAt: now,
+        updatedAt: now,
+        messages: []
+      };
+      state.chats.unshift(chat);
+      state.activeChatId = chat.id;
+      saveState();
+      renderAll();
+      if (focusComposer) els.composerInput.focus();
+      return chat;
+    }
+
+    function getActiveChat() {
+      return state.chats.find((chat) => chat.id === state.activeChatId) || state.chats[0];
+    }
+
+    function setActiveChat(id) {
+      state.activeChatId = id;
+      saveState();
+      renderAll();
+      els.leftRail.classList.remove("open");
+    }
+
+    function renderAll() {
+      renderConversationList();
+      renderChat();
+      renderStats();
+    }
+
+    function renderConversationList() {
+      const q = els.chatSearchInput.value.trim().toLowerCase();
+      const chats = state.chats
+        .filter((chat) => {
+          const hay = [chat.title, ...chat.messages.map((m) => m.content)].join(" ").toLowerCase();
+          return !q || hay.includes(q);
+        })
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      els.conversationList.innerHTML = chats.map((chat) => {
+        const last = chat.messages[chat.messages.length - 1];
+        const preview = last ? last.content.slice(0, 82) : "No messages yet.";
+        return `
+          <article class="conversation-item ${chat.id === state.activeChatId ? "active" : ""}" onclick="setActiveChat('${chat.id}')">
+            <div class="conversation-title">
+              <span>${chat.pinned ? "★ " : ""}${escapeHtml(chat.title)}</span>
+              <span>${chat.messages.length}</span>
+            </div>
+            <div class="conversation-meta">${escapeHtml(preview)}${last && last.content.length > 82 ? "..." : ""}</div>
+            <div class="conversation-meta">${formatDate(chat.updatedAt)}</div>
+          </article>
+        `;
+      }).join("") || `<div class="empty-state">No chats found.</div>`;
+    }
+
+    function renderChat() {
+      const chat = getActiveChat();
+      if (!chat) return;
+
+      els.activeChatTitle.textContent = chat.title;
+      els.activeChatMeta.textContent = `${chat.messages.length} message${chat.messages.length === 1 ? "" : "s"} • saved locally in this browser`;
+      $("pinChatBtn").textContent = chat.pinned ? "Unpin" : "Pin";
+
+      const hasMessages = chat.messages.length > 0;
+      els.welcomeScreen.style.display = hasMessages ? "none" : "grid";
+
+      els.messageList.innerHTML = chat.messages.map((message, index) => messageTemplate(message, index)).join("");
+      renderMessageMath();
+      scrollChatToBottom(false);
+      renderStats();
+    }
+
+    function messageTemplate(message, index) {
+      const isAssistant = message.role === "assistant";
+      const name = message.role === "user" ? "You" : message.role === "system" ? "System" : "StellaSim AI";
+      const avatar = isAssistant
+        ? `<img src="/assets/stellasim-mascot.png" alt="">`
+        : message.role === "system"
+          ? "✦"
+          : "You";
+
+      return `
+        <article class="message ${message.role}">
+          <div class="avatar" aria-hidden="true">${avatar}</div>
+          <div class="bubble">
+            <div class="message-top">
+              <div class="message-name">${name}</div>
+              <div class="message-time">${formatTime(message.createdAt)}</div>
+            </div>
+            <div class="message-text">${formatMessage(message.content)}</div>
+            <div class="message-actions">
+              <button class="btn small" onclick="copyMessage(${index})">Copy</button>
+              ${message.role === "user" ? `<button class="btn small" onclick="editMessage(${index})">Edit</button>` : ""}
+              ${message.role === "assistant" ? `<button class="btn small" onclick="regenerateFrom(${index})">Regenerate</button>` : ""}
+              <button class="btn small danger" onclick="deleteMessage(${index})">Delete</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderStats() {
+      const chat = getActiveChat();
+      const totalChats = state.chats.length;
+      const totalMessages = state.chats.reduce((sum, c) => sum + c.messages.length, 0);
+      els.libraryMeta.textContent = `${totalChats} chat${totalChats === 1 ? "" : "s"} • ${totalMessages} message${totalMessages === 1 ? "" : "s"}`;
+
+      if (!chat) {
+        els.chatStats.textContent = "No active chat.";
+        return;
+      }
+
+      const userMessages = chat.messages.filter((m) => m.role === "user").length;
+      const assistantMessages = chat.messages.filter((m) => m.role === "assistant").length;
+      const words = chat.messages.reduce((sum, m) => sum + m.content.trim().split(/\s+/).filter(Boolean).length, 0);
+      els.chatStats.textContent = `${userMessages} prompts • ${assistantMessages} answers • about ${words} words`;
+    }
+
+    function renderPromptCards() {
+      $("promptGrid").innerHTML = DEFAULT_PROMPTS.map((item) => `
+        <button class="prompt-card" type="button" onclick="usePrompt('${escapeJs(item.prompt)}')">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.subtitle)}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderSidePrompts() {
+      $("sidePrompts").innerHTML = SIDE_PROMPTS.map((prompt) => `
+        <button class="btn small" type="button" onclick="usePrompt('${escapeJs(prompt)}')">${escapeHtml(prompt)}</button>
+      `).join("");
+    }
+
+    function usePrompt(prompt) {
+      els.composerInput.value = prompt;
+      autoResizeComposer();
+      els.composerInput.focus();
+    }
+
+    async function sendMessage() {
+      if (isSending) return;
+
+      const rawPrompt = els.composerInput.value.trim();
+      if (!rawPrompt) {
+        setStatus("Type a question first.");
+        return;
+      }
+
+      const chat = getActiveChat() || createChat(false);
+      const now = new Date().toISOString();
+      lastUserPrompt = rawPrompt;
+
+      const userMessage = {
+        role: "user",
+        content: rawPrompt,
+        createdAt: now
+      };
+
+      chat.messages.push(userMessage);
+      if (chat.title === "New astronomy chat") chat.title = titleFromPrompt(rawPrompt);
+      chat.updatedAt = now;
+      els.composerInput.value = "";
+      autoResizeComposer();
+      saveState();
+      renderAll();
+      addTypingMessage();
+
+      isSending = true;
+      els.sendBtn.disabled = true;
+      els.sendBtn.textContent = "Thinking...";
+      setStatus("StellaSim AI is thinking...");
+
+      try {
+        const answer = await askBackend(chat, rawPrompt);
+        removeTypingMessage();
+        chat.messages.push({ role: "assistant", content: cleanAnswer(answer), createdAt: new Date().toISOString() });
+        chat.updatedAt = new Date().toISOString();
+        saveState();
+        renderAll();
+        setStatus("Response ready.");
+      } catch (error) {
+        removeTypingMessage();
+        chat.messages.push({ role: "assistant", content: fallbackAnswer(rawPrompt, error), createdAt: new Date().toISOString() });
+        chat.updatedAt = new Date().toISOString();
+        saveState();
+        renderAll();
+        setStatus("Offline fallback shown.");
+      } finally {
+        isSending = false;
+        els.sendBtn.disabled = false;
+        els.sendBtn.textContent = "Send ↑";
+      }
+    }
+
+    async function askBackend(chat, rawPrompt) {
+      const instruction = buildInstruction();
+      const history = chat.messages.slice(-12).map((message) => ({ role: message.role, content: message.content }));
+      const question = `${instruction}\n\nCurrent user question:\n${rawPrompt}`;
+
+      const response = await fetch(API_CONFIG.endpoint, {
+        method: API_CONFIG.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          messages: history,
+          mode: settings.mode,
+          answerLength: settings.answerLength
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `request failed with status ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+
+      if (response.body && !contentType.includes("application/json")) {
+        return readStream(response.body);
+      }
+
+      const data = await response.json();
+      return data.answer || data.text || JSON.stringify(data);
+    }
+
+    async function readStream(body) {
+      const reader = body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+      }
+
+      return fullText;
+    }
+
+    function buildInstruction() {
+      const lengthMap = {
+        concise: "Keep the answer concise but complete.",
+        normal: "Give a clear answer with enough detail to learn from it.",
+        deep: "Give a deeper explanation with examples, caveats, and connections."
+      };
+
+      const modeMap = {
+        balanced: "You are StellaSim AI, a helpful astronomy assistant.",
+        tutor: "You are StellaSim AI in tutor mode. Teach like a friendly astrophysics tutor.",
+        research: "You are StellaSim AI in research mode. Use precise scientific language and explain assumptions.",
+        telescope: "You are StellaSim AI in telescope helper mode. Focus on practical observing, equipment, and sky conditions."
+      };
+
+      return [
+        modeMap[settings.mode],
+        lengthMap[settings.answerLength],
+        "Use clean markdown formatting with short headings when helpful.",
+        "For equations, use LaTeX. Put important equations on their own lines using $$...$$.",
+        "Use inline math with $...$ only for short expressions. Do not escape dollar signs.",
+        "For derivations, separate steps clearly and keep equations readable on their own lines.",
+        "Answer directly first, then explain the science."
+      ].join("\n");
+    }
+
+    function fallbackAnswer(prompt, error) {
+      return `I could not reach the AI backend, so this is a local fallback.\n\nYour question was:\n${prompt}\n\nTo make the real StellaSim AI answer work, make sure your server route ${API_CONFIG.endpoint} is running and your API key is set in your .env file.\n\nBackend error:\n${error.message}`;
+    }
+
+    function addTypingMessage() {
+      const typing = document.createElement("div");
+      typing.id = "typingMessage";
+      typing.className = "message assistant";
+      typing.innerHTML = `
+        <div class="avatar"><img src="/assets/stellasim-mascot.png" alt=""></div>
+        <div class="bubble">
+          <div class="message-top"><div class="message-name">StellaSim AI</div><div class="message-time">now</div></div>
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      `;
+      els.messageList.appendChild(typing);
+      els.welcomeScreen.style.display = "none";
+      scrollChatToBottom(true);
+    }
+
+    function removeTypingMessage() {
+      document.getElementById("typingMessage")?.remove();
+    }
+
+    function cleanAnswer(text) {
+      return String(text || "")
+        .replaceAll('\\n', "\n")
+        .replace(/^\{"answer":"/, "")
+        .replace(/"\}$/g, "")
+        .trim() || "I received an empty response.";
+    }
+
+    function enhancePrompt() {
+      const text = els.composerInput.value.trim();
+      if (!text) {
+        els.composerInput.value = "Explain this astronomy concept clearly, include one analogy, one equation if useful, and connect it to something observable through a telescope: ";
+      } else {
+        els.composerInput.value = `Explain this clearly as StellaSim AI. Start with the direct answer, then give the science, then one real observing or simulation connection. Question: ${text}`;
+      }
+      autoResizeComposer();
+      els.composerInput.focus();
+    }
+
+    function deleteActiveChat() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      openConfirmModal("Delete this chat?", "This removes the selected conversation from local storage.", () => {
+        state.chats = state.chats.filter((item) => item.id !== chat.id);
+        if (!state.chats.length) createChat(false);
+        state.activeChatId = state.chats[0].id;
+        saveState();
+        closeModal();
+        renderAll();
+      });
+    }
+
+    function deleteAllChats() {
+      openConfirmModal("Delete all chats?", "This clears every saved StellaSim AI conversation in this browser.", () => {
+        state.chats = [];
+        createChat(false);
+        closeModal();
+      });
+    }
+
+    function openRenameModal() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      els.modalContent.innerHTML = `
+        <h2>Rename Chat</h2>
+        <div class="field">
+          <label for="renameInput">Title</label>
+          <input class="input" id="renameInput" value="${escapeAttr(chat.title)}" />
+        </div>
+        <div class="rail-actions" style="margin-top:14px;">
+          <button class="btn primary" id="saveRenameBtn">Save</button>
+          <button class="btn" onclick="closeModal()">Cancel</button>
+        </div>
+      `;
+      els.modalBackdrop.classList.add("show");
+      $("renameInput").focus();
+      $("saveRenameBtn").onclick = () => {
+        chat.title = $("renameInput").value.trim() || chat.title;
+        chat.updatedAt = new Date().toISOString();
+        saveState();
+        closeModal();
+        renderAll();
+      };
+    }
+
+    function openConfirmModal(title, body, onConfirm) {
+      els.modalContent.innerHTML = `
+        <h2>${escapeHtml(title)}</h2>
+        <p class="mini-line">${escapeHtml(body)}</p>
+        <div class="rail-actions" style="margin-top:14px;">
+          <button class="btn danger" id="confirmModalBtn">Delete</button>
+          <button class="btn" onclick="closeModal()">Cancel</button>
+        </div>
+      `;
+      els.modalBackdrop.classList.add("show");
+      $("confirmModalBtn").onclick = onConfirm;
+    }
+
+    function closeModal() {
+      els.modalBackdrop.classList.remove("show");
+      els.modalContent.innerHTML = "";
+    }
+
+    function togglePinActiveChat() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      chat.pinned = !chat.pinned;
+      chat.updatedAt = new Date().toISOString();
+      saveState();
+      renderAll();
+    }
+
+    function copyCurrentChat() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      navigator.clipboard.writeText(chatToText(chat));
+      setStatus("Chat copied.");
+    }
+
+    function downloadCurrentChat() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      downloadText(chatToText(chat), `${safeFileName(chat.title)}.txt`, "text/plain");
+    }
+
+    function exportChats() {
+      downloadText(JSON.stringify(state, null, 2), `stellasim-ai-chats-${new Date().toISOString().slice(0,10)}.json`, "application/json");
+    }
+
+    function importChats(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          if (!Array.isArray(imported.chats)) throw new Error("Invalid chat file.");
+          state.chats = [...imported.chats, ...state.chats];
+          state.activeChatId = imported.chats[0]?.id || state.activeChatId;
+          saveState();
+          renderAll();
+          setStatus("Chats imported.");
+        } catch (error) {
+          setStatus("Could not import chats.");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    function chatToText(chat) {
+      return `${chat.title}\nSaved from StellaSim AI\n\n` + chat.messages.map((message) => `${message.role.toUpperCase()} — ${formatTime(message.createdAt)}\n${message.content}`).join("\n\n---\n\n");
+    }
+
+    function copyMessage(index) {
+      const chat = getActiveChat();
+      const message = chat?.messages[index];
+      if (!message) return;
+      navigator.clipboard.writeText(message.content);
+      setStatus("Message copied.");
+    }
+
+    function editMessage(index) {
+      const chat = getActiveChat();
+      const message = chat?.messages[index];
+      if (!message || message.role !== "user") return;
+      els.composerInput.value = message.content;
+      chat.messages = chat.messages.slice(0, index);
+      chat.updatedAt = new Date().toISOString();
+      saveState();
+      renderAll();
+      autoResizeComposer();
+      els.composerInput.focus();
+    }
+
+    function regenerateFrom(index) {
+      const chat = getActiveChat();
+      if (!chat) return;
+      let userIndex = index - 1;
+      while (userIndex >= 0 && chat.messages[userIndex].role !== "user") userIndex--;
+      if (userIndex < 0) return;
+      const prompt = chat.messages[userIndex].content;
+      chat.messages = chat.messages.slice(0, userIndex);
+      els.composerInput.value = prompt;
+      saveState();
+      renderAll();
+      sendMessage();
+    }
+
+    function deleteMessage(index) {
+      const chat = getActiveChat();
+      if (!chat) return;
+      chat.messages.splice(index, 1);
+      chat.updatedAt = new Date().toISOString();
+      saveState();
+      renderAll();
+    }
+
+    function autoResizeComposer() {
+      els.composerInput.style.height = "auto";
+      els.composerInput.style.height = Math.min(190, Math.max(54, els.composerInput.scrollHeight)) + "px";
+    }
+
+    function scrollChatToBottom(smooth) {
+      requestAnimationFrame(() => {
+        els.chatScroll.scrollTo({ top: els.chatScroll.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+      });
+    }
+
+    function setStatus(text) {
+      els.statusText.textContent = text;
+      clearTimeout(setStatus.timer);
+      setStatus.timer = setTimeout(() => {
+        els.statusText.textContent = "Enter to send • Shift + Enter for a new line";
+      }, 2600);
+    }
+
+    function titleFromPrompt(prompt) {
+      return prompt.replace(/\s+/g, " ").slice(0, 42) + (prompt.length > 42 ? "..." : "");
+    }
+
+    function formatMessage(text) {
+      const rawText = normalizeMathText(String(text || ""));
+
+      if (window.marked) {
+        marked.setOptions({
+          breaks: true,
+          gfm: true
+        });
+
+        return marked.parse(escapeHtml(rawText));
+      }
+
+      return escapeHtml(rawText).replace(/\n/g, "<br>");
+    }
+
+    function normalizeMathText(text) {
+      return text
+        .replace(/\\\[/g, "\n$$")
+        .replace(/\\\]/g, "$$\n")
+        .replace(/\\\(/g, "$")
+        .replace(/\\\)/g, "$")
+        .replace(/\r\n/g, "\n");
+    }
+
+    function renderMessageMath() {
+      if (!window.renderMathInElement || !els.messageList) return;
+
+      renderMathInElement(els.messageList, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "\\(", right: "\\)", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "unknown";
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+
+    function formatTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "now";
+      return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function uid() {
+      return "chat-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+
+    function escapeHtml(value = "") {
+      return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+    }
+
+    function escapeAttr(value = "") {
+      return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    function escapeJs(value = "") {
+      return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+    }
+
+    function safeFileName(value) {
+      return String(value || "stellasim-ai-chat").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "stellasim-ai-chat";
+    }
+
+    function downloadText(text, name, type) {
+      const blob = new Blob([text], { type });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // this is the same moving starfield style used across stellasim
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      const ctx = canvas.getContext("2d");
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let lines = [];
+      let meteors = [];
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetX = 0;
+      let targetY = 0;
+      let lastMeteor = 0;
+
+      function resize() {
+        width = innerWidth;
+        height = innerHeight;
+        canvas.width = width * devicePixelRatio;
+        canvas.height = height * devicePixelRatio;
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        createStars();
+      }
+
+      function createStars() {
+        stars = [];
+        lines = [];
+        const count = Math.min(360, Math.floor(width * height / 5600));
+        for (let i = 0; i < count; i++) {
+          const depth = Math.random();
+          const bright = Math.random() > 0.94;
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: bright ? 1.8 + Math.random() * 1.1 : 0.45 + Math.random() * 1.15,
+            a: bright ? 0.55 + Math.random() * 0.4 : 0.18 + Math.random() * 0.65,
+            c: Math.random() < 0.72 ? "255,255,255" : Math.random() < 0.9 ? "44,126,255" : "11,61,145",
+            s: 0.003 + Math.random() * 0.02,
+            o: Math.random() * Math.PI * 2,
+            dx: (Math.random() - 0.5) * 0.045,
+            dy: (Math.random() - 0.5) * 0.045,
+            p: 0.15 + depth * 0.85
+          });
+        }
+
+        const big = stars.filter((star) => star.r > 1.25).slice(0, 26);
+        for (let i = 0; i < big.length - 1; i++) {
+          const a = big[i];
+          const b = big[i + 1];
+          if (Math.hypot(a.x - b.x, a.y - b.y) < 210) lines.push([a, b, 0.05 + Math.random() * 0.08]);
+        }
+      }
+
+      function maybeMeteor(time) {
+        if (time - lastMeteor < 2300 || Math.random() > 0.012) return;
+        lastMeteor = time;
+        const angle = Math.PI / 4 + Math.random() * 0.25;
+        meteors.push({
+          x: Math.random() * width * 0.86,
+          y: Math.random() * height * 0.3,
+          vx: Math.cos(angle) * (11 + Math.random() * 6),
+          vy: Math.sin(angle) * (11 + Math.random() * 6),
+          life: 0,
+          max: 36 + Math.random() * 15
+        });
+      }
+
+      function draw(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetX - mouseX) * 0.03;
+        mouseY += (targetY - mouseY) * 0.03;
+
+        const glow = ctx.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 300);
+        glow.addColorStop(0, "rgba(11,61,145,.08)");
+        glow.addColorStop(1, "rgba(11,61,145,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, width, height);
+
+        for (const line of lines) {
+          ctx.beginPath();
+          ctx.moveTo(line[0].x + mouseX * line[0].p * 0.012, line[0].y + mouseY * line[0].p * 0.012);
+          ctx.lineTo(line[1].x + mouseX * line[1].p * 0.012, line[1].y + mouseY * line[1].p * 0.012);
+          ctx.strokeStyle = `rgba(44,126,255,${line[2]})`;
+          ctx.stroke();
+        }
+
+        for (const star of stars) {
+          star.x += star.dx;
+          star.y += star.dy;
+          if (star.x < 0) star.x = width;
+          if (star.x > width) star.x = 0;
+          if (star.y < 0) star.y = height;
+          if (star.y > height) star.y = 0;
+          const alpha = star.a * (0.55 + 0.45 * Math.sin(time * star.s + star.o));
+          const x = star.x + mouseX * star.p * 0.015;
+          const y = star.y + mouseY * star.p * 0.015;
+          ctx.beginPath();
+          ctx.arc(x, y, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${star.c},${alpha})`;
+          ctx.shadowBlur = star.r * 6;
+          ctx.shadowColor = `rgba(${star.c},${alpha * 0.55})`;
+          ctx.fill();
+        }
+
+        ctx.shadowBlur = 0;
+        maybeMeteor(time);
+
+        for (let i = meteors.length - 1; i >= 0; i--) {
+          const meteor = meteors[i];
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, meteor.x - meteor.vx * 8, meteor.y - meteor.vy * 8);
+          gradient.addColorStop(0, "rgba(255,255,255,.95)");
+          gradient.addColorStop(0.25, "rgba(44,126,255,.8)");
+          gradient.addColorStop(1, "rgba(11,61,145,0)");
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(meteor.x - meteor.vx * 8, meteor.y - meteor.vy * 8);
+          ctx.stroke();
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+          if (meteor.life > meteor.max) meteors.splice(i, 1);
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      addEventListener("mousemove", (event) => {
+        targetX = ((event.clientX - width / 2) / width) * 26;
+        targetY = ((event.clientY - height / 2) / height) * 26;
+      });
+      addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(draw);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  <style>
+    /* nasa blue scroll landing theme */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-2: #2c7eff;
+      --deep-black: #02040a;
+      --sidebar-width: 240px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow-x: hidden;
+      color: var(--field-text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 70% 12%, rgba(44, 126, 255, 0.22), transparent 0 22%),
+        radial-gradient(circle at 18% 25%, rgba(11, 61, 145, 0.22), transparent 0 20%),
+        linear-gradient(180deg, #01030a 0%, #030817 42%, #02040a 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .aurora-ribbon {
+      position: fixed;
+      z-index: 0;
+      inset: auto -18vw 8vh 14vw;
+      height: 52vh;
+      background:
+        radial-gradient(ellipse at 25% 50%, rgba(44, 126, 255, 0.20), transparent 0 34%),
+        radial-gradient(ellipse at 62% 48%, rgba(11, 61, 145, 0.32), transparent 0 42%),
+        linear-gradient(90deg, transparent, rgba(44, 126, 255, 0.15), transparent);
+      filter: blur(45px);
+      transform: rotate(-9deg);
+      opacity: 0.82;
+      pointer-events: none;
+      animation: auroraFlow 12s ease-in-out infinite alternate;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* side navigation */
+    .sidebar {
+      position: sticky;
+      top: 0;
+      min-height: 100vh;
+      height: 100vh;
+      padding: 18px 14px;
+      overflow-y: auto;
+      background: linear-gradient(180deg, rgba(4, 10, 24, 0.92), rgba(2, 4, 10, 0.86));
+      border-right: 1px solid rgba(44, 126, 255, 0.18);
+      box-shadow: 16px 0 55px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(18px);
+    }
+
+    .sidebar-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      min-height: calc(100vh - 36px);
+      padding: 15px;
+      border-radius: 25px;
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      background: rgba(3, 8, 20, 0.72);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 18px 38px rgba(0, 0, 0, 0.38);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 5px 13px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.16);
+    }
+
+    .brand-icon { width: 56px; height: 56px; display: grid; place-items: center; }
+    .brand-mascot-img { width: 52px; height: 52px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(44, 126, 255, 0.32)); }
+    .brand-text h1 { margin: 0; font-size: 1.05rem; letter-spacing: 0.03em; }
+    .brand-text p { margin: 3px 0 0; color: var(--muted); font-size: 0.78rem; line-height: 1.25; }
+
+    .nav-group { display: flex; flex-direction: column; gap: 10px; }
+    .nav-label { margin: 2px 0 0; padding: 0 6px; color: #83a8e8; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 10px 11px;
+      border-radius: 15px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.035);
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      transform: translateX(3px) translateY(-2px);
+      border-color: rgba(44, 126, 255, 0.35);
+      background: rgba(11, 61, 145, 0.13);
+      box-shadow: 0 0 24px rgba(44, 126, 255, 0.14);
+    }
+
+    .nav-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: var(--accent-2);
+      border-radius: 13px;
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      background: rgba(44, 126, 255, 0.065);
+    }
+
+    .nav-svg { width: 22px; height: 22px; display: block; overflow: visible; }
+    .nav-mascot-img { width: 25px; height: 25px; object-fit: contain; }
+    .nav-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .nav-title { font-size: 0.93rem; font-weight: 700; }
+    .nav-subtitle { color: var(--muted); font-size: 0.74rem; line-height: 1.25; }
+
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 40;
+      border: 1px solid rgba(44, 126, 255, 0.45);
+      background: rgba(4, 10, 24, 0.94);
+      color: var(--field-text);
+      border-radius: 14px;
+      padding: 10px 13px;
+      box-shadow: var(--shadow);
+    }
+
+    .main {
+      position: relative;
+      min-width: 0;
+      isolation: isolate;
+      --hero-graphic-size: clamp(460px, 43vw, 720px);
+      --hero-graphic-right: clamp(24px, 5vw, 84px);
+      --hero-graphic-top: clamp(58px, 8vh, 96px);
+      --moon-size: clamp(130px, 15vw, 230px);
+      --orbit-dot-size: 14px;
+      --orbit-radius: calc(var(--hero-graphic-size) / 2);
+    }
+
+    .scroll-progress {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      right: 0;
+      height: 3px;
+      z-index: 30;
+      transform-origin: left;
+      transform: scaleX(0);
+      background: linear-gradient(90deg, #eaf6ff, #2c7eff, #0b3d91);
+      box-shadow: 0 0 16px rgba(44, 126, 255, 0.7);
+    }
+
+    .floating-moon {
+      position: fixed;
+      top: calc(var(--hero-graphic-top) + (var(--hero-graphic-size) - var(--moon-size)) / 2);
+      right: calc(var(--hero-graphic-right) + (var(--hero-graphic-size) - var(--moon-size)) / 2);
+      width: var(--moon-size);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 34% 33%, rgba(255,255,255,0.98), rgba(224,239,255,0.96) 23%, rgba(142,184,255,0.46) 51%, rgba(11,61,145,0.05) 73%, transparent 77%);
+      box-shadow: 0 0 55px rgba(44, 126, 255, 0.30), 0 0 140px rgba(11, 61, 145, 0.22);
+      transition: transform 100ms linear;
+    }
+
+    .floating-moon::before, .floating-moon::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(11, 61, 145, 0.12);
+      box-shadow: inset 0 0 18px rgba(2,4,10,0.12);
+    }
+
+    .floating-moon::before { width: 17%; height: 17%; left: 31%; top: 27%; }
+    .floating-moon::after { width: 11%; height: 11%; left: 58%; top: 50%; }
+
+    .hero-orbit {
+      position: fixed;
+      right: var(--hero-graphic-right);
+      top: var(--hero-graphic-top);
+      width: var(--hero-graphic-size);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      z-index: -2;
+      pointer-events: none;
+      overflow: visible;
+      box-shadow:
+        0 0 45px rgba(44, 126, 255, 0.06),
+        inset 0 0 45px rgba(44, 126, 255, 0.025);
+    }
+
+    .hero-orbit::before,
+    .hero-orbit::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(44, 126, 255, 0.12);
+    }
+
+    .hero-orbit::before { inset: 16%; }
+    .hero-orbit::after { inset: 31%; opacity: 0.75; }
+
+    .orbital-dot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--orbit-dot-size);
+      height: var(--orbit-dot-size);
+      border-radius: 50%;
+      background: #f4f8ff;
+      box-shadow:
+        0 0 14px rgba(255, 255, 255, 0.75),
+        0 0 26px rgba(44, 126, 255, 0.85);
+      animation: orbitDot 10s linear infinite;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+
+    .section {
+      min-height: 100vh;
+      display: grid;
+      align-items: center;
+      padding: clamp(60px, 9vw, 130px) clamp(24px, 6vw, 90px);
+      position: relative;
+    }
+
+    .section-content {
+      width: min(980px, 100%);
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-section .section-content { width: min(1060px, 100%); }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 20px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      color: #dbeeff;
+      background: rgba(44, 126, 255, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.25);
+      box-shadow: 0 0 28px rgba(44, 126, 255, 0.09);
+      font-size: 0.9rem;
+    }
+
+    .hero-title {
+      margin: 0;
+      max-width: 11ch;
+      font-size: clamp(4.2rem, 11vw, 11rem);
+      line-height: 0.83;
+      letter-spacing: -0.08em;
+      font-weight: 950;
+      text-transform: uppercase;
+      text-shadow: 0 0 40px rgba(44, 126, 255, 0.28);
+    }
+
+    .hero-title span { color: #2c7eff; }
+
+    .hero-copy {
+      max-width: 720px;
+      margin: 28px 0 0;
+      color: var(--muted);
+      font-size: clamp(1.03rem, 1.45vw, 1.25rem);
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(44, 126, 255, 0.28);
+      background: rgba(255, 255, 255, 0.055);
+      color: white;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.22));
+      border-color: rgba(44, 126, 255, 0.62);
+      box-shadow: 0 0 30px rgba(44, 126, 255, 0.18);
+    }
+
+    .btn:hover {
+      transform: translateY(-3px);
+      background: rgba(44, 126, 255, 0.14);
+      box-shadow: 0 18px 36px rgba(0,0,0,0.28), 0 0 24px rgba(44,126,255,0.18);
+    }
+
+    .split-section {
+      grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.65fr);
+      gap: clamp(28px, 6vw, 90px);
+    }
+
+    .section h2 {
+      margin: 0;
+      max-width: 12ch;
+      font-size: clamp(2.8rem, 6.2vw, 6.8rem);
+      line-height: 0.92;
+      letter-spacing: -0.07em;
+    }
+
+    .section h2 span { color: #2c7eff; }
+
+    .section p {
+      margin: 22px 0 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.22vw, 1.14rem);
+      line-height: 1.75;
+    }
+
+    .mission-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .mission-link {
+      display: grid;
+      gap: 6px;
+      padding: 19px 20px;
+      border-radius: 24px;
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+      backdrop-filter: blur(14px);
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+
+    .mission-link:hover {
+      transform: translateY(-5px) scale(1.01);
+      border-color: rgba(44, 126, 255, 0.48);
+      background: rgba(11, 61, 145, 0.16);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.25), 0 0 28px rgba(44,126,255,0.14);
+    }
+
+    .mission-link strong { font-size: 1.05rem; }
+    .mission-link span { color: var(--muted); line-height: 1.45; font-size: 0.92rem; }
+
+    .orbit-card {
+      min-height: 420px;
+      position: relative;
+      border-radius: 50%;
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      background: radial-gradient(circle, rgba(44, 126, 255, 0.07), transparent 68%);
+      filter: drop-shadow(0 0 32px rgba(44,126,255,0.1));
+    }
+
+    .orbit-card::before, .orbit-card::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      inset: 12%;
+    }
+
+    .orbit-card::after { inset: 28%; }
+
+    .planet {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #ffffff, #2c7eff 43%, #0b3d91 78%);
+      box-shadow: 0 0 34px rgba(44, 126, 255, 0.42);
+    }
+
+    .planet.one { width: 46px; height: 46px; left: 14%; top: 47%; animation: floaty 5s ease-in-out infinite; }
+    .planet.two { width: 74px; height: 74px; right: 18%; top: 23%; animation: floaty 6s ease-in-out infinite reverse; }
+    .planet.three { width: 30px; height: 30px; right: 32%; bottom: 18%; animation: floaty 4.4s ease-in-out infinite; }
+
+    .tool-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+      max-width: 820px;
+    }
+
+    .tool-cloud a {
+      padding: 12px 15px;
+      border-radius: 999px;
+      color: #dcecff;
+      border: 1px solid rgba(44, 126, 255, 0.22);
+      background: rgba(255, 255, 255, 0.045);
+      transition: 180ms ease;
+    }
+
+    .tool-cloud a:hover { transform: translateY(-3px); color: white; background: rgba(44, 126, 255, 0.15); }
+
+    .about-section, .contact-section { min-height: auto; padding-top: 12vh; padding-bottom: 14vh; }
+    .about-section .section-content, .contact-section .section-content { width: min(1080px, 100%); }
+
+    .about-line {
+      display: grid;
+      grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+      gap: clamp(25px, 5vw, 70px);
+      align-items: center;
+    }
+
+    .creator-photo-wrap {
+      width: min(330px, 100%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      padding: 9px;
+      background: conic-gradient(from 160deg, rgba(44,126,255,0.1), rgba(255,255,255,0.95), rgba(44,126,255,0.28), rgba(11,61,145,0.12));
+      box-shadow: 0 0 70px rgba(44,126,255,0.22);
+    }
+
+    .creator-photo {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      background: rgba(6, 26, 64, 0.65);
+    }
+
+    .contact-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .contact-list a {
+      display: grid;
+      gap: 6px;
+      padding: 18px 0;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.20);
+      transition: transform 180ms ease, color 180ms ease;
+    }
+
+    .contact-list a:hover { transform: translateX(6px); color: #ffffff; }
+    .contact-label { color: #2c7eff; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; }
+    .contact-value { color: var(--muted); overflow-wrap: anywhere; }
+
+    .footer {
+      padding: 28px clamp(24px, 6vw, 90px) 44px;
+      color: rgba(244, 248, 255, 0.58);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(50px);
+      filter: blur(8px);
+      transition: opacity 700ms ease, transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 700ms ease;
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+
+    .parallax { will-change: transform; }
+
+    @keyframes auroraFlow {
+      from { transform: translate3d(-2vw, 0, 0) rotate(-9deg) scale(1); }
+      to { transform: translate3d(4vw, -3vh, 0) rotate(-6deg) scale(1.08); }
+    }
+
+    @keyframes orbitDot {
+      from { transform: translate(-50%, -50%) rotate(0deg) translateX(var(--orbit-radius)) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg) translateX(var(--orbit-radius)) rotate(-360deg); }
+    }
+
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-18px); }
+    }
+
+    @media (max-width: 1020px) {
+      .menu-toggle { display: inline-flex; }
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 35;
+        width: min(86vw, 330px);
+        transform: translateX(-104%);
+        transition: transform 190ms ease;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .scroll-progress { left: 0; }
+      .section { padding-left: 20px; padding-right: 20px; }
+      .split-section, .about-line { grid-template-columns: 1fr; }
+      .orbit-card { min-height: 300px; }
+      .main {
+        --hero-graphic-size: clamp(340px, 72vw, 520px);
+        --hero-graphic-right: -18vw;
+        --hero-graphic-top: 78px;
+        --moon-size: clamp(92px, 25vw, 150px);
+      }
+      .floating-moon { opacity: 0.65; }
+    }
+
+    @media (max-width: 680px) {
+      .hero-title { font-size: clamp(3.3rem, 18vw, 5.5rem); }
+      .section h2 { font-size: clamp(2.7rem, 14vw, 4.6rem); }
+      .contact-list { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; align-items: stretch; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+  <div class="aurora-ribbon" aria-hidden="true"></div>
+  <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation">Menu</button>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-panel">
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true">
+            <img src="/assets/stellasim-mascot.png" alt="" class="brand-mascot-img" />
+          </div>
+
+          <div class="brand-text">
+            <h1>StellaSim</h1>
+            <p>Astronomy app ecosystem</p>
+          </div>
+        </div>
+
+<div class="nav-group">
+  <p class="nav-label">Navigation</p>
+
+  <a class="nav-link active" href="#">
+    <div class="nav-icon" aria-hidden="true">
+      <img src="/assets/stellasim-mascot.png" alt="" class="nav-mascot-img" />
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Home</div>
+      <div class="nav-subtitle">Central hub and creator info</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="stellasim-ai.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="12" cy="12" r="7.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+
+        <circle cx="9.3" cy="10" r="0.95" fill="currentColor"></circle>
+        <circle cx="14.7" cy="10" r="0.95" fill="currentColor"></circle>
+
+        <path
+          d="M7.9 12.2c1.15 2.85 7.05 2.85 8.2 0"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.65"
+          stroke-linecap="round"
+        ></path>
+
+        <circle cx="8.2" cy="7.4" r="0.75" fill="currentColor" opacity="0.45"></circle>
+        <circle cx="15.9" cy="7.2" r="0.55" fill="currentColor" opacity="0.38"></circle>
+        <circle cx="17" cy="14.6" r="0.8" fill="currentColor" opacity="0.35"></circle>
+        <circle cx="6.7" cy="14.8" r="0.55" fill="currentColor" opacity="0.3"></circle>
+
+        <path
+          d="M18.7 5.4l.42.95.96.42-.96.42-.42.95-.42-.95-.96-.42.96-.42Z"
+          fill="currentColor"
+        ></path>
+      </svg>
+    </div>
+
+    <div class="nav-text">
+      <div class="nav-title">StellaSim AI</div>
+      <div class="nav-subtitle">Ask astronomy questions and save chats</div>
+    </div>
+  </a>
+
+<div class="nav-group">
+  <p class="nav-label">Simulators</p>
+
+  <a class="nav-link" href="main-sim.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+        <ellipse cx="12" cy="12" rx="7.5" ry="3.2" fill="none" stroke="currentColor" stroke-width="1.6"></ellipse>
+        <ellipse cx="12" cy="12" rx="3.2" ry="7.5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(28 12 12)"></ellipse>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Main Sim</div>
+      <div class="nav-subtitle">3D sandbox with stars, planets, and orbits</div>
+    </div>
+  </a>
+
+  
+
+  <a class="nav-link" href="live-star-map.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M12 3.2 L13.7 10.3 L20.8 12 L13.7 13.7 L12 20.8 L10.3 13.7 L3.2 12 L10.3 10.3 Z" fill="currentColor"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Live Star Map</div>
+      <div class="nav-subtitle">Real-sky viewing with search and labels</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="stellar-evolution-lab.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M12 4.2l1.55 3.25 3.58.42-2.64 2.48.7 3.55L12 12.15 8.81 13.9l.7-3.55-2.64-2.48 3.58-.42L12 4.2z"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+        <path d="M6.1 16.3c.9 1.7 2.8 2.9 5 2.9 2.1 0 4-1.1 4.9-2.7"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M5.1 14.8l1.05 1.95 2.05-.82"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M18.9 9.2l-1.05-1.95-2.05.82"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Stellar Evolution</div>
+      <div class="nav-subtitle">Build a star and explore its life cycle</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="moon-atlas.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="12" cy="12" r="7.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+        <path d="M14.8 5.4c-2.7 1.4-4.5 3.9-4.5 6.6s1.8 5.2 4.5 6.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <circle cx="9.2" cy="9.2" r="1" fill="currentColor" opacity="0.85"></circle>
+        <circle cx="13.6" cy="13.1" r="1.35" fill="currentColor" opacity="0.65"></circle>
+        <circle cx="10.2" cy="15.6" r="0.75" fill="currentColor" opacity="0.7"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Moon Atlas</div>
+      <div class="nav-subtitle">Explore craters, maria, phases, and landing sites</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="solar-system-orrery.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+        <ellipse cx="12" cy="12" rx="7.6" ry="3.4" fill="none" stroke="currentColor" stroke-width="1.6"></ellipse>
+        <ellipse cx="12" cy="12" rx="4.8" ry="9.2" fill="none" stroke="currentColor" stroke-width="1.35" transform="rotate(28 12 12)"></ellipse>
+        <circle cx="19.4" cy="12" r="1.15" fill="currentColor"></circle>
+        <circle cx="6.9" cy="8.9" r="0.85" fill="currentColor"></circle>
+        <circle cx="14.5" cy="4.3" r="0.65" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Solar System Orrery</div>
+      <div class="nav-subtitle">Explore planets, moons, comets, and spacecraft</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="spectroscopy-lab.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M4.5 6.5h15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <path d="M5.2 17.5h13.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <path d="M6.2 14.2c1.2-3.9 2.5-5.8 4-5.8 1.4 0 2.1 2.1 3.1 4.5.8 1.9 1.7 3.2 3.1 3.2 1 0 1.7-.7 2.3-1.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M8.1 6.5v11M11.3 6.5v11M15.7 6.5v11" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" opacity="0.75"></path>
+        <circle cx="18.6" cy="8.4" r="1.25" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Spectroscopy Lab</div>
+      <div class="nav-subtitle">Analyze spectra, elements, redshift, and atmospheres</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="exoplanet-explorer.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="12" cy="12" r="4.6" fill="currentColor"></circle>
+        <ellipse cx="12" cy="12" rx="8.6" ry="3.1" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-18 12 12)"></ellipse>
+        <circle cx="18.5" cy="7.2" r="1.1" fill="currentColor" opacity="0.75"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Exoplanet Explorer</div>
+      <div class="nav-subtitle">Search real worlds with 3D planet models</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="telescope.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <g transform="rotate(-24 12 11)">
+          <rect x="5.7" y="7.2" width="11.2" height="4.2" rx="1.9" fill="none" stroke="currentColor" stroke-width="1.7"></rect>
+          <rect x="16.1" y="8" width="3" height="2.6" rx="1" fill="currentColor"></rect>
+          <rect x="4.2" y="8.1" width="2.4" height="2.4" rx="0.9" fill="currentColor" opacity="0.75"></rect>
+        </g>
+        <circle cx="11.7" cy="13.2" r="1.45" fill="currentColor"></circle>
+        <path d="M11.7 14.6 L8.6 20M11.7 14.6 L12.2 20.6M11.7 14.6 L16.7 19.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Telescope</div>
+      <div class="nav-subtitle">Realistic telescope view and builder</div>
+    </div>
+  </a>
+</div>
+
+<div class="nav-group">
+  <p class="nav-label">Sky Tools</p>
+
+  <a class="nav-link" href="mission-control.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M12 3.2l2.2 5.2 5.6.5-4.2 3.7 1.3 5.5L12 15.2 7.1 18.1l1.3-5.5-4.2-3.7 5.6-.5L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+        <path d="M4.8 19.4c2.1-2.1 4.5-3.1 7.2-3.1s5.1 1 7.2 3.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M7.2 4.7c-1.4.9-2.4 2.3-2.8 4M16.8 4.7c1.4.9 2.4 2.3 2.8 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <circle cx="12" cy="11.2" r="1.35" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Mission Control</div>
+      <div class="nav-subtitle">Track launches, spacecraft, and active missions</div>
+    </div>
+  </a>
+  
+  <a class="nav-link" href="observation-planner.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <rect x="5" y="6" width="14" height="13" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"></rect>
+        <path d="M8 4.8v3M16 4.8v3M8.2 11.2h7.6M8.2 14.6h5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <circle cx="16.4" cy="15.2" r="1.25" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Observation Planner</div>
+      <div class="nav-subtitle">Plan sessions, targets, and observing notes</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="astro-notebook.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M7 4.5h8.8c1 0 1.8.8 1.8 1.8v13.2H7c-1.2 0-2.2-1-2.2-2.2V6.7c0-1.2 1-2.2 2.2-2.2Z" fill="none" stroke="currentColor" stroke-width="1.6"></path>
+        <path d="M8.4 8.2h5.8M8.4 11.2h4.3M8.4 14.2h3.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M15.8 16.2l2.6-2.6 1.2 1.2-2.6 2.6-1.8.6.6-1.8Z" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"></path>
+        <circle cx="16.7" cy="8.2" r="1.1" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Astro Notebook</div>
+      <div class="nav-subtitle">Log observations, sketches, and sessions</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="light-pollution-map.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M4.5 16.8c2.2-1.8 4.3-2.6 6.4-2.3 2.4.3 4.5 2.2 8.6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <path d="M6.2 17.7c1.8 1.1 3.8 1.7 5.8 1.7 2.1 0 4.1-.6 5.8-1.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <path d="M7.2 13.1c.4-3.2 2.4-5.7 4.8-5.7s4.4 2.5 4.8 5.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <path d="M12 4.4v2.1M5.6 7.2l1.5 1.5M18.4 7.2l-1.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <circle cx="12" cy="12.9" r="1.35" fill="currentColor"></circle>
+        <circle cx="8.2" cy="5.2" r=".85" fill="currentColor"></circle>
+        <circle cx="17.1" cy="4.6" r=".65" fill="currentColor"></circle>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Light Pollution Map</div>
+      <div class="nav-subtitle">Find dark skies and better observing spots</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="space-weather-center.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+        <path d="M8 3.6v-1.4M8 13.8v-1.4M3.6 8H2.2M13.8 8h-1.4M4.9 4.9l-1-1M12.1 12.1l-1-1M11.1 4.9l1-1M3.9 12.1l1-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M13.2 15.1c1.2-1.4 3.4-1.4 4.6 0M11.3 17.1c2.2-2.5 6.2-2.5 8.4 0M9.4 19.1c3.2-3.7 9.8-3.7 13 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Space Weather Center</div>
+      <div class="nav-subtitle">Track solar storms, auroras, and viewing conditions</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="object-database.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <ellipse cx="12" cy="6.8" rx="5.8" ry="2.6" fill="none" stroke="currentColor" stroke-width="1.6"></ellipse>
+        <path d="M6.2 6.8v6.2c0 1.4 2.6 2.6 5.8 2.6s5.8-1.2 5.8-2.6V6.8M6.2 13v4.2c0 1.4 2.6 2.6 5.8 2.6s5.8-1.2 5.8-2.6V13" fill="none" stroke="currentColor" stroke-width="1.6"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Object Database</div>
+      <div class="nav-subtitle">Browse stars, galaxies, and nebulae</div>
+    </div>
+  </a>
+</div>
+
+<div class="nav-group">
+  <p class="nav-label">Other</p>
+
+  <a class="nav-link" href="astronomy-lessons.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M6 5.5h9.8c1.2 0 2.2 1 2.2 2.2v10.8H7.8A2.8 2.8 0 0 1 5 15.7V6.5c0-.55.45-1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.6"></path>
+        <path d="M8.5 9h6M8.5 12h4.8M7.8 18.5V8.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M17.6 4.8l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5Z" fill="currentColor"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Astronomy Lessons</div>
+      <div class="nav-subtitle">Learn astronomy through guided lessons</div>
+    </div>
+  </a>
+
+  <a class="nav-link" href="astronomy-news.html" target="_blank" rel="noopener noreferrer">
+    <div class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" class="nav-svg">
+        <path d="M5.5 5.5h13c.8 0 1.5.7 1.5 1.5v10c0 .8-.7 1.5-1.5 1.5h-13c-.8 0-1.5-.7-1.5-1.5V7c0-.8.7-1.5 1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.6"></path>
+        <path d="M7.5 9h5.8M7.5 12h9M7.5 15h6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        <path d="M16.7 8.1l.45 1.05 1.05.45-1.05.45-.45 1.05-.45-1.05-1.05-.45 1.05-.45Z" fill="currentColor"></path>
+      </svg>
+    </div>
+    <div class="nav-text">
+      <div class="nav-title">Astronomy News</div>
+      <div class="nav-subtitle">Live space and astronomy updates</div>
+    </div>
+  </a>
+</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+      <div class="floating-moon parallax" data-speed="-0.18" aria-hidden="true"></div>
+      <div class="hero-orbit parallax" data-speed="0.12" aria-hidden="true"><span class="orbital-dot"></span></div>
+
+      <section class="section hero-section">
+        <div class="section-content reveal">
+          <h1 class="hero-title">Stella<span>Sim</span></h1>
+          <p class="hero-copy">
+            An astronomy universe made for simulations, sky maps, telescope planning, space missions,
+            exoplanets, observation logs, and learning. 
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="stellasim-ai.html">Open StellaSim AI</a>
+            <a class="btn" href="live-star-map.html" target="_blank" rel="noopener noreferrer">Launch Live Star Map</a>
+            <a class="btn" href="#aboutCreator">About Me</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section split-section">
+        <div class="section-content reveal">
+          <h2>Space tools that <span>move</span></h2>
+          <p>
+            StellaSim is built like a mission hub. You can jump from a gravity sandbox to a live star map,
+            telescope tools, a Moon atlas, spectroscopy, exoplanets, and real observing notes without leaving the same universe.
+          </p>
+          <div class="tool-cloud">
+            <a href="main-sim.html" target="_blank" rel="noopener noreferrer">Main Sim</a>
+            <a href="solar-system-orrery.html" target="_blank" rel="noopener noreferrer">Solar System Orrery</a>
+            <a href="moon-atlas.html" target="_blank" rel="noopener noreferrer">Moon Atlas</a>
+            <a href="spectroscopy-lab.html" target="_blank" rel="noopener noreferrer">Spectroscopy Lab</a>
+            <a href="exoplanet-explorer.html" target="_blank" rel="noopener noreferrer">Exoplanet Explorer</a>
+          </div>
+        </div>
+
+        <div class="orbit-card reveal parallax" data-speed="-0.10" aria-hidden="true">
+          <span class="planet one"></span>
+          <span class="planet two"></span>
+          <span class="planet three"></span>
+        </div>
+      </section>
+
+      <section class="section split-section">
+        <div class="section-content reveal">
+          <h2>Choose your next <span>launch</span></h2>
+          <p>
+          </p>
+        </div>
+
+        <div class="mission-stack reveal">
+          <a class="mission-link" href="stellasim-ai.html"><strong>Ask StellaSim AI</strong><span>Use the astronomy tutor for questions, physics, and project help.</span></a>
+          <a class="mission-link" href="astro-notebook.html" target="_blank" rel="noopener noreferrer"><strong>Open Astro Notebook</strong><span>Log observations, sketches, weather, eyepieces, telescope settings, and session notes.</span></a>
+          <a class="mission-link" href="mission-control.html" target="_blank" rel="noopener noreferrer"><strong>Track Space Missions</strong><span>Follow launches, spacecraft, rovers, probes, and active mission status.</span></a>
+          <a class="mission-link" href="observation-planner.html" target="_blank" rel="noopener noreferrer"><strong>Plan an Observing Night</strong><span>Build a real observing mission from targets to sky conditions.</span></a>
+        </div>
+      </section>
+
+      <section class="section about-section" id="aboutCreator">
+        <div class="section-content about-line reveal">
+          <div class="creator-photo-wrap">
+            <img src="/assets/creator-photo.jpg" alt="Photo of Athicha Chanpradub" class="creator-photo" />
+          </div>
+          <div>
+            <h2>About <span>Me</span></h2>
+            <p>
+              My name is Athicha Chanpradub, and I am a high school student at Mark Keppel High School, graduating in 2027.
+              I love astronomy and wanted to create something that makes it easier for other astronomy lovers to explore space,
+              learn new ideas, and understand the universe in a more visual way. I hope to pursue astrophysics in the future
+              and keep building projects that help people feel closer to the stars.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section contact-section" id="contactCreator">
+        <div class="section-content reveal">
+          <h2>Let’s talk <span>space</span>.</h2>
+          <p>For questions, feedback, collaborations, or anything related to StellaSim, you can reach me here.</p>
+          <div class="contact-list">
+            <a href="mailto:athichachanpradub@gmail.com"><span class="contact-label">Email</span><span class="contact-value">athichachanpradub@gmail.com</span></a>
+            <a href="https://www.instagram.com/athiccahh/" target="_blank" rel="noopener noreferrer"><span class="contact-label">Instagram</span><span class="contact-value">@athiccahh</span></a>
+            <a href="tel:6266525394"><span class="contact-label">Phone</span><span class="contact-value">626-652-5394</span></a>
+            <a href="https://linkedin.com/in/athicha-chanpradub-9a22353bb" target="_blank" rel="noopener noreferrer"><span class="contact-label">LinkedIn</span><span class="contact-value">Athicha Chanpradub</span></a>
+            <a href="https://github.com/athiccahh/StellaSim" target="_blank" rel="noopener noreferrer"><span class="contact-label">GitHub</span><span class="contact-value">StellaSim Repository</span></a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">StellaSim © 2026 Athicha Chanpradub</footer>
+    </main>
+  </div>
+
+  <script>
+    // mobile sidebar toggle
+    const menuToggle = document.getElementById("menuToggle");
+    const sidebar = document.getElementById("sidebar");
+
+    if (menuToggle && sidebar) {
+      menuToggle.addEventListener("click", () => sidebar.classList.toggle("open"));
+    }
+
+    // scroll reveal and parallax movement
+    const reveals = document.querySelectorAll(".reveal");
+    const parallaxItems = document.querySelectorAll(".parallax");
+    const scrollProgress = document.getElementById("scrollProgress");
+
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("is-visible");
+      });
+    }, { threshold: 0.18 });
+
+    reveals.forEach((el) => revealObserver.observe(el));
+
+    function updateScrollEffects() {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollY = window.scrollY;
+      const progress = maxScroll > 0 ? scrollY / maxScroll : 0;
+
+      if (scrollProgress) scrollProgress.style.transform = `scaleX(${progress})`;
+
+      parallaxItems.forEach((item) => {
+        const speed = Number(item.dataset.speed || 0);
+        const y = scrollY * speed;
+        const rotate = item.classList.contains("floating-moon") ? scrollY * 0.025 : 0;
+        item.style.transform = `translate3d(0, ${y}px, 0) rotate(${rotate}deg)`;
+      });
+    }
+
+    window.addEventListener("scroll", updateScrollEffects, { passive: true });
+    window.addEventListener("resize", updateScrollEffects);
+    updateScrollEffects();
+
+    // animated starfield background
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let meteors = [];
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetX = 0;
+      let targetY = 0;
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * window.devicePixelRatio);
+        canvas.height = Math.floor(height * window.devicePixelRatio);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+        makeStars();
+      }
+
+      function makeStars() {
+        stars = [];
+        const count = Math.min(520, Math.floor((width * height) / 3600));
+
+        for (let i = 0; i < count; i++) {
+          const depth = Math.random();
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: 0.45 + Math.random() * (depth > 0.7 ? 1.7 : 1.0),
+            alpha: 0.22 + Math.random() * 0.75,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.0015 + Math.random() * 0.006,
+            drift: (Math.random() - 0.5) * 0.05,
+            depth,
+            blue: Math.random() > 0.58
+          });
+        }
+      }
+
+      function spawnMeteor(time) {
+        if (Math.random() > 0.011) return;
+        meteors.push({
+          x: Math.random() * width * 0.75,
+          y: -20,
+          vx: 10 + Math.random() * 8,
+          vy: 8 + Math.random() * 4,
+          life: 0,
+          max: 45 + Math.random() * 20
+        });
+      }
+
+      function drawNebula() {
+        const g1 = ctx.createRadialGradient(width * 0.20, height * 0.24, 0, width * 0.20, height * 0.24, 380);
+        g1.addColorStop(0, "rgba(44,126,255,0.10)");
+        g1.addColorStop(1, "rgba(44,126,255,0)");
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, width, height);
+
+        const g2 = ctx.createRadialGradient(width * 0.78, height * 0.72, 0, width * 0.78, height * 0.72, 420);
+        g2.addColorStop(0, "rgba(11,61,145,0.12)");
+        g2.addColorStop(1, "rgba(11,61,145,0)");
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      function draw(time) {
+        ctx.clearRect(0, 0, width, height);
+        mouseX += (targetX - mouseX) * 0.035;
+        mouseY += (targetY - mouseY) * 0.035;
+
+        drawNebula();
+
+        stars.forEach((star) => {
+          star.y += star.drift;
+          if (star.y < -4) star.y = height + 4;
+          if (star.y > height + 4) star.y = -4;
+
+          const pulse = 0.58 + Math.sin(time * star.speed + star.phase) * 0.42;
+          const px = star.x + mouseX * star.depth;
+          const py = star.y + mouseY * star.depth;
+          const color = star.blue ? "44,126,255" : "255,255,255";
+
+          ctx.beginPath();
+          ctx.arc(px, py, star.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${color}, ${star.alpha * pulse})`;
+          ctx.shadowBlur = star.r * 7;
+          ctx.shadowColor = `rgba(${color}, ${star.alpha * 0.55})`;
+          ctx.fill();
+        });
+
+        ctx.shadowBlur = 0;
+        spawnMeteor(time);
+
+        for (let i = meteors.length - 1; i >= 0; i--) {
+          const meteor = meteors[i];
+          const tailX = meteor.x - meteor.vx * 9;
+          const tailY = meteor.y - meteor.vy * 9;
+          const gradient = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.22, "rgba(44,126,255,0.80)");
+          gradient.addColorStop(1, "rgba(11,61,145,0)");
+
+          ctx.beginPath();
+          ctx.moveTo(meteor.x, meteor.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          meteor.x += meteor.vx;
+          meteor.y += meteor.vy;
+          meteor.life++;
+
+          if (meteor.life > meteor.max || meteor.x > width + 120 || meteor.y > height + 120) meteors.splice(i, 1);
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetX = ((event.clientX - width / 2) / width) * 22;
+        targetY = ((event.clientY - height / 2) / height) * 22;
+      });
+
+      window.addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(draw);
+    }
+
+    initStarfield();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ FITS File Analysis</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    /* nasa blue theme */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --accent-2: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --button-gradient: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --button-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.72));
+      --danger: #ff9d9d;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+      --radius-lg: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      background: var(--page-bg);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 16% 14%, rgba(11, 61, 145, 0.08), transparent 0 18%),
+        radial-gradient(circle at 84% 20%, rgba(11, 61, 145, 0.07), transparent 0 16%),
+        radial-gradient(circle at 62% 82%, rgba(44, 126, 255, 0.05), transparent 0 18%),
+        linear-gradient(180deg, #000000 0%, #02040a 42%, #000000 100%);
+    }
+
+    button,
+    input,
+    select,
+    textarea { font: inherit; }
+    button { user-select: none; }
+    a { color: inherit; text-decoration: none; }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.98;
+    }
+
+    .space-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(95px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.22;
+      animation: glowFloat 18s ease-in-out infinite;
+    }
+
+    .glow-1 { width: 360px; height: 360px; top: 6%; left: 10%; background: radial-gradient(circle, rgba(11, 61, 145, 0.20), transparent 72%); }
+    .glow-2 { width: 430px; height: 430px; right: 7%; top: 14%; background: radial-gradient(circle, rgba(11, 61, 145, 0.17), transparent 72%); animation-delay: -6s; }
+    .glow-3 { width: 380px; height: 380px; left: 48%; bottom: 4%; background: radial-gradient(circle, rgba(44, 126, 255, 0.12), transparent 74%); animation-delay: -11s; }
+
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.86;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 35%, rgba(255,255,255,0.96), rgba(211,228,255,0.93) 36%, rgba(44,126,255,0.20) 62%, rgba(11,61,145,0) 76%);
+      box-shadow: 0 0 40px rgba(44,126,255,0.18), 0 0 95px rgba(11,61,145,0.12);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #02040a;
+      box-shadow: -10px 0 18px rgba(3,16,28,0.65);
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .main-inner {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel,
+    .hero-card,
+    .viewer-card,
+    .bottom-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid rgba(44, 126, 255, 0.20);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -1px 0 rgba(11, 61, 145, 0.03);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel::after,
+    .hero-card::after,
+    .viewer-card::after,
+    .bottom-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0%, transparent 32%, rgba(255,255,255,0.05) 40%, transparent 49%, transparent 100%);
+      transform: translateX(-120%);
+      animation: panelSheen 12s linear infinite;
+      opacity: 0.55;
+    }
+
+    .hero-card {
+      padding: 26px 28px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -150px;
+      top: -160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(11,61,145,0.14), transparent 65%);
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .hero-content,
+    .panel-content,
+    .viewer-content,
+    .bottom-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(11, 61, 145, 0.08);
+      border: 1px solid rgba(44, 126, 255, 0.18);
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      margin-bottom: 14px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.35rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .hero-title .glow {
+      color: var(--accent-light);
+      text-shadow: 0 0 24px rgba(11,61,145,0.28), 0 0 44px rgba(11,61,145,0.16);
+    }
+
+    .hero-subtitle {
+      margin: 14px 0 0;
+      max-width: 88ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .hero-actions,
+    .button-row,
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hero-actions { margin-top: 18px; }
+    .button-row { margin-top: 12px; }
+
+    .analysis-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.74fr) minmax(420px, 1.55fr) minmax(300px, 0.86fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .left-column,
+    .right-column {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel,
+    .viewer-card,
+    .bottom-card {
+      padding: 18px;
+      animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .left-column { animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: 120ms; }
+    .viewer-card { animation-delay: 180ms; }
+    .right-column { animation: panelFloatIn 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: 240ms; }
+    .bottom-card { animation-delay: 300ms; }
+
+    .section-title h2,
+    .section-title h3 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 760;
+    }
+
+    .section-title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.48;
+      font-size: 0.9rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .field label,
+    .slider-top,
+    .toggle-title,
+    .mini-label {
+      color: var(--accent-2);
+      font-size: 0.78rem;
+      font-weight: 740;
+      letter-spacing: 0.02em;
+    }
+
+    .input,
+    .select,
+    .range-output,
+    .textarea {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      background: linear-gradient(180deg, rgba(6,26,64,0.96), rgba(3,12,30,0.96));
+      color: var(--field-text);
+      border-radius: 14px;
+      padding: 11px 12px;
+      outline: none;
+      transition: 160ms ease;
+      color-scheme: dark;
+    }
+
+    .input:focus,
+    .select:focus,
+    .textarea:focus {
+      border-color: rgba(44,126,255,0.62);
+      box-shadow: 0 0 0 3px rgba(11,61,145,0.08), 0 0 22px rgba(11,61,145,0.1);
+    }
+
+    .textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.55;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+    }
+
+    .file-zone {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px dashed rgba(44,126,255,0.35);
+      background: rgba(44,126,255,0.045);
+    }
+
+    .file-zone.dragover {
+      border-color: rgba(44,126,255,0.86);
+      background: rgba(11,61,145,0.16);
+      box-shadow: 0 0 24px rgba(11,61,145,0.16);
+    }
+
+    .file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(44,126,255,0.22);
+      border-radius: 14px;
+      padding: 11px 15px;
+      cursor: pointer;
+      color: var(--field-text);
+      background: rgba(255,255,255,0.04);
+      transition: 180ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+    }
+
+    .btn.primary {
+      background: var(--button-gradient);
+      border-color: rgba(44,126,255,0.76);
+      color: white;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: rgba(44,126,255,0.55);
+      background: var(--button-hover);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.28), 0 0 18px rgba(11,61,145,0.18);
+    }
+
+    .btn:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+
+    .btn.small {
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+    }
+
+    .btn.danger {
+      border-color: rgba(255,157,157,0.25);
+      color: #ffd8d8;
+      background: rgba(255,120,120,0.055);
+    }
+
+    .range-card {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border-radius: 17px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(3,8,20,0.46);
+      margin-top: 12px;
+    }
+
+    .slider-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .range {
+      width: 100%;
+      accent-color: var(--accent-light);
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(3,8,20,0.46);
+      color: var(--muted);
+    }
+
+    .toggle input { accent-color: var(--accent-light); }
+
+    .viewer-card {
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: auto minmax(440px, 1fr) auto;
+      gap: 12px;
+    }
+
+    .viewer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(44,126,255,0.16);
+      background: rgba(11,61,145,0.08);
+      color: var(--accent-light);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 12px rgba(255,227,160,0.45);
+    }
+
+    .status-dot.ready {
+      background: var(--good);
+      box-shadow: 0 0 12px rgba(184,255,213,0.45);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 440px;
+      border-radius: 20px;
+      border: 1px solid rgba(44,126,255,0.18);
+      background:
+        radial-gradient(circle at 50% 44%, rgba(44,126,255,0.08), transparent 42%),
+        rgba(0,0,0,0.58);
+      overflow: hidden;
+      cursor: grab;
+    }
+
+    .canvas-wrap:active { cursor: grabbing; }
+
+    #fitsCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    .empty-viewer {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 28px;
+      pointer-events: none;
+    }
+
+    .empty-viewer strong {
+      display: block;
+      color: var(--field-text);
+      font-size: 1.12rem;
+      margin-bottom: 8px;
+    }
+
+    .marker-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .footer-status {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .metric,
+    .star-item,
+    .warning-item,
+    .future-item {
+      border: 1px solid rgba(44,126,255,0.14);
+      background: rgba(3,8,20,0.46);
+      border-radius: 15px;
+      padding: 11px;
+      min-width: 0;
+    }
+
+    .metric span,
+    .star-item span,
+    .warning-item span,
+    .future-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-bottom: 4px;
+    }
+
+    .metric strong,
+    .star-item strong,
+    .warning-item strong,
+    .future-item strong {
+      display: block;
+      color: var(--field-text);
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+
+    .warning-item.good strong { color: var(--good); }
+    .warning-item.warn strong { color: var(--warn); }
+    .warning-item.danger strong { color: var(--danger); }
+
+    .table-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      max-height: 310px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .star-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .star-item:hover,
+    .star-item.active {
+      transform: translateY(-1px);
+      border-color: rgba(44,126,255,0.52);
+      background: rgba(11,61,145,0.1);
+    }
+
+    .header-table {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      max-height: 330px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .header-row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px;
+      border: 1px solid rgba(44,126,255,0.12);
+      background: rgba(3,8,20,0.42);
+      border-radius: 13px;
+      padding: 9px 10px;
+      font-size: 0.82rem;
+    }
+
+    .header-key {
+      color: var(--accent-light);
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+
+    .header-value {
+      color: var(--field-text);
+      overflow-wrap: anywhere;
+    }
+
+    .histogram-wrap {
+      height: 160px;
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(44,126,255,0.16);
+      background: rgba(0,0,0,0.42);
+      overflow: hidden;
+      position: relative;
+    }
+
+    #histogramCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .note-box {
+      margin-top: 12px;
+      padding: 13px;
+      border-radius: 16px;
+      color: var(--muted);
+      border: 1px solid rgba(44,126,255,0.16);
+      background: rgba(11,61,145,0.065);
+      line-height: 1.52;
+      font-size: 0.88rem;
+    }
+
+    .future-list {
+      display: grid;
+      gap: 9px;
+      margin-top: 12px;
+    }
+
+    .hidden { display: none !important; }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      max-width: 390px;
+      padding: 13px 15px;
+      border-radius: 16px;
+      border: 1px solid rgba(44,126,255,0.24);
+      background: rgba(3,8,20,0.96);
+      color: var(--field-text);
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: 180ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes glowFloat { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(14px,-12px,0) scale(1.05); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes panelSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(140%); } }
+    @keyframes panelFloatIn { from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+
+    @media (max-width: 1280px) {
+      .analysis-layout { grid-template-columns: minmax(280px, 0.72fr) minmax(420px, 1.28fr); }
+      .right-column { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 980px) {
+      .analysis-layout,
+      .right-column,
+      .bottom-grid { grid-template-columns: 1fr; }
+      .viewer-card { min-height: 560px; }
+      .moon-wrap { width: 98px; height: 98px; top: 72px; right: 24px; opacity: 0.42; }
+      .moon-wrap::after { width: 78px; height: 78px; top: 9px; left: 31px; }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell { padding: 18px 14px 24px; }
+      .hero-card,
+      .panel,
+      .viewer-card,
+      .bottom-card { border-radius: 18px; padding-left: 15px; padding-right: 15px; }
+      .metric-grid,
+      .footer-status { grid-template-columns: 1fr; }
+      .viewer-toolbar { align-items: stretch; }
+      .viewer-toolbar .button-row { width: 100%; }
+      .btn { width: 100%; }
+      .hero-actions .btn { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <div class="app-shell">
+    <main class="main-inner">
+      <section class="hero-card">
+        <div class="hero-content">
+          <h1 class="hero-title">FITS File <span class="glow">Analysis</span></h1>
+          <p class="hero-subtitle">
+            Upload telescope or science FITS images, inspect headers, stretch image data, estimate stars, measure pixels, and run simplified learning-grade photometry. Files stay inside your browser and are never uploaded.
+          </p>
+          <div class="hero-actions">
+            <label class="btn primary" for="fitsInput">Upload FITS File</label>
+            <button class="btn" id="demoBtn" type="button">Generate Demo Frame</button>
+            <button class="btn" id="resetViewHeroBtn" type="button">Reset View</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="analysis-layout">
+        <aside class="left-column">
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Upload</h2>
+                <p>Open a common 2D grayscale FITS file. Supports BITPIX 8, 16, 32, -32, and -64 when the data are a simple image HDU.</p>
+              </div>
+
+              <div class="file-zone" id="fileZone">
+                <input class="file-input" id="fitsInput" type="file" accept=".fits,.fit,.fts,application/fits" />
+                <label class="btn primary" for="fitsInput">Choose FITS File</label>
+                <div class="mini-label" id="fileNameLabel">No file selected</div>
+                <div class="note-box">all analysis happens locally in this browser. no api key, no server, no upload.</div>
+              </div>
+
+              <div class="button-row">
+                <button class="btn small" id="exportPngBtn" type="button" disabled>Export PNG</button>
+                <button class="btn small" id="exportHeaderBtn" type="button" disabled>Export Header</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Stretch Controls</h2>
+                <p>Stretching changes the display only. Original pixel values stay untouched for stats and photometry.</p>
+              </div>
+
+              <div class="field">
+                <label for="stretchSelect">Stretch mode</label>
+                <select class="select" id="stretchSelect">
+                  <option value="linear">Linear</option>
+                  <option value="log">Log</option>
+                  <option value="sqrt">Sqrt</option>
+                  <option value="asinh" selected>Asinh</option>
+                  <option value="histogram">Histogram</option>
+                </select>
+              </div>
+
+              <div class="range-card">
+                <div class="slider-top"><span>Black point</span><strong id="blackValue">0%</strong></div>
+                <input class="range" id="blackSlider" type="range" min="0" max="99" step="0.1" value="1" />
+              </div>
+
+              <div class="range-card">
+                <div class="slider-top"><span>White point</span><strong id="whiteValue">100%</strong></div>
+                <input class="range" id="whiteSlider" type="range" min="1" max="100" step="0.1" value="99" />
+              </div>
+
+              <label class="toggle">
+                <span><strong class="toggle-title">Invert image</strong><br />swap bright and dark display tones</span>
+                <input id="invertToggle" type="checkbox" />
+              </label>
+
+              <label class="toggle">
+                <span><strong class="toggle-title">Star markers</strong><br />show detection overlay</span>
+                <input id="markersToggle" type="checkbox" checked />
+              </label>
+
+              <label class="toggle">
+                <span><strong class="toggle-title">Photometry mode</strong><br />click a star for aperture estimate</span>
+                <input id="photometryToggle" type="checkbox" />
+              </label>
+
+              <div class="button-row">
+                <button class="btn primary small" id="autoStretchBtn" type="button" disabled>Auto Stretch</button>
+                <button class="btn small" id="resetStretchBtn" type="button" disabled>Reset Stretch</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Image Tools</h2>
+                <p>Zoom, pan, inspect pixels, and reset the canvas view.</p>
+              </div>
+              <div class="button-row">
+                <button class="btn small" id="zoomInBtn" type="button" disabled>Zoom In</button>
+                <button class="btn small" id="zoomOutBtn" type="button" disabled>Zoom Out</button>
+                <button class="btn small" id="resetViewBtn" type="button" disabled>Reset View</button>
+                <button class="btn small" id="detectStarsBtn" type="button" disabled>Detect Stars</button>
+              </div>
+              <div class="note-box" id="toolStatus">Upload a FITS file or generate a demo frame to begin.</div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="viewer-card">
+          <div class="viewer-content">
+            <div class="viewer-toolbar">
+              <div class="section-title">
+                <h2>Image Viewer</h2>
+                <p id="viewerSubtitle">Waiting for a FITS image.</p>
+              </div>
+              <div class="chip-row">
+                <span class="status-pill"><span class="status-dot" id="readyDot"></span><span id="readyText">No file loaded</span></span>
+                <span class="status-pill" id="zoomText">Zoom 100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="fitsCanvas"></canvas>
+            <svg class="marker-layer" id="markerLayer"></svg>
+            <div class="empty-viewer" id="emptyViewer">
+              <div>
+                <strong>Drop a FITS file here</strong>
+                The canvas will show the stretched grayscale image, star detections, and clicked pixel values.
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-status">
+            <div class="metric"><span>Pointer</span><strong id="pointerMetric">x — y —</strong></div>
+            <div class="metric"><span>Pixel value</span><strong id="pixelMetric">—</strong></div>
+            <div class="metric"><span>WCS readout</span><strong id="wcsMetric">No WCS</strong></div>
+            <div class="metric"><span>Mode</span><strong id="modeMetric">Pan / inspect</strong></div>
+          </div>
+        </section>
+
+        <aside class="right-column">
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Header Summary</h2>
+                <p>Key FITS metadata pulled from the primary header.</p>
+              </div>
+              <div class="metric-grid" id="summaryGrid"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Statistics</h2>
+                <p>Estimated browser-side measurements from the image array.</p>
+              </div>
+              <div class="metric-grid" id="statsGrid"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Detected Stars</h2>
+                <p>Local maxima above the background threshold. Measurements are estimates.</p>
+              </div>
+              <div class="table-list" id="starList"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-content">
+              <div class="section-title">
+                <h2>Selected Pixel / Star</h2>
+                <p>Click the image to inspect values or run simplified aperture photometry.</p>
+              </div>
+              <div class="metric-grid" id="selectionGrid"></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="bottom-grid">
+        <section class="bottom-card">
+          <div class="bottom-content">
+            <div class="section-title">
+              <h2>Histogram</h2>
+              <p>Brightness distribution with current black and white display points.</p>
+            </div>
+            <div class="histogram-wrap"><canvas id="histogramCanvas"></canvas></div>
+            <div class="metric-grid" id="warningGrid"></div>
+          </div>
+        </section>
+
+        <section class="bottom-card">
+          <div class="bottom-content">
+            <div class="section-title">
+              <h2>Plate Solving + Future Tools</h2>
+              <p>Built as placeholders so this can grow into a real Astro Notebook science tool later.</p>
+            </div>
+            <div class="future-list">
+              <div class="future-item"><span>Plate solving</span><strong id="plateSolveText">Placeholder: needs astrometry engine later</strong></div>
+              <div class="future-item"><span>Classification helper</span><strong id="classificationText">Waiting for image</strong></div>
+              <div class="future-item"><span>Comparison mode</span><strong>planned: load two FITS files</strong></div>
+              <div class="future-item"><span>Calibration</span><strong>planned: dark / flat / bias correction</strong></div>
+              <div class="future-item"><span>Stacks</span><strong>planned: align and combine FITS images</strong></div>
+              <div class="future-item"><span>Exports</span><strong>planned: CSV star measurements</strong></div>
+            </div>
+            <div class="note-box">FITS analysis uses simplified browser-side tools for learning. Scientific photometry requires proper calibration, plate solving, and reduction workflows.</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="panel-content">
+          <div class="section-title">
+            <h2>Full Header</h2>
+            <p>Raw card-style FITS header values.</p>
+          </div>
+          <div class="header-table" id="headerTable"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // app state
+    const state = {
+      header: {},
+      headerCards: [],
+      width: 0,
+      height: 0,
+      bitpix: 0,
+      data: null,
+      displayPixels: null,
+      stats: null,
+      histogram: [],
+      stars: [],
+      selectedStar: null,
+      selectedPixel: null,
+      fileName: "",
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      isDragging: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      startPanX: 0,
+      startPanY: 0,
+      hasWcs: false
+    };
+
+    const fitsInput = document.getElementById("fitsInput");
+    const fileZone = document.getElementById("fileZone");
+    const fileNameLabel = document.getElementById("fileNameLabel");
+    const stretchSelect = document.getElementById("stretchSelect");
+    const blackSlider = document.getElementById("blackSlider");
+    const whiteSlider = document.getElementById("whiteSlider");
+    const blackValue = document.getElementById("blackValue");
+    const whiteValue = document.getElementById("whiteValue");
+    const invertToggle = document.getElementById("invertToggle");
+    const markersToggle = document.getElementById("markersToggle");
+    const photometryToggle = document.getElementById("photometryToggle");
+    const canvasWrap = document.getElementById("canvasWrap");
+    const fitsCanvas = document.getElementById("fitsCanvas");
+    const markerLayer = document.getElementById("markerLayer");
+    const emptyViewer = document.getElementById("emptyViewer");
+    const histogramCanvas = document.getElementById("histogramCanvas");
+    const readyDot = document.getElementById("readyDot");
+    const readyText = document.getElementById("readyText");
+    const zoomText = document.getElementById("zoomText");
+    const viewerSubtitle = document.getElementById("viewerSubtitle");
+    const pointerMetric = document.getElementById("pointerMetric");
+    const pixelMetric = document.getElementById("pixelMetric");
+    const wcsMetric = document.getElementById("wcsMetric");
+    const modeMetric = document.getElementById("modeMetric");
+    const summaryGrid = document.getElementById("summaryGrid");
+    const statsGrid = document.getElementById("statsGrid");
+    const starList = document.getElementById("starList");
+    const selectionGrid = document.getElementById("selectionGrid");
+    const warningGrid = document.getElementById("warningGrid");
+    const headerTable = document.getElementById("headerTable");
+    const classificationText = document.getElementById("classificationText");
+    const plateSolveText = document.getElementById("plateSolveText");
+    const toolStatus = document.getElementById("toolStatus");
+    const toast = document.getElementById("toast");
+
+    const controls = [
+      "exportPngBtn", "exportHeaderBtn", "autoStretchBtn", "resetStretchBtn",
+      "zoomInBtn", "zoomOutBtn", "resetViewBtn", "detectStarsBtn"
+    ].reduce((map, id) => { map[id] = document.getElementById(id); return map; }, {});
+
+    const ctx = fitsCanvas.getContext("2d");
+    const hctx = histogramCanvas.getContext("2d");
+
+    fitsInput.addEventListener("change", (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (file) loadFitsFile(file);
+    });
+
+    fileZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      fileZone.classList.add("dragover");
+    });
+
+    fileZone.addEventListener("dragleave", () => fileZone.classList.remove("dragover"));
+
+    fileZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      fileZone.classList.remove("dragover");
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) loadFitsFile(file);
+    });
+
+    canvasWrap.addEventListener("dragover", (event) => event.preventDefault());
+    canvasWrap.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) loadFitsFile(file);
+    });
+
+    stretchSelect.addEventListener("change", renderAll);
+    blackSlider.addEventListener("input", () => {
+      if (Number(blackSlider.value) >= Number(whiteSlider.value)) blackSlider.value = Number(whiteSlider.value) - 0.1;
+      renderAll();
+    });
+    whiteSlider.addEventListener("input", () => {
+      if (Number(whiteSlider.value) <= Number(blackSlider.value)) whiteSlider.value = Number(blackSlider.value) + 0.1;
+      renderAll();
+    });
+    invertToggle.addEventListener("change", renderAll);
+    markersToggle.addEventListener("change", drawMarkers);
+    photometryToggle.addEventListener("change", () => {
+      modeMetric.textContent = photometryToggle.checked ? "Photometry click" : "Pan / inspect";
+    });
+
+    controls.autoStretchBtn.addEventListener("click", autoStretch);
+    controls.resetStretchBtn.addEventListener("click", resetStretch);
+    controls.zoomInBtn.addEventListener("click", () => setZoom(state.zoom * 1.25));
+    controls.zoomOutBtn.addEventListener("click", () => setZoom(state.zoom / 1.25));
+    controls.resetViewBtn.addEventListener("click", resetView);
+    document.getElementById("resetViewHeroBtn").addEventListener("click", resetView);
+    controls.detectStarsBtn.addEventListener("click", () => {
+      detectStars();
+      renderStarList();
+      drawMarkers();
+      renderStatsPanels();
+      showToast(`Detected ${state.stars.length} star candidates.`);
+    });
+    controls.exportPngBtn.addEventListener("click", exportPng);
+    controls.exportHeaderBtn.addEventListener("click", exportHeaderText);
+    document.getElementById("demoBtn").addEventListener("click", generateDemoFrame);
+
+    canvasWrap.addEventListener("mousedown", (event) => {
+      if (!state.data) return;
+      state.isDragging = true;
+      state.dragStartX = event.clientX;
+      state.dragStartY = event.clientY;
+      state.startPanX = state.panX;
+      state.startPanY = state.panY;
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (state.isDragging) {
+        state.panX = state.startPanX + event.clientX - state.dragStartX;
+        state.panY = state.startPanY + event.clientY - state.dragStartY;
+        drawImage();
+        drawMarkers();
+        return;
+      }
+      updatePointer(event);
+    });
+
+    window.addEventListener("mouseup", () => { state.isDragging = false; });
+
+    canvasWrap.addEventListener("wheel", (event) => {
+      if (!state.data) return;
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.12 : 0.9;
+      setZoom(state.zoom * factor);
+    }, { passive: false });
+
+    canvasWrap.addEventListener("click", (event) => {
+      if (!state.data || state.isDragging) return;
+      const point = screenToImage(event.clientX, event.clientY);
+      if (!point) return;
+      const value = getPixel(point.x, point.y);
+      state.selectedPixel = { x: point.x, y: point.y, value };
+      if (photometryToggle.checked) {
+        state.selectedStar = nearestStar(point.x, point.y, 10) || { x: point.x, y: point.y, peak: value };
+        state.selectedStar.photometry = runPhotometry(state.selectedStar.x, state.selectedStar.y);
+      } else {
+        state.selectedStar = nearestStar(point.x, point.y, 8);
+      }
+      renderSelectionPanel();
+      renderStarList();
+      drawMarkers();
+    });
+
+    window.addEventListener("resize", () => {
+      drawImage();
+      drawMarkers();
+      drawHistogram();
+    });
+
+    initEmptyPanels();
+    initStarfield();
+
+    async function loadFitsFile(file) {
+      try {
+        fileNameLabel.textContent = file.name;
+        toolStatus.textContent = "Reading FITS file locally...";
+        const buffer = await file.arrayBuffer();
+        const parsed = parseFits(buffer);
+        setImageData(parsed, file.name);
+        showToast("FITS file loaded.");
+      } catch (error) {
+        console.error(error);
+        showError(error.message || "Could not parse this FITS file.");
+      }
+    }
+
+    function parseFits(buffer) {
+      const bytes = new Uint8Array(buffer);
+      const cards = [];
+      const header = {};
+      let offset = 0;
+      let endFound = false;
+
+      while (offset < bytes.length && !endFound) {
+        const blockEnd = Math.min(offset + 2880, bytes.length);
+        for (let pos = offset; pos < blockEnd; pos += 80) {
+          const cardText = asciiSlice(bytes, pos, pos + 80);
+          const key = cardText.slice(0, 8).trim();
+          const parsed = parseCard(cardText);
+          cards.push({ raw: cardText, key, value: parsed.value, comment: parsed.comment });
+          if (key) header[key] = parsed.value;
+          if (key === "END") {
+            endFound = true;
+            break;
+          }
+        }
+        offset += 2880;
+      }
+
+      if (!endFound) throw new Error("Unsupported FITS file: no END card found in the header.");
+      if (header.SIMPLE !== true && header.XTENSION) throw new Error("Unsupported FITS file: this looks like an extension HDU, not a simple primary image.");
+
+      const bitpix = Number(header.BITPIX);
+      const naxis = Number(header.NAXIS || 0);
+      const width = Number(header.NAXIS1 || 0);
+      const height = Number(header.NAXIS2 || 0);
+      const bzero = Number(header.BZERO ?? 0);
+      const bscale = Number(header.BSCALE ?? 1);
+
+      if (!width || !height || naxis < 2) throw new Error("Unsupported FITS file: only 2D image data are supported right now.");
+      if (![8, 16, 32, -32, -64].includes(bitpix)) throw new Error(`Unsupported BITPIX ${bitpix}. Supported values: 8, 16, 32, -32, -64.`);
+
+      const bytesPerPixel = Math.abs(bitpix) / 8;
+      const pixelCount = width * height;
+      const dataBytes = pixelCount * bytesPerPixel;
+      if (offset + dataBytes > bytes.length) throw new Error("FITS file ended before all image pixels could be read.");
+
+      const view = new DataView(buffer, offset, dataBytes);
+      const data = new Float64Array(pixelCount);
+
+      for (let i = 0; i < pixelCount; i++) {
+        const p = i * bytesPerPixel;
+        let raw;
+        if (bitpix === 8) raw = view.getUint8(p);
+        else if (bitpix === 16) raw = view.getInt16(p, false);
+        else if (bitpix === 32) raw = view.getInt32(p, false);
+        else if (bitpix === -32) raw = view.getFloat32(p, false);
+        else if (bitpix === -64) raw = view.getFloat64(p, false);
+        data[i] = raw * bscale + bzero;
+      }
+
+      return { header, cards, width, height, bitpix, data, bzero, bscale };
+    }
+
+    function parseCard(card) {
+      const key = card.slice(0, 8).trim();
+      if (!key || key === "END" || card[8] !== "=") return { value: key === "END" ? "" : card.slice(8).trim(), comment: "" };
+      let body = card.slice(10).trimEnd();
+      let valueText = body;
+      let comment = "";
+      let inString = false;
+      for (let i = 0; i < body.length; i++) {
+        const char = body[i];
+        if (char === "'") inString = !inString;
+        if (char === "/" && !inString) {
+          valueText = body.slice(0, i).trim();
+          comment = body.slice(i + 1).trim();
+          break;
+        }
+      }
+      return { value: parseFitsValue(valueText), comment };
+    }
+
+    function parseFitsValue(text) {
+      const trimmed = text.trim();
+      if (trimmed === "T") return true;
+      if (trimmed === "F") return false;
+      if (trimmed.startsWith("'")) return trimmed.slice(1, trimmed.lastIndexOf("'")).trim();
+      const normalized = trimmed.replace(/D/i, "E");
+      const number = Number(normalized);
+      return Number.isFinite(number) ? number : trimmed;
+    }
+
+    function asciiSlice(bytes, start, end) {
+      let output = "";
+      for (let i = start; i < end && i < bytes.length; i++) output += String.fromCharCode(bytes[i]);
+      return output;
+    }
+
+    function setImageData(parsed, fileName) {
+      state.header = parsed.header;
+      state.headerCards = parsed.cards;
+      state.width = parsed.width;
+      state.height = parsed.height;
+      state.bitpix = parsed.bitpix;
+      state.data = parsed.data;
+      state.fileName = fileName;
+      state.selectedPixel = null;
+      state.selectedStar = null;
+      state.hasWcs = hasWcsHeader(parsed.header);
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+
+      state.stats = calculateStats(state.data, state.bitpix);
+      state.histogram = makeHistogram(state.data, 256, state.stats.min, state.stats.max);
+      resetStretch();
+      detectStars();
+      enableControls(true);
+      renderAll();
+      renderHeaderPanels();
+      renderStarList();
+      renderSelectionPanel();
+      readyDot.classList.add("ready");
+      readyText.textContent = "Image loaded";
+      emptyViewer.classList.add("hidden");
+      viewerSubtitle.textContent = `${fileName} • ${state.width} × ${state.height} • BITPIX ${state.bitpix}`;
+      toolStatus.textContent = "FITS image parsed. Stretch, zoom, inspect pixels, or click stars for photometry.";
+    }
+
+    function enableControls(enabled) {
+      Object.values(controls).forEach((button) => { button.disabled = !enabled; });
+    }
+
+    function initEmptyPanels() {
+      summaryGrid.innerHTML = makeMetric("Dimensions", "—") + makeMetric("Object", "—") + makeMetric("Exposure", "—") + makeMetric("Filter", "—");
+      statsGrid.innerHTML = makeMetric("Min / max", "—") + makeMetric("Mean", "—") + makeMetric("Median", "—") + makeMetric("Std dev", "—");
+      selectionGrid.innerHTML = makeMetric("Selection", "—") + makeMetric("Aperture flux", "—") + makeMetric("Background", "—") + makeMetric("SNR", "—");
+      warningGrid.innerHTML = makeWarning("Saturated pixels", "—", "good") + makeWarning("Hot pixels", "—", "good") + makeWarning("Star count", "—", "good") + makeWarning("Sharpness", "—", "good");
+      headerTable.innerHTML = `<div class="empty-viewer" style="position:relative;min-height:90px;"><div><strong>No header loaded</strong>Upload a FITS file to read its card values.</div></div>`;
+      starList.innerHTML = `<div class="note-box">No stars detected yet.</div>`;
+      enableControls(false);
+      resizeCanvasToWrap();
+      drawHistogram();
+    }
+
+    function renderAll() {
+      if (!state.data) return;
+      blackValue.textContent = `${Number(blackSlider.value).toFixed(1)}%`;
+      whiteValue.textContent = `${Number(whiteSlider.value).toFixed(1)}%`;
+      state.displayPixels = createDisplayPixels();
+      drawImage();
+      drawMarkers();
+      drawHistogram();
+      renderStatsPanels();
+    }
+
+    function createDisplayPixels() {
+      const data = state.data;
+      const pixels = new Uint8ClampedArray(data.length);
+      const black = percentileValue(Number(blackSlider.value));
+      const white = percentileValue(Number(whiteSlider.value));
+      const span = Math.max(white - black, Number.EPSILON);
+      const mode = stretchSelect.value;
+      const invert = invertToggle.checked;
+
+      for (let i = 0; i < data.length; i++) {
+        let t = clamp01((data[i] - black) / span);
+        if (mode === "log") t = Math.log10(1 + 99 * t) / 2;
+        else if (mode === "sqrt") t = Math.sqrt(t);
+        else if (mode === "asinh") t = Math.asinh(10 * t) / Math.asinh(10);
+        else if (mode === "histogram") t = histogramEqualizedValue(data[i]);
+        if (invert) t = 1 - t;
+        pixels[i] = Math.round(t * 255);
+      }
+      return pixels;
+    }
+
+    function drawImage() {
+      if (!state.data || !state.displayPixels) {
+        resizeCanvasToWrap();
+        return;
+      }
+      resizeCanvasToWrap();
+      const temp = document.createElement("canvas");
+      temp.width = state.width;
+      temp.height = state.height;
+      const tctx = temp.getContext("2d");
+      const image = tctx.createImageData(state.width, state.height);
+      for (let i = 0; i < state.displayPixels.length; i++) {
+        const value = state.displayPixels[i];
+        const j = i * 4;
+        image.data[j] = value;
+        image.data[j + 1] = value;
+        image.data[j + 2] = value;
+        image.data[j + 3] = 255;
+      }
+      tctx.putImageData(image, 0, 0);
+      ctx.clearRect(0, 0, fitsCanvas.width, fitsCanvas.height);
+      const box = getImageDrawBox();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(temp, box.x, box.y, box.w, box.h);
+      zoomText.textContent = `Zoom ${Math.round(state.zoom * 100)}%`;
+    }
+
+    function resizeCanvasToWrap() {
+      const rect = canvasWrap.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      fitsCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      fitsCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      fitsCanvas.style.width = rect.width + "px";
+      fitsCanvas.style.height = rect.height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function getImageDrawBox() {
+      const rect = canvasWrap.getBoundingClientRect();
+      if (!state.width || !state.height) return { x: 0, y: 0, w: rect.width, h: rect.height, scale: 1 };
+      const baseScale = Math.min(rect.width / state.width, rect.height / state.height);
+      const scale = baseScale * state.zoom;
+      const w = state.width * scale;
+      const h = state.height * scale;
+      const x = (rect.width - w) / 2 + state.panX;
+      const y = (rect.height - h) / 2 + state.panY;
+      return { x, y, w, h, scale };
+    }
+
+    function drawMarkers() {
+      markerLayer.innerHTML = "";
+      if (!state.data || !markersToggle.checked) return;
+      const rect = canvasWrap.getBoundingClientRect();
+      markerLayer.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
+      markerLayer.setAttribute("width", rect.width);
+      markerLayer.setAttribute("height", rect.height);
+      const box = getImageDrawBox();
+
+      state.stars.slice(0, 220).forEach((star, index) => {
+        const sx = box.x + star.x * box.scale;
+        const sy = box.y + star.y * box.scale;
+        if (sx < -20 || sy < -20 || sx > rect.width + 20 || sy > rect.height + 20) return;
+        const selected = state.selectedStar && Math.round(state.selectedStar.x) === Math.round(star.x) && Math.round(state.selectedStar.y) === Math.round(star.y);
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", sx);
+        circle.setAttribute("cy", sy);
+        circle.setAttribute("r", selected ? 9 : 5);
+        circle.setAttribute("fill", "none");
+        circle.setAttribute("stroke", selected ? "#b8ffd5" : "#2c7eff");
+        circle.setAttribute("stroke-width", selected ? "2" : "1.2");
+        circle.setAttribute("opacity", selected ? "0.95" : "0.72");
+        markerLayer.appendChild(circle);
+
+        if (index < 30 && state.zoom > 1.35) {
+          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          label.setAttribute("x", sx + 7);
+          label.setAttribute("y", sy - 7);
+          label.setAttribute("fill", "#b8c7e6");
+          label.setAttribute("font-size", "10");
+          label.textContent = `S${index + 1}`;
+          markerLayer.appendChild(label);
+        }
+      });
+    }
+
+    function drawHistogram() {
+      const rect = histogramCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      histogramCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      histogramCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      hctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = rect.width;
+      const height = rect.height;
+      hctx.clearRect(0, 0, width, height);
+      hctx.fillStyle = "rgba(0,0,0,0.2)";
+      hctx.fillRect(0, 0, width, height);
+      if (!state.histogram.length) return;
+      const maxCount = Math.max(...state.histogram);
+      const barW = width / state.histogram.length;
+      hctx.fillStyle = "rgba(44,126,255,0.72)";
+      state.histogram.forEach((count, i) => {
+        const barH = maxCount ? (count / maxCount) * (height - 22) : 0;
+        hctx.fillRect(i * barW, height - barH, Math.max(1, barW), barH);
+      });
+      const blackX = (Number(blackSlider.value) / 100) * width;
+      const whiteX = (Number(whiteSlider.value) / 100) * width;
+      hctx.strokeStyle = "rgba(184,255,213,0.9)";
+      hctx.lineWidth = 1.5;
+      hctx.beginPath(); hctx.moveTo(blackX, 0); hctx.lineTo(blackX, height); hctx.stroke();
+      hctx.strokeStyle = "rgba(255,227,160,0.95)";
+      hctx.beginPath(); hctx.moveTo(whiteX, 0); hctx.lineTo(whiteX, height); hctx.stroke();
+    }
+
+    function calculateStats(data, bitpix) {
+      let min = Infinity;
+      let max = -Infinity;
+      let sum = 0;
+      let valid = 0;
+      for (const value of data) {
+        if (!Number.isFinite(value)) continue;
+        if (value < min) min = value;
+        if (value > max) max = value;
+        sum += value;
+        valid++;
+      }
+      const mean = valid ? sum / valid : 0;
+      const sample = sampleData(data, 120000).sort((a, b) => a - b);
+      const median = percentileFromSorted(sample, 50);
+      const q1 = percentileFromSorted(sample, 25);
+      const q3 = percentileFromSorted(sample, 75);
+      let variance = 0;
+      for (const value of sample) variance += (value - mean) ** 2;
+      const std = Math.sqrt(variance / Math.max(1, sample.length));
+      const background = median;
+      const noise = 0.7413 * (q3 - q1) || std;
+      const dynamicRange = max - min;
+      const saturationValue = bitpix > 0 ? (bitpix === 8 ? 255 : bitpix === 16 ? 32767 : 2147483647) : max;
+      const saturated = countWhere(data, (v) => v >= saturationValue || v >= max);
+      const hotThreshold = median + Math.max(8 * noise, 0.92 * dynamicRange);
+      const hotPixels = countHotPixels(data, hotThreshold);
+      return { min, max, mean, median, std, background, noise, dynamicRange, saturated, hotPixels, q1, q3 };
+    }
+
+    function sampleData(data, maxSamples) {
+      if (data.length <= maxSamples) return Array.from(data).filter(Number.isFinite);
+      const step = Math.ceil(data.length / maxSamples);
+      const sample = [];
+      for (let i = 0; i < data.length; i += step) if (Number.isFinite(data[i])) sample.push(data[i]);
+      return sample;
+    }
+
+    function percentileFromSorted(sorted, percentile) {
+      if (!sorted.length) return 0;
+      const pos = (percentile / 100) * (sorted.length - 1);
+      const low = Math.floor(pos);
+      const high = Math.ceil(pos);
+      if (low === high) return sorted[low];
+      return sorted[low] + (sorted[high] - sorted[low]) * (pos - low);
+    }
+
+    function percentileValue(percentile) {
+      const sorted = sampleData(state.data, 140000).sort((a, b) => a - b);
+      return percentileFromSorted(sorted, percentile);
+    }
+
+    function makeHistogram(data, bins, min, max) {
+      const hist = new Array(bins).fill(0);
+      const span = Math.max(max - min, Number.EPSILON);
+      for (let i = 0; i < data.length; i++) {
+        const value = data[i];
+        if (!Number.isFinite(value)) continue;
+        const bin = Math.min(bins - 1, Math.max(0, Math.floor(((value - min) / span) * bins)));
+        hist[bin]++;
+      }
+      return hist;
+    }
+
+    function histogramEqualizedValue(value) {
+      if (!state.histogram.length || !state.stats) return 0;
+      const bins = state.histogram.length;
+      const span = Math.max(state.stats.max - state.stats.min, Number.EPSILON);
+      const bin = Math.min(bins - 1, Math.max(0, Math.floor(((value - state.stats.min) / span) * bins)));
+      let cumulative = 0;
+      for (let i = 0; i <= bin; i++) cumulative += state.histogram[i];
+      return clamp01(cumulative / state.data.length);
+    }
+
+    function detectStars() {
+      if (!state.data || !state.stats) return;
+      const width = state.width;
+      const height = state.height;
+      const data = state.data;
+      const threshold = state.stats.background + Math.max(3.5 * state.stats.noise, state.stats.dynamicRange * 0.015);
+      const detections = [];
+      const stride = Math.max(1, Math.floor(Math.sqrt((width * height) / 550000)));
+
+      for (let y = 3; y < height - 3; y += stride) {
+        for (let x = 3; x < width - 3; x += stride) {
+          const i = y * width + x;
+          const value = data[i];
+          if (value <= threshold) continue;
+          if (!isLocalMax(x, y, value)) continue;
+          const existing = detections.find((star) => Math.hypot(star.x - x, star.y - y) < 7);
+          if (existing) {
+            if (value > existing.peak) Object.assign(existing, measureStar(x, y));
+          } else {
+            detections.push(measureStar(x, y));
+          }
+        }
+      }
+
+      state.stars = detections
+        .filter((star) => star.peak > threshold)
+        .sort((a, b) => b.peak - a.peak)
+        .slice(0, 600);
+    }
+
+    function isLocalMax(x, y, value) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (getPixel(x + dx, y + dy) > value) return false;
+        }
+      }
+      return true;
+    }
+
+    function measureStar(x, y) {
+      const peak = getPixel(x, y);
+      const photometry = runPhotometry(x, y);
+      const fwhm = estimateFwhm(x, y, peak);
+      const sharpness = peak > state.stats.background ? (peak - state.stats.background) / Math.max(state.stats.noise, 1e-9) : 0;
+      return { x, y, peak, flux: photometry.netFlux, snr: photometry.snr, fwhm, sharpness, photometry };
+    }
+
+    function estimateFwhm(x, y, peak) {
+      const half = state.stats.background + (peak - state.stats.background) / 2;
+      const directions = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+      const radii = [];
+      for (const [dx, dy] of directions) {
+        for (let r = 1; r <= 12; r++) {
+          const value = getPixel(Math.round(x + dx * r), Math.round(y + dy * r));
+          if (value <= half) { radii.push(r); break; }
+        }
+      }
+      if (!radii.length) return null;
+      return 2 * (radii.reduce((a, b) => a + b, 0) / radii.length);
+    }
+
+    function runPhotometry(cx, cy) {
+      const apertureRadius = 5;
+      const innerAnnulus = 8;
+      const outerAnnulus = 12;
+      let apertureSum = 0;
+      let aperturePixels = 0;
+      let backgroundSum = 0;
+      let backgroundPixels = 0;
+
+      for (let y = Math.floor(cy - outerAnnulus); y <= Math.ceil(cy + outerAnnulus); y++) {
+        for (let x = Math.floor(cx - outerAnnulus); x <= Math.ceil(cx + outerAnnulus); x++) {
+          if (x < 0 || y < 0 || x >= state.width || y >= state.height) continue;
+          const r = Math.hypot(x - cx, y - cy);
+          const value = getPixel(x, y);
+          if (r <= apertureRadius) {
+            apertureSum += value;
+            aperturePixels++;
+          } else if (r >= innerAnnulus && r <= outerAnnulus) {
+            backgroundSum += value;
+            backgroundPixels++;
+          }
+        }
+      }
+
+      const backgroundMean = backgroundPixels ? backgroundSum / backgroundPixels : state.stats.background;
+      const netFlux = apertureSum - backgroundMean * aperturePixels;
+      const noise = Math.sqrt(Math.max(apertureSum + aperturePixels * backgroundMean, 1));
+      const snr = netFlux / Math.max(noise, 1e-9);
+      return { apertureRadius, innerAnnulus, outerAnnulus, apertureSum, aperturePixels, backgroundMean, backgroundPixels, netFlux, snr };
+    }
+
+    function countWhere(data, predicate) {
+      let count = 0;
+      const step = Math.max(1, Math.floor(data.length / 250000));
+      for (let i = 0; i < data.length; i += step) if (predicate(data[i])) count++;
+      return Math.round(count * step);
+    }
+
+    function countHotPixels(data, threshold) {
+      if (!state.width || !state.height) return 0;
+      let count = 0;
+      const step = Math.max(1, Math.floor(data.length / 180000));
+      for (let i = state.width + 1; i < data.length - state.width - 1; i += step) {
+        const value = data[i];
+        if (value < threshold) continue;
+        const neighborMean = (data[i - 1] + data[i + 1] + data[i - state.width] + data[i + state.width]) / 4;
+        if (value > neighborMean + Math.max(6 * state.stats?.noise || 0, 1)) count++;
+      }
+      return Math.round(count * step);
+    }
+
+    function getPixel(x, y) {
+      if (!state.data) return NaN;
+      if (x < 0 || y < 0 || x >= state.width || y >= state.height) return NaN;
+      return state.data[Math.floor(y) * state.width + Math.floor(x)];
+    }
+
+    function screenToImage(clientX, clientY) {
+      const rect = canvasWrap.getBoundingClientRect();
+      const box = getImageDrawBox();
+      const sx = clientX - rect.left;
+      const sy = clientY - rect.top;
+      const x = Math.floor((sx - box.x) / box.scale);
+      const y = Math.floor((sy - box.y) / box.scale);
+      if (x < 0 || y < 0 || x >= state.width || y >= state.height) return null;
+      return { x, y };
+    }
+
+    function updatePointer(event) {
+      if (!state.data) return;
+      const point = screenToImage(event.clientX, event.clientY);
+      if (!point) return;
+      const value = getPixel(point.x, point.y);
+      pointerMetric.textContent = `x ${point.x}, y ${point.y}`;
+      pixelMetric.textContent = formatNumber(value);
+      wcsMetric.textContent = state.hasWcs ? estimateWcs(point.x, point.y) : "No WCS";
+    }
+
+    function setZoom(value) {
+      if (!state.data) return;
+      state.zoom = Math.min(18, Math.max(0.15, value));
+      drawImage();
+      drawMarkers();
+    }
+
+    function resetView() {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      drawImage();
+      drawMarkers();
+    }
+
+    function autoStretch() {
+      if (!state.data) return;
+      blackSlider.value = "1";
+      whiteSlider.value = state.stats.saturated > state.data.length * 0.005 ? "98.5" : "99.5";
+      stretchSelect.value = "asinh";
+      renderAll();
+      showToast("Auto stretch applied.");
+    }
+
+    function resetStretch() {
+      blackSlider.value = "1";
+      whiteSlider.value = "99";
+      stretchSelect.value = "asinh";
+      invertToggle.checked = false;
+      if (state.data) renderAll();
+    }
+
+    function renderHeaderPanels() {
+      const h = state.header;
+      const summary = [
+        ["Dimensions", `${state.width} × ${state.height}`],
+        ["Bit depth", `BITPIX ${state.bitpix}`],
+        ["Object", cleanHeaderValue(h.OBJECT) || "Unknown"],
+        ["Exposure", formatExposure(h.EXPTIME ?? h.EXPOSURE ?? h.ITIME)],
+        ["Filter", cleanHeaderValue(h.FILTER) || "Unknown"],
+        ["Telescope", cleanHeaderValue(h.TELESCOP ?? h.TELSCOPE ?? h.INSTRUME) || "Unknown"],
+        ["Date", cleanHeaderValue(h["DATE-OBS"] ?? h.DATE) || "Unknown"],
+        ["RA / Dec", formatRaDec(h)]
+      ];
+      summaryGrid.innerHTML = summary.map(([label, value]) => makeMetric(label, value)).join("");
+
+      headerTable.innerHTML = state.headerCards
+        .filter((card) => card.key)
+        .map((card) => `
+          <div class="header-row">
+            <div class="header-key">${escapeHtml(card.key)}</div>
+            <div class="header-value">${escapeHtml(formatHeaderCardValue(card))}</div>
+          </div>
+        `).join("");
+
+      plateSolveText.textContent = state.hasWcs ? "WCS keywords found: approximate coordinate readout enabled" : "Placeholder: needs astrometry engine later";
+    }
+
+    function renderStatsPanels() {
+      if (!state.stats) return;
+      const s = state.stats;
+      statsGrid.innerHTML = [
+        ["Min", formatNumber(s.min)],
+        ["Max", formatNumber(s.max)],
+        ["Mean", formatNumber(s.mean)],
+        ["Median", formatNumber(s.median)],
+        ["Std dev", formatNumber(s.std)],
+        ["Background", formatNumber(s.background)],
+        ["Noise", formatNumber(s.noise)],
+        ["Dynamic range", formatNumber(s.dynamicRange)],
+        ["SNR estimate", estimateImageSnr()],
+        ["Star count", String(state.stars.length)]
+      ].map(([label, value]) => makeMetric(label, value)).join("");
+
+      const saturatedClass = s.saturated > state.data.length * 0.005 ? "danger" : s.saturated > 0 ? "warn" : "good";
+      const hotClass = s.hotPixels > state.data.length * 0.001 ? "warn" : "good";
+      const sharpness = estimateSharpnessScore();
+      warningGrid.innerHTML = makeWarning("Saturated pixels", `${s.saturated.toLocaleString()} px`, saturatedClass) +
+        makeWarning("Possible hot pixels", `${s.hotPixels.toLocaleString()} px`, hotClass) +
+        makeWarning("Star count estimate", `${state.stars.length}`, state.stars.length ? "good" : "warn") +
+        makeWarning("FWHM / sharpness", sharpness, "good");
+
+      classificationText.textContent = classifyImage();
+    }
+
+    function renderStarList() {
+      if (!state.stars.length) {
+        starList.innerHTML = `<div class="note-box">No stars detected. Try auto stretch or run detection after loading a star field.</div>`;
+        return;
+      }
+      starList.innerHTML = state.stars.slice(0, 80).map((star, index) => {
+        const active = state.selectedStar && Math.round(state.selectedStar.x) === Math.round(star.x) && Math.round(state.selectedStar.y) === Math.round(star.y);
+        return `
+          <button class="star-item ${active ? "active" : ""}" type="button" data-index="${index}">
+            <div><span>Star ${index + 1}</span><strong>x ${star.x}, y ${star.y}</strong></div>
+            <div><span>peak</span><strong>${formatNumber(star.peak)}</strong></div>
+          </button>
+        `;
+      }).join("");
+      starList.querySelectorAll(".star-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const star = state.stars[Number(item.dataset.index)];
+          state.selectedStar = star;
+          state.selectedPixel = { x: star.x, y: star.y, value: star.peak };
+          renderSelectionPanel();
+          renderStarList();
+          drawMarkers();
+        });
+      });
+    }
+
+    function renderSelectionPanel() {
+      const p = state.selectedPixel;
+      const star = state.selectedStar;
+      if (!p && !star) {
+        selectionGrid.innerHTML = makeMetric("Selection", "—") + makeMetric("Pixel value", "—") + makeMetric("Aperture flux", "—") + makeMetric("SNR", "—");
+        return;
+      }
+      const phot = star?.photometry || (star ? runPhotometry(star.x, star.y) : null);
+      selectionGrid.innerHTML = [
+        ["Pixel", p ? `x ${p.x}, y ${p.y}` : "—"],
+        ["Value", p ? formatNumber(p.value) : "—"],
+        ["Selected star", star ? `x ${Math.round(star.x)}, y ${Math.round(star.y)}` : "No star"],
+        ["Peak", star ? formatNumber(star.peak) : "—"],
+        ["Aperture sum", phot ? formatNumber(phot.apertureSum) : "—"],
+        ["Background", phot ? formatNumber(phot.backgroundMean) : "—"],
+        ["Net flux", phot ? formatNumber(phot.netFlux) : "—"],
+        ["Rough SNR", phot ? formatNumber(phot.snr) : "—"],
+        ["FWHM estimate", star?.fwhm ? `${formatNumber(star.fwhm)} px` : "—"],
+        ["Sharpness", star?.sharpness ? formatNumber(star.sharpness) : "—"]
+      ].map(([label, value]) => makeMetric(label, value)).join("");
+    }
+
+    function makeMetric(label, value) {
+      return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
+    }
+
+    function makeWarning(label, value, level) {
+      return `<div class="warning-item ${level}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
+    }
+
+    function formatHeaderCardValue(card) {
+      const value = card.value === undefined || card.value === null ? "" : String(card.value);
+      return card.comment ? `${value} / ${card.comment}` : value;
+    }
+
+    function formatExposure(value) {
+      if (value === undefined || value === null || value === "") return "Unknown";
+      const number = Number(value);
+      return Number.isFinite(number) ? `${formatNumber(number)} s` : String(value);
+    }
+
+    function formatRaDec(h) {
+      const ra = h.RA ?? h.OBJCTRA ?? h.CRVAL1;
+      const dec = h.DEC ?? h.OBJCTDEC ?? h.CRVAL2;
+      if (ra === undefined && dec === undefined) return "Not present";
+      return `${cleanHeaderValue(ra) || "?"} / ${cleanHeaderValue(dec) || "?"}`;
+    }
+
+    function cleanHeaderValue(value) {
+      if (value === undefined || value === null || value === "") return "";
+      return String(value).trim();
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(Number(value))) return "—";
+      const number = Number(value);
+      const abs = Math.abs(number);
+      if (abs >= 100000 || (abs > 0 && abs < 0.001)) return number.toExponential(3);
+      if (abs >= 1000) return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      if (abs >= 10) return number.toLocaleString(undefined, { maximumFractionDigits: 3 });
+      return number.toLocaleString(undefined, { maximumFractionDigits: 5 });
+    }
+
+    function estimateImageSnr() {
+      if (!state.stats) return "—";
+      const signal = Math.max(state.stats.mean - state.stats.background, 0);
+      return formatNumber(signal / Math.max(state.stats.noise, 1e-9));
+    }
+
+    function estimateSharpnessScore() {
+      if (!state.stars.length) return "No stars";
+      const fwhms = state.stars.slice(0, 30).map((s) => s.fwhm).filter(Number.isFinite);
+      if (!fwhms.length) return "—";
+      const meanFwhm = fwhms.reduce((a, b) => a + b, 0) / fwhms.length;
+      const score = Math.max(0, 100 - meanFwhm * 8);
+      return `${formatNumber(meanFwhm)} px fwhm • ${Math.round(score)}/100`;
+    }
+
+    function classifyImage() {
+      if (!state.data || !state.stats) return "Waiting for image";
+      const h = state.header;
+      const object = String(h.OBJECT || "").toLowerCase();
+      const filter = String(h.FILTER || "").toLowerCase();
+      const saturatedRatio = state.stats.saturated / state.data.length;
+      const starDensity = state.stars.length / (state.width * state.height / 1000000);
+      if (/dark|bias|flat/.test(object) || /dark|bias|flat/.test(filter)) return "Possible calibration frame";
+      if (/moon|lunar|jupiter|saturn|mars|venus/.test(object)) return "Possible lunar / planetary image";
+      if (saturatedRatio > 0.08 && state.stars.length < 8) return "Possible lunar / planetary or saturated frame";
+      if (starDensity > 220) return "Dense star field or cluster";
+      if (state.stars.length > 25 && state.stats.dynamicRange > state.stats.noise * 30) return "Star field";
+      if (state.stars.length < 12 && state.stats.mean > state.stats.background + state.stats.noise * 0.4) return "Possible nebula / galaxy / extended object";
+      return "General FITS image";
+    }
+
+    function hasWcsHeader(h) {
+      return h.CRVAL1 !== undefined && h.CRVAL2 !== undefined && h.CRPIX1 !== undefined && h.CRPIX2 !== undefined && (h.CDELT1 !== undefined || h.CD1_1 !== undefined);
+    }
+
+    function estimateWcs(x, y) {
+      const h = state.header;
+      if (!state.hasWcs) return "No WCS";
+      const crval1 = Number(h.CRVAL1);
+      const crval2 = Number(h.CRVAL2);
+      const crpix1 = Number(h.CRPIX1);
+      const crpix2 = Number(h.CRPIX2);
+      const cd11 = Number(h.CD1_1 ?? h.CDELT1 ?? 0);
+      const cd22 = Number(h.CD2_2 ?? h.CDELT2 ?? 0);
+      const cd12 = Number(h.CD1_2 ?? 0);
+      const cd21 = Number(h.CD2_1 ?? 0);
+      const dx = x + 1 - crpix1;
+      const dy = y + 1 - crpix2;
+      const ra = crval1 + cd11 * dx + cd12 * dy;
+      const dec = crval2 + cd21 * dx + cd22 * dy;
+      return `RA ${formatNumber(ra)}°, Dec ${formatNumber(dec)}°`;
+    }
+
+    function nearestStar(x, y, radius) {
+      let best = null;
+      let bestDistance = Infinity;
+      for (const star of state.stars) {
+        const distance = Math.hypot(star.x - x, star.y - y);
+        if (distance < radius && distance < bestDistance) {
+          best = star;
+          bestDistance = distance;
+        }
+      }
+      return best;
+    }
+
+    function exportPng() {
+      if (!state.data) return;
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = state.width;
+      exportCanvas.height = state.height;
+      const exportCtx = exportCanvas.getContext("2d");
+      const image = exportCtx.createImageData(state.width, state.height);
+      for (let i = 0; i < state.displayPixels.length; i++) {
+        const value = state.displayPixels[i];
+        const j = i * 4;
+        image.data[j] = value;
+        image.data[j + 1] = value;
+        image.data[j + 2] = value;
+        image.data[j + 3] = 255;
+      }
+      exportCtx.putImageData(image, 0, 0);
+      downloadUrl(exportCanvas.toDataURL("image/png"), `${baseName(state.fileName) || "stellasim-fits"}-stretched.png`);
+    }
+
+    function exportHeaderText() {
+      if (!state.headerCards.length) return;
+      const text = state.headerCards.map((card) => card.raw).join("\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      downloadUrl(URL.createObjectURL(blob), `${baseName(state.fileName) || "stellasim-fits"}-header.txt`);
+    }
+
+    function downloadUrl(url, filename) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    }
+
+    function baseName(name) {
+      return String(name || "").replace(/\.[^.]+$/, "");
+    }
+
+    function generateDemoFrame() {
+      const width = 640;
+      const height = 420;
+      const data = new Float64Array(width * height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const gradient = 800 + x * 0.22 + y * 0.12;
+          const noise = gaussianRandom() * 18;
+          data[y * width + x] = gradient + noise;
+        }
+      }
+      const stars = [
+        [120, 95, 5200, 2.3], [220, 160, 8400, 2.8], [470, 120, 11800, 3.2], [510, 310, 7200, 2.4],
+        [300, 270, 4200, 2.6], [155, 305, 9800, 3.4], [390, 210, 6500, 2.1], [585, 70, 4800, 2.0]
+      ];
+      for (let i = 0; i < 120; i++) stars.push([Math.random() * width, Math.random() * height, 700 + Math.random() * 2400, 1.4 + Math.random() * 2.1]);
+      stars.forEach(([cx, cy, amp, sigma]) => {
+        const r = Math.ceil(sigma * 5);
+        for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) {
+          for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+            if (x < 0 || y < 0 || x >= width || y >= height) continue;
+            const d2 = (x - cx) ** 2 + (y - cy) ** 2;
+            data[y * width + x] += amp * Math.exp(-d2 / (2 * sigma * sigma));
+          }
+        }
+      });
+      for (let i = 0; i < 80; i++) {
+        const x = Math.floor(Math.random() * width);
+        const y = Math.floor(Math.random() * height);
+        data[y * width + x] += 16000 + Math.random() * 12000;
+      }
+      const parsed = {
+        header: {
+          SIMPLE: true, BITPIX: -32, NAXIS: 2, NAXIS1: width, NAXIS2: height,
+          OBJECT: "Demo Star Field", EXPTIME: 60, FILTER: "Luminance", TELESCOP: "StellaSim Demo Scope",
+          "DATE-OBS": new Date().toISOString(), RA: "05:35:17", DEC: "-05:23:28", BSCALE: 1, BZERO: 0
+        },
+        cards: [
+          { raw: "SIMPLE  =                    T", key: "SIMPLE", value: true, comment: "" },
+          { raw: "BITPIX  =                  -32", key: "BITPIX", value: -32, comment: "" },
+          { raw: "NAXIS   =                    2", key: "NAXIS", value: 2, comment: "" },
+          { raw: "NAXIS1  =                  640", key: "NAXIS1", value: 640, comment: "" },
+          { raw: "NAXIS2  =                  420", key: "NAXIS2", value: 420, comment: "" },
+          { raw: "OBJECT  = 'Demo Star Field'", key: "OBJECT", value: "Demo Star Field", comment: "" },
+          { raw: "EXPTIME =                 60.0", key: "EXPTIME", value: 60, comment: "seconds" },
+          { raw: "FILTER  = 'Luminance'", key: "FILTER", value: "Luminance", comment: "" },
+          { raw: "TELESCOP= 'StellaSim Demo Scope'", key: "TELESCOP", value: "StellaSim Demo Scope", comment: "" },
+          { raw: "END", key: "END", value: "", comment: "" }
+        ],
+        width,
+        height,
+        bitpix: -32,
+        data
+      };
+      fileNameLabel.textContent = "demo-star-field.fits";
+      setImageData(parsed, "demo-star-field.fits");
+      showToast("Demo FITS-style frame generated.");
+    }
+
+    function gaussianRandom() {
+      let u = 0;
+      let v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    function showError(message) {
+      readyDot.classList.remove("ready");
+      readyText.textContent = "Parse error";
+      toolStatus.textContent = message;
+      showToast(message);
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 3200);
+    }
+
+    function clamp01(value) {
+      return Math.min(1, Math.max(0, value));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+    }
+
+    // starfield background
+    function initStarfield() {
+      const canvas = document.getElementById("starfield");
+      const context = canvas.getContext("2d");
+      let width = 0;
+      let height = 0;
+      let stars = [];
+      let lines = [];
+      let meteors = [];
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetMouseX = 0;
+      let targetMouseY = 0;
+      let lastMeteor = 0;
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        createStars();
+        createLines();
+      }
+
+      function createStars() {
+        stars = [];
+        const count = Math.min(340, Math.floor((width * height) / 6200));
+        for (let i = 0; i < count; i++) {
+          const behaviorRoll = Math.random();
+          const behavior = behaviorRoll < 0.55 ? "twinkle" : behaviorRoll < 0.82 ? "drift" : "bright";
+          const depth = Math.random();
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: behavior === "bright" ? 1.2 + Math.random() * 1.8 : 0.45 + Math.random() * 1.1,
+            color: Math.random() < 0.68 ? "255,255,255" : Math.random() < 0.82 ? "44,126,255" : "11,61,145",
+            alpha: 0.2 + Math.random() * 0.7,
+            behavior,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.003 + Math.random() * 0.018,
+            dx: behavior === "drift" ? (Math.random() - 0.5) * 0.08 : 0,
+            dy: behavior === "drift" ? (Math.random() - 0.5) * 0.08 : 0,
+            parallax: 0.15 + depth * 0.85
+          });
+        }
+      }
+
+      function createLines() {
+        lines = [];
+        const anchors = stars.filter((star) => star.r > 1.15).sort(() => Math.random() - 0.5).slice(0, 18);
+        const used = new Set();
+        anchors.forEach((a) => {
+          anchors.map((b) => ({ b, d: Math.hypot(a.x - b.x, a.y - b.y) }))
+            .filter((item) => item.b !== a && item.d > 65 && item.d < 190)
+            .sort((p, q) => p.d - q.d)
+            .slice(0, 2)
+            .forEach((item) => {
+              const key = [anchors.indexOf(a), anchors.indexOf(item.b)].sort((m, n) => m - n).join("-");
+              if (!used.has(key)) {
+                used.add(key);
+                lines.push({ a, b: item.b, alpha: 0.055 + Math.random() * 0.075 });
+              }
+            });
+        });
+      }
+
+      function drawMist() {
+        const g1 = context.createRadialGradient(width * 0.18, height * 0.16, 0, width * 0.18, height * 0.16, 260);
+        g1.addColorStop(0, "rgba(11,61,145,0.08)");
+        g1.addColorStop(1, "rgba(11,61,145,0)");
+        const g2 = context.createRadialGradient(width * 0.82, height * 0.24, 0, width * 0.82, height * 0.24, 300);
+        g2.addColorStop(0, "rgba(44,126,255,0.06)");
+        g2.addColorStop(1, "rgba(44,126,255,0)");
+        context.fillStyle = g1;
+        context.fillRect(0, 0, width, height);
+        context.fillStyle = g2;
+        context.fillRect(0, 0, width, height);
+      }
+
+      function drawLines(time) {
+        lines.forEach((line) => {
+          const ax = line.a.x + mouseX * line.a.parallax * 0.012;
+          const ay = line.a.y + mouseY * line.a.parallax * 0.012;
+          const bx = line.b.x + mouseX * line.b.parallax * 0.012;
+          const by = line.b.y + mouseY * line.b.parallax * 0.012;
+          const pulse = 0.75 + 0.25 * Math.sin(time * 0.001 + ax * 0.01);
+          context.beginPath();
+          context.moveTo(ax, ay);
+          context.lineTo(bx, by);
+          context.strokeStyle = `rgba(44,126,255,${line.alpha * pulse})`;
+          context.lineWidth = 1;
+          context.stroke();
+        });
+      }
+
+      function drawStars(time) {
+        stars.forEach((star) => {
+          if (star.behavior === "drift") {
+            star.x += star.dx;
+            star.y += star.dy;
+            if (star.x < -4) star.x = width + 4;
+            if (star.x > width + 4) star.x = -4;
+            if (star.y < -4) star.y = height + 4;
+            if (star.y > height + 4) star.y = -4;
+          }
+          const twinkle = star.behavior === "twinkle" || star.behavior === "bright" ? 0.55 + 0.45 * Math.sin(time * star.speed + star.phase) : 1;
+          const alpha = star.alpha * twinkle;
+          const x = star.x + mouseX * star.parallax * 0.015;
+          const y = star.y + mouseY * star.parallax * 0.015;
+          context.beginPath();
+          context.arc(x, y, star.r, 0, Math.PI * 2);
+          context.fillStyle = `rgba(${star.color},${alpha})`;
+          context.shadowBlur = star.r * 6;
+          context.shadowColor = `rgba(${star.color},${alpha * 0.55})`;
+          context.fill();
+        });
+        context.shadowBlur = 0;
+      }
+
+      function maybeMeteor(time) {
+        if (time - lastMeteor < 2400 || Math.random() > 0.01) return;
+        lastMeteor = time;
+        const angle = Math.PI / 4 + Math.random() * 0.24;
+        meteors.push({ x: Math.random() * width * 0.85, y: Math.random() * height * 0.3, vx: Math.cos(angle) * (10 + Math.random() * 6), vy: Math.sin(angle) * (10 + Math.random() * 6), life: 0, max: 38 + Math.random() * 18 });
+      }
+
+      function drawMeteors() {
+        for (let i = meteors.length - 1; i >= 0; i--) {
+          const m = meteors[i];
+          const tx = m.x - m.vx * 7;
+          const ty = m.y - m.vy * 7;
+          const gradient = context.createLinearGradient(m.x, m.y, tx, ty);
+          gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+          gradient.addColorStop(0.15, "rgba(44,126,255,0.82)");
+          gradient.addColorStop(1, "rgba(11,61,145,0)");
+          context.beginPath();
+          context.moveTo(m.x, m.y);
+          context.lineTo(tx, ty);
+          context.strokeStyle = gradient;
+          context.lineWidth = 2;
+          context.stroke();
+          m.x += m.vx;
+          m.y += m.vy;
+          m.life++;
+          if (m.life > m.max) meteors.splice(i, 1);
+        }
+      }
+
+      function animate(time) {
+        context.clearRect(0, 0, width, height);
+        mouseX += (targetMouseX - mouseX) * 0.03;
+        mouseY += (targetMouseY - mouseY) * 0.03;
+        drawMist();
+        drawLines(time);
+        drawStars(time);
+        maybeMeteor(time);
+        drawMeteors();
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (event) => {
+        targetMouseX = ((event.clientX - width / 2) / width) * 26;
+        targetMouseY = ((event.clientY - height / 2) / height) * 26;
+      });
+      window.addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>
