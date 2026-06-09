@@ -113,8 +113,7 @@ The Object Database is a searchable reference tool for astronomy objects.
 It is designed to store information about stars, planets, moons, galaxies, nebulae, clusters, asteroids, comets, satellites, and other objects. Users can search for an object and view its properties, location data, visibility information, and related observing details.
 
 
-
-
+## Project Structure
 
 StellaSim is built with HTML, CSS, JavaScript, Node.js, and Express.
 
@@ -122,7 +121,6 @@ The frontend uses browser-based graphics and interactive interfaces. The backend
 
 The project is structured around a `public` folder for website files and a Node server for backend functionality.
 
-## Project Structure
 
 ```text
 StellaSim/
