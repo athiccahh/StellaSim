@@ -1,140 +1,201 @@
 # StellaSim
 
-StellaSim is an interactive astronomy platform built with web technologies. It combines space simulation, sky visualization, telescope control, astronomy planning, data tools, and Stella AI into one connected system.
+StellaSim is an interactive astronomy platform built with web technologies. It includes astronomy simulation, live sky visualization, telescope control, observing tools, space data tools, and Stella AI.
 
-## Features
+## StellaSim AI
 
-## Main Gravity Simulator
+StellaSim AI is the built-in astronomy assistant for the platform.
 
-The main simulator is a 3D orbital sandbox for building and studying space systems.
+It answers astronomy questions, explains space science concepts, helps users understand simulation behavior, and supports learning while using StellaSim. It can explain orbital mechanics, telescope concepts, exoplanets, FITS files, observing conditions, stellar evolution, spectroscopy, and general astrophysics.
 
-It supports stars, planets, moons, black holes, galaxies, asteroids, comets, satellites, and debris. Objects can be placed into the scene, edited, moved, followed, and removed. The simulation calculates gravity between bodies so users can watch orbits form, destabilize, collide, or escape.
+StellaSim AI supports formatted math responses for equations, derivations, physics explanations, and step-by-step astronomy problems.
 
-The simulator includes presets for common astronomical systems such as the Solar System, asteroid belts, binary stars, circumbinary planets, and satellite setups. It also includes visual tools like orbit trails, a curvature grid, habitable zone rings, Lagrange point markers, distance units, object focus controls, collision effects, and pause or reset controls.
+### Stella AI Droid
+
+The Stella AI Droid is the physical companion version of StellaSim AI.
+
+It is designed as a Raspberry Pi-based astronomy assistant that can speak, listen, and connect with the StellaSim website. The droid can use a microphone, speaker, camera support, and voice software to interact with users outside of the browser.
+
+The droid is designed to support future observing sessions, telescope workflows, website commands, and astronomy questions through a physical companion device.
+
+---
+
+# Simulators
+
+## Main Sim
+
+Main Sim is a 3D gravity sandbox for building and testing space systems.
+
+It supports stars, planets, moons, black holes, galaxies, asteroids, comets, satellites, and debris. Users can add objects, move them, edit their properties, follow them, delete them, and watch how gravity affects their motion.
+
+The simulator can show stable orbits, unstable systems, collisions, escaping objects, binary star systems, circumbinary planets, satellite motion, asteroid belts, and custom planetary systems.
+
+It includes orbit trails, object focus controls, pause and reset controls, distance units, habitable zone rings, Lagrange point markers, collision effects, and a curvature grid.
 
 ## Live Star Map
 
-The Live Star Map is a real-time planetarium view that shows the sky from a selected location and time.
+Live Star Map is a real-time sky viewer that shows the visible sky from a selected location and time.
 
-It converts astronomical coordinates into the visible sky using altitude and azimuth. Stars, constellations, planets, the Sun, and the Moon are displayed relative to the horizon. The map includes constellation lines, major star labels, atmosphere shading, cardinal direction markers, an equatorial grid, an azimuthal grid, a horizon ring, and below-horizon fading.
+It converts astronomical coordinates into altitude and azimuth so users can see where objects appear in the sky. It displays stars, constellations, planets, the Sun, the Moon, horizon markers, cardinal directions, atmosphere shading, constellation lines, major star labels, below-horizon fading, and sky grids.
 
-Objects can be searched and selected. The info panel displays data such as object name, magnitude, distance, altitude, azimuth, right ascension, declination, visibility, rise and set information, constellation, viewing difficulty, best viewing months, seasonal visibility, and visible latitude range.
+Users can search for sky objects and select them to view detailed information. The info panel can show magnitude, distance, altitude, azimuth, right ascension, declination, visibility, rise and set times, constellation, viewing difficulty, best viewing months, seasonal visibility, and visible latitude range.
 
-## Telescope Integration
+### Telescope Integration
 
-The telescope integration connects StellaSim to a physical telescope system.
+Telescope Integration is built into the Live Star Map.
 
-It is designed for GoTo telescope control from the Live Star Map. Users can select an object in the sky map and send a command for the telescope to point toward that target. The integration supports telescope status checking, connection state display, target selection, and movement commands.
+It allows StellaSim to connect the sky map with a physical GoTo telescope system. Users can choose a target in the Live Star Map and send a command for the telescope to point toward that object.
 
-The system can run in mock mode for testing without hardware. This allows the website interface, telescope controls, and status panels to be developed safely before connecting to the real telescope.
+The system supports telescope status checking, connection state display, target selection, and GoTo movement commands. It can also run in mock mode so the telescope interface can be tested without hardware connected.
 
-The planned hardware setup is based around a Sky-Watcher Skymax 102 AZ-GTi system. The integration is built to support real telescope movement, tracking, alignment tools, field-of-view overlays, magnification tools, and observation workflow features.
+The planned telescope setup is based around a Sky-Watcher Skymax 102 AZ-GTi system. Future telescope features include tracking, alignment tools, field-of-view overlays, magnification tools, and observing workflow support.
 
-## Stella AI
+## Stellar Evolution
 
-Stella AI is the assistant system built into StellaSim.
+Stellar Evolution is an interactive tool for studying how stars change over time.
 
-It helps users ask astronomy questions, understand simulation behavior, learn concepts, and work through astrophysics problems. It is connected to the StellaSim interface so users can get help while using the simulator, star map, planning tools, or data tools.
+It allows users to build or select stars and explore their life cycles. The tool can show how mass affects a star’s path, lifetime, temperature, brightness, radius, and final stage.
 
-Stella AI is designed to explain astronomy in a clear and useful way. It can help with orbital mechanics, telescope use, sky objects, observing conditions, exoplanets, FITS files, and general space science. It also supports formatted math responses for equations, derivations, and physics explanations.
+It is designed to explain stellar birth, main sequence behavior, red giant phases, supernova outcomes, white dwarfs, neutron stars, and black holes through visual models.
 
-## Stella AI Droid
+## Moon Map
 
-The Stella AI Droid is the physical companion version of Stella.
+Moon Map is an interactive lunar exploration tool.
 
-It is designed as a small interactive astronomy assistant that can speak, listen, and connect with the StellaSim website. The droid uses a Raspberry Pi-based system with a microphone, speaker, camera support, and voice software.
+It allows users to explore the Moon’s surface, craters, maria, landing sites, and major lunar features. Users can inspect regions of interest and learn about visible lunar geography.
 
-The droid can be used as a physical assistant for astronomy tasks, website interaction, and future telescope workflows. It is designed to eventually respond through speech, receive commands, connect with StellaSim tools, and act as a real companion device for observing sessions.
+The tool is designed for lunar observation planning, Moon phase context, surface feature identification, and Apollo or mission-related exploration.
+
+## Solar System Orrery
+
+Solar System Orrery is a model of the Solar System.
+
+It shows planets, moons, comets, and spacecraft moving through space. Users can view orbital paths, compare distances, inspect objects, and understand how Solar System bodies move relative to each other.
+
+The orrery is designed for visualizing planetary motion, orbital layout, object positions, and space mission context.
+
+## Spectroscopy Lab
+
+Spectroscopy Lab is an interactive tool for analyzing light.
+
+It allows users to explore spectra, elements, redshift, and atmospheres. The tool can show how different materials leave patterns in light and how astronomers use those patterns to study objects that are far away.
+
+It is designed to support learning about emission lines, absorption lines, wavelength, chemical composition, motion, and atmospheric detection.
+
+## Exoplanet Explorer
+
+Exoplanet Explorer is an interactive database for studying planets outside the Solar System.
+
+Users can search and filter exoplanets by properties such as radius, mass, orbital period, distance, host star type, and possible habitability. It includes planet categories such as super-Earths, gas giants, hot Jupiters, and potentially habitable worlds.
+
+The explorer can show planet cards, orbit visuals, Earth comparisons, habitability summaries, and basic models of exoplanet systems.
+
+---
+
+# Sky Tools
+
+## Mission Control
+
+Mission Control tracks space launches, spacecraft, and active missions.
+
+It is designed to show information from space agencies and companies such as NASA, ESA, JAXA, ISRO, SpaceX, Rocket Lab, and other space organizations. It can display upcoming launches, active spacecraft, Mars rovers, lunar missions, planetary missions, deep-space probes, and major space observatories.
+
+Mission Control gives users a central place to follow real space exploration activity.
 
 ## Observation Planner
 
-The Observation Planner helps users prepare astronomy sessions.
+Observation Planner helps users prepare astronomy sessions.
 
-Users can choose targets, set date and time information, enter location details, filter objects by visibility, check altitude, review observing windows, and save notes. The planner is designed to help users decide what to observe before using the telescope or Live Star Map.
+Users can select targets, set date and time information, enter location details, check visibility, review altitude, and organize observing notes. It helps users decide what to observe before using the telescope or Live Star Map.
 
-It supports target organization, planning notes, visibility checks, and export-style observing preparation.
+The planner is designed to support target selection, observing windows, session notes, and practical preparation for real skywatching.
 
 ## Astro Notebook
 
 Astro Notebook is a personal observing journal.
 
-Users can save observing sessions with details about the target, telescope settings, eyepiece used, weather, seeing, transparency, location, notes, sketches, and images. It works as a field journal for astronomy sessions and helps users keep a long-term record of what they observed.
+Users can save observing sessions with target names, telescope settings, eyepiece information, weather, seeing, transparency, location, notes, sketches, and images.
 
-The notebook is designed for real observing workflow instead of casual note taking. Each session can store technical details and personal observations together.
+It works as a field journal for real astronomy sessions. Each entry can store both technical observing details and personal notes from the session.
 
-## Exoplanet Explorer
+## Light Pollution Map
 
-The Exoplanet Explorer is an interactive database for studying confirmed exoplanets.
+Light Pollution Map helps users find darker and better observing locations.
 
-Users can search, filter, and compare planets by properties such as radius, mass, orbital period, distance, host star type, and habitability. It includes categories for planet types such as super-Earths, gas giants, hot Jupiters, and potentially habitable worlds.
+It can show sky brightness, observing quality, and location conditions. Users can use it to compare places and decide where the sky will be better for viewing stars, planets, nebulae, galaxies, or meteor showers.
 
-The explorer displays planet cards, orbit visuals, Earth comparisons, and habitability-style summaries. It is designed for browsing real exoplanet data in a visual and understandable way.
+The tool is designed to support observing plans, telescope sessions, and night-sky visibility checks.
 
-## Mission Control
+## Space Weather Center
 
-Mission Control tracks space missions and spacecraft activity.
+Space Weather Center tracks solar storms, auroras, and observing conditions.
 
-It is designed to show current and upcoming missions from agencies and companies such as NASA, ESA, JAXA, ISRO, SpaceX, Rocket Lab, and other space organizations. It can display launch information, active spacecraft, planetary missions, lunar missions, Mars rovers, deep-space probes, and major observatories.
+It can show solar activity, geomagnetic conditions, aurora chances, and other space weather information that affects Earth and skywatching.
 
-Mission Control gives StellaSim a central place for following real space exploration activity.
-
-## Live Earth Tracker
-
-The Live Earth Tracker displays satellites moving around Earth in real time.
-
-It is designed to show satellite positions, orbital paths, object information, and Earth-centered motion. Users can view satellites as they move across the globe and inspect details about each object.
-
-The tracker can support live satellite visualization, orbital data display, search, filtering, and information panels for satellites and spacecraft.
-
-## FITS File Analyzer
-
-The FITS File Analyzer is a tool for working with astronomical image files.
-
-Users can load FITS files, inspect image data, adjust display settings, and analyze astronomical observations. It is designed for astronomy images from telescopes, research datasets, and observational projects.
-
-The analyzer can support image stretching, brightness controls, metadata viewing, object inspection, and scientific image review.
-
-## Astronomy News
-
-The Astronomy News section displays astronomy and space-related updates.
-
-It connects to a server route that can fetch and display news items inside StellaSim. This gives users a place to follow astronomy discoveries, space missions, telescope updates, and related science news.
-
-## Lessons
-
-The Lessons section is a learning area for astronomy and space science.
-
-It is designed to teach topics through interactive lessons, guided explanations, practice questions, and visual examples. Lessons can connect with the rest of StellaSim so users can learn a concept and then test it inside the simulator or star map.
+The tool is designed to help users understand when solar activity may affect radio conditions, aurora visibility, satellite behavior, or nighttime observation quality.
 
 ## Object Database
 
-The Object Database is a searchable reference tool for astronomy objects.
+Object Database is a searchable reference tool for astronomy objects.
 
-It is designed to store information about stars, planets, moons, galaxies, nebulae, clusters, asteroids, comets, satellites, and other objects. Users can search for an object and view its properties, location data, visibility information, and related observing details.
+It stores information about stars, planets, moons, galaxies, nebulae, clusters, asteroids, comets, satellites, and other sky objects. Users can search for an object and view its properties, location data, visibility information, and observing details.
 
+The database is designed to connect with other StellaSim tools so objects can be studied, planned, searched, and selected across the platform.
 
-## Project Structure
+---
+
+# Other
+
+## Astronomy Lessons
+
+Astronomy Lessons is the learning section of StellaSim.
+
+It teaches astronomy through guided explanations, interactive examples, and practice-based content. Lessons can connect with the simulator, star map, object database, and other tools so users can learn a topic and then explore it directly.
+
+The lessons section is designed for topics such as gravity, orbits, telescopes, stars, exoplanets, the Moon, spectroscopy, space missions, and observing skills.
+
+## Astronomy News
+
+Astronomy News displays current astronomy and space updates.
+
+It can show news about discoveries, space missions, telescope updates, launches, planetary science, exoplanets, and other space-related events.
+
+The news section connects to a backend route that fetches and displays astronomy news inside StellaSim.
+
+---
+
+# Technology
 
 StellaSim is built with HTML, CSS, JavaScript, Node.js, and Express.
 
-The frontend uses browser-based graphics and interactive interfaces. The backend serves the website, handles API routes, supports Stella AI requests, and provides routes for live data features such as astronomy news and telescope communication.
+The frontend contains the interactive pages, visual tools, simulations, and user interface. The backend serves the site, handles API routes, supports StellaSim AI requests, provides astronomy news routes, and supports telescope communication.
 
-The project is structured around a `public` folder for website files and a Node server for backend functionality.
+The project uses a `public` folder for website files and a Node server for backend functionality.
 
+---
+
+# Project Structure
 
 ```text
 StellaSim/
 ├── public/
 │   ├── index.html
-│   ├── live-star-map.html
-│   ├── observation-planner.html
-│   ├── exoplanet-explorer.html
-│   ├── astronomy-news.html
-│   ├── astro-notebook.html
-│   ├── mission-control.html
-│   ├── live-earth-tracker.html
-│   ├── fits-analyzer.html
 │   ├── stellasim-ai.html
+│   ├── main-sim.html
+│   ├── live-star-map.html
+│   ├── stellar-evolution.html
+│   ├── moon-map.html
+│   ├── solar-system-orrery.html
+│   ├── spectroscopy-lab.html
+│   ├── exoplanet-explorer.html
+│   ├── mission-control.html
+│   ├── observation-planner.html
+│   ├── astro-notebook.html
+│   ├── light-pollution-map.html
+│   ├── space-weather-center.html
+│   ├── object-database.html
+│   ├── astronomy-lessons.html
+│   ├── astronomy-news.html
 │   ├── css/
 │   ├── js/
 │   └── assets/
@@ -143,13 +204,15 @@ StellaSim/
 └── README.md
 ```
 
-## Server Routes
+---
+
+# Server Routes
 
 ```text
 /api/ai
 ```
 
-Handles Stella AI requests.
+Handles StellaSim AI requests.
 
 ```text
 /api/news
@@ -161,15 +224,17 @@ Fetches astronomy news for the news section.
 /api/telescope/status
 ```
 
-Checks telescope connection and status.
+Checks telescope connection and telescope status.
 
 ```text
 /api/telescope/goto
 ```
 
-Sends a GoTo command to the telescope integration.
+Sends a GoTo command from the Live Star Map to the telescope integration.
 
-## Local Setup
+---
+
+# Local Setup
 
 Install dependencies:
 
@@ -189,28 +254,12 @@ Open the website:
 http://localhost:3000
 ```
 
-## Telescope Setup
+---
 
-The telescope integration can be tested in mock mode before connecting hardware.
-
-When hardware is connected, StellaSim can communicate with the telescope backend through the telescope API routes. The Live Star Map can then be used as the visual interface for selecting targets and sending GoTo commands.
-
-## Stella AI Droid Setup
-
-The Stella AI Droid runs separately from the main website.
-
-The droid uses a Raspberry Pi environment with voice input, speech output, and connection support for StellaSim. It can be expanded to communicate with the website, respond to astronomy questions, and support telescope workflows.
-
-## Design
-
-StellaSim uses a dark astronomy interface with blue accents, glass-style panels, glowing borders, and high-contrast controls.
-
-The interface is designed to feel like a mission-control system while still being usable for learning, observing, and simulation work.
-
-## Status
+# Status
 
 StellaSim is an active project.
 
-Current working areas include the main simulator, Live Star Map, Stella AI, telescope integration, observation tools, exoplanet tools, astronomy news, and the Stella AI Droid.
+Current working areas include StellaSim AI, Main Sim, Live Star Map, Telescope Integration, Stellar Evolution, Moon Map, Solar System Orrery, Spectroscopy Lab, Exoplanet Explorer, Mission Control, Observation Planner, Astro Notebook, Light Pollution Map, Space Weather Center, Object Database, Astronomy Lessons, Astronomy News, and the Stella AI Droid.
 
-Future work includes deeper telescope control, better observing workflows, expanded catalogs, more data tools, improved lessons, and stronger connection between the website and physical hardware.
+Future work includes deeper telescope control, expanded catalogs, stronger observing tools, improved lessons, more data tools, and a closer connection between the website and physical hardware.
