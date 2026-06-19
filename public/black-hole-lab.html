@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Black Hole Lab</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+
+  <style>
+    /* color tokens */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --accent-2: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --button-gradient: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --button-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.72));
+      --danger: #ff9d9d;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(44, 126, 255, 0.16), transparent 34%),
+        radial-gradient(circle at 15% 70%, rgba(11, 61, 145, 0.20), transparent 32%),
+        linear-gradient(180deg, #000000 0%, #020818 46%, #000000 100%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--field-border);
+      color: var(--field-text);
+      background: var(--button-gradient);
+      border-radius: 11px;
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+      max-width: 100%;
+      min-width: 0;
+      line-height: 1.18;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+
+    button:hover {
+      background: var(--button-hover);
+      border-color: rgba(44, 126, 255, 0.72);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.active {
+      border-color: rgba(88, 160, 255, 0.96);
+      background: linear-gradient(180deg, rgba(44, 126, 255, 0.42), rgba(11, 61, 145, 0.84));
+      box-shadow: 0 0 20px rgba(44, 126, 255, 0.18), 0 8px 18px rgba(0, 0, 0, 0.24);
+    }
+
+    button.ghost {
+      background: rgba(44, 126, 255, 0.06);
+    }
+
+    input,
+    select {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid var(--field-border);
+      background: var(--field-bg);
+      color: var(--field-text);
+      padding: 10px 11px;
+      outline: none;
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      height: 36px;
+      padding: 0;
+      accent-color: var(--accent-light);
+      background: transparent;
+      border: none;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 6px;
+      color: #f4f8ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    label small {
+      color: var(--muted);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    details {
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      border-radius: 13px;
+      background: rgba(44, 126, 255, 0.035);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 10px 11px;
+      color: #f4f8ff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    details p {
+      margin: 0;
+      padding: 0 11px 11px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: -20%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.64;
+      background:
+        linear-gradient(rgba(44, 126, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(44, 126, 255, 0.04) 1px, transparent 1px),
+        radial-gradient(circle, transparent 0 28%, rgba(44, 126, 255, 0.055) 28.2% 28.5%, transparent 28.7%),
+        radial-gradient(circle, transparent 0 42%, rgba(44, 126, 255, 0.04) 42.2% 42.45%, transparent 42.7%);
+      background-size: 54px 54px, 54px 54px, 100% 100%, 100% 100%;
+      transform: rotate(-8deg);
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.20);
+      background: rgba(0, 0, 0, 0.84);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+      max-width: 760px;
+    }
+
+    .badge-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(44, 126, 255, 0.14);
+      border: 1px solid rgba(44, 126, 255, 0.24);
+      color: #eef7ff;
+      font-size: 12px;
+      white-space: nowrap;
+      max-width: 100%;
+      min-width: 0;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .pill.good {
+      color: var(--good);
+      border-color: rgba(184, 255, 213, 0.32);
+      background: rgba(184, 255, 213, 0.07);
+    }
+
+    .pill.warn {
+      color: var(--warn);
+      border-color: rgba(255, 227, 160, 0.36);
+      background: rgba(255, 227, 160, 0.07);
+    }
+
+    .pill.danger {
+      color: var(--danger);
+      border-color: rgba(255, 157, 157, 0.34);
+      background: rgba(255, 157, 157, 0.07);
+    }
+
+    .main-grid {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(286px, 360px) minmax(420px, 1fr) minmax(310px, 410px);
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .panel {
+      min-height: 0;
+      background: var(--panel-bg);
+      border: 2px solid var(--panel-border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 15px 12px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.22);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.82), rgba(2, 8, 20, 0.72));
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0.2px;
+    }
+
+    .panel-header p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .panel-body {
+      padding: 13px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .left-panel,
+    .right-panel {
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .control-section {
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      background: rgba(44, 126, 255, 0.035);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 11px;
+      overflow: hidden;
+    }
+
+    .control-section h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+
+    .control-block {
+      margin-bottom: 12px;
+    }
+
+    .control-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .mode-grid,
+    .preset-grid,
+    .toggle-grid,
+    .sim-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mode-grid button,
+    .preset-grid button,
+    .toggle-grid button,
+    .sim-grid button {
+      width: 100%;
+      min-height: 40px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      padding: 8px 9px;
+      font-size: 12px;
+    }
+
+    .preset-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .viewer-panel {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 0;
+    }
+
+    .viewer-header {
+      padding: 15px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.22);
+      background: linear-gradient(180deg, rgba(6, 26, 64, 0.76), rgba(2, 8, 20, 0.58));
+    }
+
+    .viewer-title h2 {
+      margin: 0;
+      font-size: 21px;
+    }
+
+    .viewer-title p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      max-width: 720px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(44, 126, 255, 0.08), transparent 43%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04), transparent 17%);
+      overflow: hidden;
+    }
+
+    #blackHoleCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 14px;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .nameplate {
+      justify-self: start;
+      max-width: min(560px, 90%);
+      padding: 10px 12px;
+      border-radius: 15px;
+      background: rgba(2, 8, 20, 0.82);
+      border: 1px solid rgba(44, 126, 255, 0.24);
+      box-shadow: var(--shadow);
+    }
+
+    .nameplate h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .nameplate p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .legend {
+      align-self: end;
+      justify-self: start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: 96%;
+    }
+
+    .viewer-footer {
+      border-top: 1px solid rgba(44, 126, 255, 0.18);
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.62);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .viewer-footer strong {
+      color: #f4f8ff;
+    }
+
+    .right-stack {
+      display: grid;
+      gap: 11px;
+    }
+
+    .detail-section {
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      background: rgba(44, 126, 255, 0.04);
+      border-radius: 16px;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .detail-section h3 {
+      margin: 0 0 9px;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(44, 126, 255, 0.11);
+      font-size: 12px;
+    }
+
+    .kv:last-child {
+      border-bottom: none;
+    }
+
+    .kv span {
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .kv strong {
+      text-align: right;
+      color: #f4f8ff;
+      font-weight: 700;
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meter {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.78);
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      overflow: hidden;
+      margin: 10px 0 8px;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(44, 126, 255, 0.9), rgba(255, 227, 160, 0.9), rgba(255, 157, 157, 0.94));
+      transition: width 0.22s ease;
+    }
+
+    .explain-text,
+    .note-text {
+      color: #f4f8ff;
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .note-text {
+      color: var(--muted);
+    }
+
+    .formula-box {
+      color: #f4f8ff;
+      font-size: 12px;
+      line-height: 1.5;
+      border-radius: 13px;
+      border: 1px solid rgba(44, 126, 255, 0.16);
+      background: rgba(0, 0, 0, 0.26);
+      padding: 10px;
+      margin-top: 9px;
+    }
+
+    .formula-box code {
+      color: #dceaff;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12px;
+    }
+
+    .graph-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .graph-card {
+      border: 1px solid rgba(44, 126, 255, 0.14);
+      background: rgba(0, 0, 0, 0.22);
+      border-radius: 14px;
+      padding: 9px;
+    }
+
+    .graph-card h4 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: #f4f8ff;
+    }
+
+    .graph-card canvas {
+      width: 100%;
+      height: 96px;
+      display: block;
+    }
+
+    .compare-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mini-card {
+      border: 1px solid rgba(44, 126, 255, 0.15);
+      background: rgba(0, 0, 0, 0.24);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .mini-card h4 {
+      margin: 0 0 7px;
+      font-size: 12px;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .footer-strip {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(44, 126, 255, 0.18);
+      background: rgba(0, 0, 0, 0.82);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-strong {
+      color: #f4f8ff;
+      font-weight: 800;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 58px;
+      transform: translateX(-50%) translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 50;
+      background: rgba(3, 8, 20, 0.96);
+      border: 1px solid rgba(44, 126, 255, 0.38);
+      color: #f4f8ff;
+      border-radius: 999px;
+      padding: 9px 13px;
+      box-shadow: var(--shadow);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1220px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        min-height: 100vh;
+        height: auto;
+        overflow: visible;
+      }
+
+      .main-grid {
+        grid-template-columns: 1fr;
+        overflow: visible;
+      }
+
+      .left-panel,
+      .right-panel,
+      .viewer-panel {
+        min-height: 540px;
+      }
+
+      .canvas-wrap {
+        min-height: 560px;
+      }
+
+      .topbar,
+      .footer-strip,
+      .viewer-footer {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .mode-grid,
+      .toggle-grid,
+      .sim-grid,
+      .compare-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .viewer-header {
+        flex-direction: column;
+      }
+
+      .badge-row {
+        justify-content: flex-start;
+      }
+
+      .kv {
+        grid-template-columns: 1fr;
+      }
+
+      .kv strong {
+        text-align: left;
+        max-width: 100%;
+      }
+
+      .canvas-wrap {
+        min-height: 470px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Black Hole Lab</h1>
+        <p>Explore event horizons, photon spheres, time dilation, orbital zones, lensing, accretion disks, and tidal disruption with simplified educational relativity models.</p>
+      </div>
+      <div class="badge-row">
+        <span class="pill">Relativity Simulator</span>
+        <span class="pill warn">Simplified Model</span>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="panel left-panel">
+        <div class="panel-header">
+          <h2>Controls</h2>
+          <p>Choose a black hole, object, distance, and simulation mode.</p>
+        </div>
+
+        <div class="panel-body">
+          <div class="control-section">
+            <h3>Black Hole</h3>
+
+            <div class="control-block">
+              <label for="massSlider">Mass <small id="massValue">10 M☉</small></label>
+              <input id="massSlider" type="range" min="-6" max="10.2" step="0.01" value="1" />
+            </div>
+
+            <div class="control-block">
+              <label for="spinSlider">Spin <small id="spinValue">0.35</small></label>
+              <input id="spinSlider" type="range" min="0" max="0.99" step="0.01" value="0.35" />
+            </div>
+
+            <div class="control-block">
+              <label for="compareSelect">Compare Target</label>
+              <select id="compareSelect">
+                <option value="stellar10">10 Solar Masses</option>
+                <option value="sagittariusA">Sagittarius A*</option>
+                <option value="m87">M87*</option>
+                <option value="intermediate">Intermediate Black Hole</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>Presets</h3>
+            <div class="preset-grid">
+              <button type="button" data-preset="stellar">Stellar Black Hole</button>
+              <button type="button" data-preset="intermediate">Intermediate Black Hole</button>
+              <button type="button" data-preset="sagittariusA">Sagittarius A*</button>
+              <button type="button" data-preset="m87">M87*</button>
+              <button type="button" data-preset="primordial">Primordial Tiny Black Hole</button>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>Object</h3>
+
+            <div class="control-block">
+              <label for="distanceSlider">Distance <small id="distanceValue">8.0 Rs</small></label>
+              <input id="distanceSlider" type="range" min="1.01" max="80" step="0.01" value="8" />
+            </div>
+
+            <div class="control-block">
+              <label for="objectSelect">Object Type</label>
+              <select id="objectSelect">
+                <option value="photon">photon/light ray</option>
+                <option value="particle" selected>test particle</option>
+                <option value="astronaut">astronaut marker</option>
+                <option value="star">star</option>
+                <option value="gas">gas cloud</option>
+                <option value="neutron">neutron star</option>
+                <option value="planet">planet</option>
+                <option value="spacecraft">spacecraft</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>Simulation Mode</h3>
+            <div class="mode-grid" id="modeGrid">
+              <button type="button" data-mode="explore" class="active">Explore</button>
+              <button type="button" data-mode="orbit">Orbit</button>
+              <button type="button" data-mode="fall">Fall-In</button>
+              <button type="button" data-mode="tidal">Tidal Disruption</button>
+              <button type="button" data-mode="lensing">Lensing</button>
+              <button type="button" data-mode="compare">Compare</button>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>Playback</h3>
+            <div class="sim-grid">
+              <button id="playBtn" type="button">Pause</button>
+              <button id="resetBtn" type="button">Reset</button>
+            </div>
+            <div class="control-block" style="margin-top: 12px;">
+              <label for="speedSlider">Speed <small id="speedValue">1.0x</small></label>
+              <input id="speedSlider" type="range" min="0.1" max="4" step="0.1" value="1" />
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>Toggles</h3>
+            <div class="toggle-grid">
+              <button id="labelsBtn" type="button" class="active">Labels</button>
+              <button id="graphsBtn" type="button" class="active">Graphs</button>
+              <button id="equationsBtn" type="button" class="active">Equations</button>
+              <button id="reduceMotionBtn" type="button">Reduce Motion</button>
+              <button id="observerBtn" type="button">Observer View</button>
+              <button id="astronautViewBtn" type="button">Falling View</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel viewer-panel">
+        <div class="viewer-header">
+          <div class="viewer-title">
+            <h2 id="viewerTitle">Black Hole Viewer</h2>
+            <p id="viewerSubtitle">A realistic-looking canvas visualization with event horizon, photon sphere, ISCO, accretion disk, orbit trails, and lensing-style starfield distortion.</p>
+          </div>
+          <div class="badge-row">
+            <span class="pill" id="viewBadge">Outside View</span>
+            <span class="pill" id="modeBadge">Explore Mode</span>
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="blackHoleCanvas"></canvas>
+          <div class="overlay">
+            <div class="nameplate">
+              <h3 id="nameplateTitle">Stellar Black Hole</h3>
+              <p id="nameplateText">Adjust mass and distance to see how the horizon, photon sphere, ISCO, escape velocity, and time dilation change.</p>
+            </div>
+            <div></div>
+            <div class="legend" id="legendRow">
+              <span class="pill">black center: event horizon</span>
+              <span class="pill">thin ring: photon sphere</span>
+              <span class="pill">blue path: selected orbit</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="viewer-footer">
+          <span><strong>Note:</strong> Kerr spin effects here are visual and approximate. Real black hole images require relativistic ray tracing.</span>
+          <span id="footerReadout">r = 8.0 Rs</span>
+        </div>
+      </section>
+
+      <section class="panel right-panel">
+        <div class="panel-header">
+          <h2>Calculations</h2>
+          <p>All formulas are simplified educational approximations, not full numerical relativity.</p>
+        </div>
+
+        <div class="panel-body">
+          <div class="right-stack">
+            <div class="detail-section">
+              <h3>Live Outputs</h3>
+              <div id="outputCards"></div>
+              <div class="meter"><div class="meter-fill" id="dangerFill"></div></div>
+              <p class="note-text" id="dangerNote">Safe distant orbit.</p>
+            </div>
+
+            <div class="detail-section">
+              <h3>Selected Mode</h3>
+              <p class="explain-text" id="modeExplain">Explore mode updates the radius, escape speed, time dilation, and tidal stress as you move the object.</p>
+            </div>
+
+            <div class="detail-section" id="equationSection">
+              <h3>Equations</h3>
+              <p class="note-text">Simplified educational approximations:</p>
+              <div class="formula-box">
+                <div><code>Rs = 2GM / c²</code></div>
+                <div><code>t_far = t_local / sqrt(1 - Rs/r)</code></div>
+                <div><code>v_escape = sqrt(2GM/r)</code></div>
+                <div><code>photon sphere = 1.5 Rs</code></div>
+                <div><code>ISCO ≈ 3 Rs</code> for a non-spinning black hole</div>
+                <div><code>tidal scale ∝ M / r³</code></div>
+              </div>
+            </div>
+
+            <div class="detail-section" id="graphSection">
+              <h3>Graphs</h3>
+              <div class="graph-grid">
+                <div class="graph-card">
+                  <h4>Time dilation vs distance</h4>
+                  <canvas id="timeGraph" width="520" height="150"></canvas>
+                </div>
+                <div class="graph-card">
+                  <h4>Escape velocity vs distance</h4>
+                  <canvas id="escapeGraph" width="520" height="150"></canvas>
+                </div>
+                <div class="graph-card">
+                  <h4>Tidal force vs distance</h4>
+                  <canvas id="tidalGraph" width="520" height="150"></canvas>
+                </div>
+                <div class="graph-card">
+                  <h4>Orbit stability zones</h4>
+                  <canvas id="orbitGraph" width="520" height="150"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section" id="compareSection">
+              <h3>Compare Black Holes</h3>
+              <div class="compare-wrap" id="compareWrap"></div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Hawking Radiation</h3>
+              <p class="note-text" id="hawkingText">Hawking radiation is shown as an educational card because it is extremely weak for astrophysical black holes. A stellar or supermassive black hole would not visibly glow from Hawking radiation in this lab.</p>
+            </div>
+
+            <div class="detail-section">
+              <h3>Glossary</h3>
+              <div id="glossaryBox"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-strip">
+      <span>This lab uses simplified relativity models for learning. Real black hole simulations require numerical relativity and ray tracing.</span>
+      <span>StellaSim Black Hole Lab</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Updated preset.</div>
+
+  <script>
+    // dom refs
+    const massSlider = document.getElementById('massSlider');
+    const spinSlider = document.getElementById('spinSlider');
+    const distanceSlider = document.getElementById('distanceSlider');
+    const speedSlider = document.getElementById('speedSlider');
+    const objectSelect = document.getElementById('objectSelect');
+    const compareSelect = document.getElementById('compareSelect');
+    const massValue = document.getElementById('massValue');
+    const spinValue = document.getElementById('spinValue');
+    const distanceValue = document.getElementById('distanceValue');
+    const speedValue = document.getElementById('speedValue');
+    const modeGrid = document.getElementById('modeGrid');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const labelsBtn = document.getElementById('labelsBtn');
+    const graphsBtn = document.getElementById('graphsBtn');
+    const equationsBtn = document.getElementById('equationsBtn');
+    const reduceMotionBtn = document.getElementById('reduceMotionBtn');
+    const observerBtn = document.getElementById('observerBtn');
+    const astronautViewBtn = document.getElementById('astronautViewBtn');
+    const blackHoleCanvas = document.getElementById('blackHoleCanvas');
+    const viewerTitle = document.getElementById('viewerTitle');
+    const viewerSubtitle = document.getElementById('viewerSubtitle');
+    const viewBadge = document.getElementById('viewBadge');
+    const modeBadge = document.getElementById('modeBadge');
+    const nameplateTitle = document.getElementById('nameplateTitle');
+    const nameplateText = document.getElementById('nameplateText');
+    const legendRow = document.getElementById('legendRow');
+    const footerReadout = document.getElementById('footerReadout');
+    const outputCards = document.getElementById('outputCards');
+    const dangerFill = document.getElementById('dangerFill');
+    const dangerNote = document.getElementById('dangerNote');
+    const modeExplain = document.getElementById('modeExplain');
+    const equationSection = document.getElementById('equationSection');
+    const graphSection = document.getElementById('graphSection');
+    const compareSection = document.getElementById('compareSection');
+    const compareWrap = document.getElementById('compareWrap');
+    const hawkingText = document.getElementById('hawkingText');
+    const glossaryBox = document.getElementById('glossaryBox');
+    const toast = document.getElementById('toast');
+    const timeGraph = document.getElementById('timeGraph');
+    const escapeGraph = document.getElementById('escapeGraph');
+    const tidalGraph = document.getElementById('tidalGraph');
+    const orbitGraph = document.getElementById('orbitGraph');
+
+    // constants
+    const G = 6.67430e-11;
+    const C = 299792458;
+    const SOLAR_MASS = 1.98847e30;
+    const AU = 1.495978707e11;
+    const EARTH_RADIUS = 6371000;
+    const PRESETS = {
+      stellar: { name: 'Stellar Black Hole', mass: 10, spin: 0.35, distance: 8, object: 'particle' },
+      stellar10: { name: '10 Solar Masses', mass: 10, spin: 0.35, distance: 8, object: 'particle' },
+      intermediate: { name: 'Intermediate Black Hole', mass: 10000, spin: 0.58, distance: 12, object: 'star' },
+      sagittariusA: { name: 'Sagittarius A*', mass: 4.297e6, spin: 0.64, distance: 18, object: 'star' },
+      m87: { name: 'M87*', mass: 6.5e9, spin: 0.88, distance: 30, object: 'gas' },
+      primordial: { name: 'Primordial Tiny Black Hole', mass: 1e-6, spin: 0.12, distance: 5, object: 'particle' }
+    };
+
+    const MODE_TEXT = {
+      explore: 'Explore mode updates the radius, escape speed, time dilation, and tidal stress as you move the object.',
+      orbit: 'Orbit mode shows a test particle moving around the black hole. Orbits below the ISCO become unstable in this simplified model.',
+      fall: 'Fall-in mode moves the object toward the event horizon. From far away, the object appears to slow and redshift near Rs.',
+      tidal: 'Tidal disruption mode shows a star stretching into a stream when gravity pulls more strongly on the near side than the far side.',
+      lensing: 'Lensing mode emphasizes how background starlight bends around the black hole and forms arcs near the photon sphere.',
+      compare: 'Compare mode places two black holes side by side using the same simplified formulas so their scales can be compared.'
+    };
+
+    const GLOSSARY = [
+      ['black hole', 'A region where gravity is so strong that, inside the event horizon, light cannot escape to far away observers.'],
+      ['event horizon', 'The boundary at radius Rs for a non-spinning black hole. Crossing it does not require a visible surface, but escape outward becomes impossible.'],
+      ['Schwarzschild radius', 'The simplified non-spinning event horizon radius Rs = 2GM / c².'],
+      ['photon sphere', 'A radius of 1.5 Rs where light can orbit in an idealized unstable path around a non-spinning black hole.'],
+      ['accretion disk', 'A hot disk of gas spiraling inward. One side can look brighter because material is moving toward the observer.'],
+      ['gravitational lensing', 'The bending of light by gravity. Near a black hole, background stars can appear warped into arcs or rings.'],
+      ['time dilation', 'A clock deeper in gravity runs slower compared with a faraway observer in this simplified model.'],
+      ['tidal force', 'A difference in gravity across an object. Strong tidal gradients can stretch objects into long streams.'],
+      ['spaghettification', 'A scientific term for extreme tidal stretching. This lab keeps it abstract and non-graphic.'],
+      ['ISCO', 'The innermost stable circular orbit. This lab uses about 3 Rs for a non-spinning black hole and a visual spin adjustment.'],
+      ['singularity', 'A mathematical prediction where classical equations break down. Real physics near it needs quantum gravity.'],
+      ['Kerr black hole', 'A spinning black hole. The spin effects in this lab are approximate visual teaching effects.'],
+      ['Hawking radiation', 'A quantum effect that makes black holes radiate very weakly. It is tiny for stellar and supermassive black holes.'],
+      ['tidal disruption event', 'A star passes too close to a black hole, gets stretched into a stream, and can feed a bright accretion flare.']
+    ];
+
+    // app state
+    let state = {
+      mass: 10,
+      spin: 0.35,
+      distanceRs: 8,
+      objectType: 'particle',
+      mode: 'explore',
+      playing: true,
+      speed: 1,
+      labels: true,
+      graphs: true,
+      equations: true,
+      reduceMotion: false,
+      observerView: false,
+      astronautView: false,
+      phase: 0,
+      fallDistance: 8,
+      tidalPhase: 0,
+      orbitTrail: [],
+      lensStars: []
+    };
+
+    // setup stars
+    function makeStars() {
+      const stars = [];
+      for (let i = 0; i < 520; i++) {
+        const x = Math.random() * 2 - 1;
+        const y = Math.random() * 2 - 1;
+        const d = Math.hypot(x, y);
+        stars.push({
+          x,
+          y,
+          size: 0.55 + Math.random() * 1.7,
+          alpha: 0.28 + Math.random() * 0.68,
+          twinkle: Math.random() * Math.PI * 2,
+          cool: Math.random()
+        });
+      }
+      state.lensStars = stars;
+    }
+
+    // local storage
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('stellasim-black-hole-lab') || '{}');
+        if (Number.isFinite(saved.mass)) state.mass = saved.mass;
+        if (Number.isFinite(saved.spin)) state.spin = saved.spin;
+        if (Number.isFinite(saved.distanceRs)) state.distanceRs = saved.distanceRs;
+        if (typeof saved.mode === 'string') state.mode = saved.mode;
+        if (typeof saved.labels === 'boolean') state.labels = saved.labels;
+        if (typeof saved.graphs === 'boolean') state.graphs = saved.graphs;
+        if (typeof saved.equations === 'boolean') state.equations = saved.equations;
+      } catch {
+        return;
+      }
+    }
+
+    function saveSettings() {
+      const saved = {
+        mass: state.mass,
+        spin: state.spin,
+        distanceRs: state.distanceRs,
+        mode: state.mode,
+        labels: state.labels,
+        graphs: state.graphs,
+        equations: state.equations
+      };
+      localStorage.setItem('stellasim-black-hole-lab', JSON.stringify(saved));
+    }
+
+    // formatting
+    function fmt(value, digits = 2, suffix = '') {
+      if (!Number.isFinite(Number(value))) return 'unknown';
+      const n = Number(value);
+      if (Math.abs(n) >= 1e9 || (Math.abs(n) > 0 && Math.abs(n) < 0.001)) return `${n.toExponential(digits)}${suffix}`;
+      if (Math.abs(n) >= 1000) return `${n.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
+      return `${n.toFixed(digits)}${suffix}`;
+    }
+
+    function fmtMass(mass) {
+      if (mass >= 1e9) return `${fmt(mass / 1e9, 2)} billion M☉`;
+      if (mass >= 1e6) return `${fmt(mass / 1e6, 2)} million M☉`;
+      if (mass >= 1000) return `${fmt(mass, 0)} M☉`;
+      if (mass >= 0.01) return `${fmt(mass, 2)} M☉`;
+      return `${mass.toExponential(2)} M☉`;
+    }
+
+    function massToSlider(mass) {
+      return Math.log10(mass);
+    }
+
+    function sliderToMass(value) {
+      return Math.pow(10, Number(value));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    // calculations
+    function getCalcs(mass = state.mass, distanceRs = state.distanceRs, spin = state.spin) {
+      const massKg = mass * SOLAR_MASS;
+      const rs = (2 * G * massKg) / (C * C);
+      const r = distanceRs * rs;
+      const photon = 1.5 * rs;
+      const iscoRs = Math.max(1.12, 3 - 2.1 * spin);
+      const isco = iscoRs * rs;
+      const safeRoot = Math.max(1e-9, 1 - rs / r);
+      const timeFactor = 1 / Math.sqrt(safeRoot);
+      const escapeVelocity = Math.sqrt((2 * G * massKg) / r);
+      const escapeC = escapeVelocity / C;
+      const tidalScale = mass / Math.pow(distanceRs, 3);
+      const tidalEarth = tidalScale / Math.max(1e-9, (1 / Math.pow(10, 3)));
+      const periodSeconds = distanceRs > iscoRs ? 2 * Math.PI * Math.sqrt(Math.pow(r, 3) / (G * massKg)) : NaN;
+      const densityImpression = massKg / ((4 / 3) * Math.PI * Math.pow(rs, 3));
+      return { massKg, rs, r, photon, photonRs: 1.5, isco, iscoRs, timeFactor, escapeVelocity, escapeC, tidalScale, tidalEarth, periodSeconds, densityImpression };
+    }
+
+    function getOutcome(calcs = getCalcs()) {
+      const d = state.mode === 'fall' ? state.fallDistance : state.distanceRs;
+      const isStarLike = ['star', 'gas', 'planet'].includes(state.objectType);
+      if (d <= 1.03) return { label: 'crossing event horizon', level: 100, type: 'danger' };
+      if (isStarLike && calcs.tidalEarth > 900) return { label: 'tidal disruption likely', level: 92, type: 'danger' };
+      if (d <= 1.55) return { label: 'photon sphere region', level: 84, type: 'danger' };
+      if (d < calcs.iscoRs) return { label: 'unstable orbit', level: 70, type: 'warn' };
+      if (calcs.tidalEarth > 80) return { label: 'extreme tidal zone', level: 78, type: 'warn' };
+      if (d < 8) return { label: 'strong lensing region', level: 50, type: 'warn' };
+      return { label: 'safe distant orbit', level: 18, type: 'good' };
+    }
+
+    function getOrbitStatus(calcs = getCalcs()) {
+      const d = state.distanceRs;
+      if (state.objectType === 'photon') {
+        if (Math.abs(d - 1.5) < 0.12) return 'unstable photon orbit';
+        return d < 1.5 ? 'light cannot escape outward' : 'light bends and escapes';
+      }
+      if (d <= 1) return 'inside event horizon';
+      if (d < 1.5) return 'below photon sphere';
+      if (d < calcs.iscoRs) return 'unstable circular orbit';
+      if (d < 8) return 'strong stable orbit';
+      return 'stable orbit';
+    }
+
+    function getModeName() {
+      return `${state.mode.charAt(0).toUpperCase()}${state.mode.slice(1).replace('-', ' ')} Mode`;
+    }
+
+    // ui sync
+    function syncInputs() {
+      massSlider.value = massToSlider(state.mass);
+      spinSlider.value = state.spin;
+      distanceSlider.value = state.distanceRs;
+      speedSlider.value = state.speed;
+      objectSelect.value = state.objectType;
+
+      massValue.textContent = fmtMass(state.mass);
+      spinValue.textContent = state.spin.toFixed(2);
+      distanceValue.textContent = `${state.distanceRs.toFixed(2)} Rs`;
+      speedValue.textContent = `${state.speed.toFixed(1)}x`;
+
+      [...modeGrid.querySelectorAll('button')].forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === state.mode);
+      });
+
+      labelsBtn.classList.toggle('active', state.labels);
+      graphsBtn.classList.toggle('active', state.graphs);
+      equationsBtn.classList.toggle('active', state.equations);
+      reduceMotionBtn.classList.toggle('active', state.reduceMotion);
+      observerBtn.classList.toggle('active', state.observerView);
+      astronautViewBtn.classList.toggle('active', state.astronautView);
+      playBtn.textContent = state.playing ? 'Pause' : 'Play';
+      graphSection.style.display = state.graphs ? 'block' : 'none';
+      equationSection.style.display = state.equations ? 'block' : 'none';
+      compareSection.style.display = state.mode === 'compare' ? 'block' : 'none';
+    }
+
+    function updatePanels() {
+      const calcs = getCalcs();
+      const outcome = getOutcome(calcs);
+      const displayDistance = state.mode === 'fall' ? state.fallDistance : state.distanceRs;
+      const displayCalcs = getCalcs(state.mass, displayDistance, state.spin);
+
+      viewerTitle.textContent = state.mode === 'compare' ? 'Black Hole Comparison' : 'Black Hole Viewer';
+      viewerSubtitle.textContent = state.astronautView
+        ? 'Falling astronaut view compresses the outside universe into a brighter, warped forward view. This is an educational visual approximation.'
+        : 'A canvas visualization with event horizon, photon sphere, ISCO, accretion disk, orbit trails, and lensing-style starfield distortion.';
+      viewBadge.textContent = state.astronautView ? 'Falling Astronaut View' : state.observerView ? 'Observer View' : 'Outside View';
+      modeBadge.textContent = getModeName();
+      nameplateTitle.textContent = getPresetNameFromMass();
+      nameplateText.textContent = makeNameplateText(displayCalcs, outcome);
+      footerReadout.textContent = `r = ${displayDistance.toFixed(2)} Rs • ${outcome.label}`;
+      modeExplain.textContent = MODE_TEXT[state.mode];
+
+      outputCards.innerHTML = makeOutputs(displayCalcs, outcome);
+      dangerFill.style.width = `${Math.max(0, Math.min(100, outcome.level))}%`;
+      dangerNote.textContent = outcome.label;
+      dangerNote.style.color = outcome.type === 'danger' ? 'var(--danger)' : outcome.type === 'warn' ? 'var(--warn)' : 'var(--good)';
+      legendRow.style.display = state.labels ? 'flex' : 'none';
+
+      hawkingText.textContent = makeHawkingText(calcs);
+      renderCompare();
+      drawGraphs();
+      saveSettings();
+    }
+
+    function getPresetNameFromMass() {
+      const entries = Object.values(PRESETS);
+      const match = entries.find(p => Math.abs(Math.log10(p.mass) - Math.log10(state.mass)) < 0.03);
+      return match ? match.name : 'Custom Black Hole';
+    }
+
+    function makeNameplateText(calcs, outcome) {
+      return `${fmtMass(state.mass)} black hole • Rs ${formatDistance(calcs.rs)} • photon sphere ${(1.5).toFixed(1)} Rs • ISCO ${calcs.iscoRs.toFixed(2)} Rs • outcome: ${outcome.label}.`;
+    }
+
+    function formatDistance(meters) {
+      const km = meters / 1000;
+      if (km < 1) return `${fmt(meters, 2)} m`;
+      if (km < 1e6) return `${fmt(km, 2)} km`;
+      const au = meters / AU;
+      if (au < 1000) return `${fmt(au, 3)} AU`;
+      return `${fmt(au, 1)} AU`;
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds)) return 'not stable';
+      if (seconds < 60) return `${fmt(seconds, 2)} s`;
+      if (seconds < 3600) return `${fmt(seconds / 60, 2)} min`;
+      if (seconds < 86400) return `${fmt(seconds / 3600, 2)} hr`;
+      if (seconds < 31557600) return `${fmt(seconds / 86400, 2)} days`;
+      return `${fmt(seconds / 31557600, 2)} years`;
+    }
+
+    function makeOutputs(calcs, outcome) {
+      const rows = [
+        ['Black hole mass', fmtMass(state.mass)],
+        ['Schwarzschild radius', formatDistance(calcs.rs)],
+        ['Photon sphere radius', formatDistance(calcs.photon)],
+        ['ISCO radius', `${calcs.iscoRs.toFixed(2)} Rs / ${formatDistance(calcs.isco)}`],
+        ['Object distance', `${(state.mode === 'fall' ? state.fallDistance : state.distanceRs).toFixed(2)} Rs`],
+        ['Escape velocity', `${fmt(calcs.escapeC, 3)} c`],
+        ['Time dilation factor', `${fmt(calcs.timeFactor, 3)}×`],
+        ['Tidal stress estimate', `${fmt(calcs.tidalEarth, 2)} lab units`],
+        ['Orbit status', getOrbitStatus(calcs)],
+        ['Final outcome', outcome.label]
+      ];
+
+      return rows.map(([label, value]) => `<div class="kv"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+    }
+
+    function makeHawkingText(calcs) {
+      const relativeTemp = 6.17e-8 / state.mass;
+      return `Approximate Hawking temperature scales as 1/M. For this black hole it is about ${relativeTemp.toExponential(2)} K, so it is treated as an educational note instead of a visible effect.`;
+    }
+
+    // canvas setup
+    function resizeCanvas(canvas) {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+      }
+      return { width: canvas.width, height: canvas.height, dpr };
+    }
+
+    // main drawing
+    function drawScene() {
+      const ctx = blackHoleCanvas.getContext('2d');
+      const { width, height } = resizeCanvas(blackHoleCanvas);
+      const cx = width * 0.5;
+      const cy = height * 0.52;
+      const minDim = Math.min(width, height);
+      const visualRs = state.mode === 'compare' ? minDim * 0.06 : minDim * 0.075;
+      const calcs = getCalcs();
+      const displayDistance = state.mode === 'fall' ? state.fallDistance : state.distanceRs;
+
+      ctx.clearRect(0, 0, width, height);
+      drawBackground(ctx, width, height, cx, cy, visualRs);
+
+      if (state.mode === 'compare') {
+        drawCompareScene(ctx, width, height);
+        return;
+      }
+
+      if (state.mode === 'lensing' || state.astronautView) {
+        drawLensingRays(ctx, width, height, cx, cy, visualRs);
+      }
+
+      drawLightPaths(ctx, cx, cy, visualRs);
+      drawAccretionDisk(ctx, cx, cy, visualRs);
+      drawZones(ctx, cx, cy, visualRs, calcs);
+      drawOrbitPath(ctx, cx, cy, visualRs, calcs);
+
+      if (state.mode === 'tidal') {
+        drawTidalStream(ctx, cx, cy, visualRs);
+      } else {
+        drawObject(ctx, cx, cy, visualRs, displayDistance, calcs);
+      }
+
+      drawBlackHole(ctx, cx, cy, visualRs);
+
+      if (state.labels) drawLabels(ctx, cx, cy, visualRs, calcs);
+      if (state.astronautView) drawAstronautViewVignette(ctx, width, height);
+    }
+
+    function drawBackground(ctx, width, height, cx, cy, visualRs) {
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.72);
+      grad.addColorStop(0, 'rgba(5, 14, 32, 1)');
+      grad.addColorStop(0.45, 'rgba(0, 2, 12, 1)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 1)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      for (const star of state.lensStars) {
+        let x = cx + star.x * width * 0.56;
+        let y = cy + star.y * height * 0.62;
+        const dx = x - cx;
+        const dy = y - cy;
+        const d = Math.max(1, Math.hypot(dx, dy));
+        const bend = state.mode === 'lensing' || state.astronautView ? Math.min(90, visualRs * visualRs * 2.2 / d) : Math.min(34, visualRs * visualRs * 0.65 / d);
+        x += (dx / d) * bend;
+        y += (dy / d) * bend;
+        const blocked = d < visualRs * 1.02;
+        if (blocked) continue;
+        const tw = state.reduceMotion ? 1 : 0.76 + Math.sin(state.phase * 0.8 + star.twinkle) * 0.18;
+        ctx.globalAlpha = star.alpha * tw;
+        ctx.fillStyle = star.cool > 0.86 ? '#ffe9cf' : star.cool < 0.18 ? '#9fc7ff' : '#f4f8ff';
+        ctx.beginPath();
+        ctx.arc(x, y, star.size * (window.devicePixelRatio || 1), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      const glow = ctx.createRadialGradient(cx, cy, visualRs * 1.1, cx, cy, visualRs * 7.5);
+      glow.addColorStop(0, 'rgba(44, 126, 255, 0.12)');
+      glow.addColorStop(0.32, 'rgba(11, 61, 145, 0.07)');
+      glow.addColorStop(1, 'rgba(44, 126, 255, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, visualRs * 7.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawLensingRays(ctx, width, height, cx, cy, visualRs) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-0.25 + state.spin * 0.22);
+      for (let i = 0; i < 18; i++) {
+        const radius = visualRs * (1.7 + i * 0.18);
+        const alpha = Math.max(0.02, 0.22 - i * 0.01);
+        ctx.strokeStyle = `rgba(204, 228, 255, ${alpha})`;
+        ctx.lineWidth = Math.max(1, visualRs * 0.012);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, radius * (1.25 + i * 0.012), radius * 0.62, 0.08, Math.PI * 0.08, Math.PI * 1.92);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawLightPaths(ctx, cx, cy, visualRs) {
+      ctx.save();
+      ctx.lineWidth = Math.max(1, visualRs * 0.015);
+      for (let i = 0; i < 7; i++) {
+        const y = cy - visualRs * 3.6 + i * visualRs * 1.2;
+        const near = Math.abs(y - cy) / visualRs;
+        const bend = Math.max(0.3, 2.4 - near * 0.28);
+        ctx.strokeStyle = `rgba(44, 126, 255, ${0.22 - i * 0.012})`;
+        ctx.beginPath();
+        ctx.moveTo(cx - visualRs * 8, y);
+        ctx.bezierCurveTo(cx - visualRs * 3.4, y + visualRs * bend, cx + visualRs * 3.4, y - visualRs * bend, cx + visualRs * 8, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawAccretionDisk(ctx, cx, cy, visualRs) {
+      const tilt = 0.32;
+      const spinShift = state.spin * 0.22;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-0.12 + spinShift);
+
+      for (let layer = 0; layer < 38; layer++) {
+        const t = layer / 37;
+        const rx = visualRs * (2.05 + t * 3.65);
+        const ry = rx * tilt;
+        const alpha = 0.08 + (1 - t) * 0.18;
+        const line = Math.max(1, visualRs * (0.055 - t * 0.025));
+        const start = Math.PI * (0.02 + t * 0.04);
+        const end = Math.PI * (1.98 - t * 0.03);
+
+        const brightSide = ctx.createLinearGradient(-rx, 0, rx, 0);
+        brightSide.addColorStop(0, `rgba(150, 189, 255, ${alpha * 0.55})`);
+        brightSide.addColorStop(0.44, `rgba(44, 126, 255, ${alpha * 0.95})`);
+        brightSide.addColorStop(0.72, `rgba(255, 227, 160, ${alpha * 1.35})`);
+        brightSide.addColorStop(1, `rgba(255, 157, 157, ${alpha * 0.65})`);
+        ctx.strokeStyle = brightSide;
+        ctx.lineWidth = line;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, start, end);
+        ctx.stroke();
+      }
+
+      const hotAngle = state.phase * (state.reduceMotion ? 0 : 0.8) + state.spin * 3;
+      for (let i = 0; i < 22; i++) {
+        const r = visualRs * (2.15 + (i % 9) * 0.36);
+        const a = hotAngle + i * 1.618;
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r * tilt;
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = i % 3 === 0 ? '#ffe3a0' : '#2c7eff';
+        ctx.beginPath();
+        ctx.arc(x, y, visualRs * (0.035 + (i % 4) * 0.006), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    function drawZones(ctx, cx, cy, visualRs, calcs) {
+      const zones = [
+        { r: visualRs * 1.5, color: 'rgba(255, 255, 255, 0.46)', name: 'photon' },
+        { r: visualRs * calcs.iscoRs, color: 'rgba(44, 126, 255, 0.45)', name: 'isco' },
+        { r: visualRs * 3.0, color: 'rgba(184, 255, 213, 0.20)', name: 'stable' }
+      ];
+
+      for (const zone of zones) {
+        ctx.save();
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = zone.name === 'isco' ? Math.max(2, visualRs * 0.025) : Math.max(1, visualRs * 0.016);
+        ctx.setLineDash(zone.name === 'stable' ? [8, 7] : zone.name === 'photon' ? [4, 6] : []);
+        ctx.beginPath();
+        ctx.arc(cx, cy, zone.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawOrbitPath(ctx, cx, cy, visualRs, calcs) {
+      const r = visualRs * state.distanceRs;
+      if (r > Math.max(ctx.canvas.width, ctx.canvas.height) * 0.75) return;
+      ctx.save();
+      ctx.strokeStyle = state.distanceRs < calcs.iscoRs ? 'rgba(255, 227, 160, 0.45)' : 'rgba(44, 126, 255, 0.70)';
+      ctx.lineWidth = Math.max(1.5, visualRs * 0.022);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r, r * 0.55, -0.12, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (state.orbitTrail.length > 2) {
+        ctx.beginPath();
+        for (let i = 0; i < state.orbitTrail.length; i++) {
+          const p = state.orbitTrail[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = 'rgba(44, 126, 255, 0.35)';
+        ctx.lineWidth = Math.max(1, visualRs * 0.018);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawObject(ctx, cx, cy, visualRs, distance, calcs) {
+      const phase = state.phase * (0.45 + state.speed * 0.18);
+      let r = visualRs * distance;
+      const farLimit = Math.max(ctx.canvas.width, ctx.canvas.height) * 0.45;
+      if (r > farLimit) r = farLimit;
+
+      let angle = -0.65;
+      if (state.mode === 'orbit') angle = phase;
+      if (state.mode === 'fall') angle = -0.95 + Math.sin(phase * 0.2) * 0.08;
+      if (state.mode === 'explore') angle = -0.56;
+      if (state.mode === 'lensing') angle = 0.25;
+
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r * 0.55;
+      const size = getObjectSize(visualRs);
+      const color = getObjectColor();
+
+      if (state.mode === 'orbit') {
+        state.orbitTrail.push({ x, y });
+        if (state.orbitTrail.length > 90) state.orbitTrail.shift();
+      } else if (state.mode !== 'fall') {
+        state.orbitTrail = [];
+      }
+
+      ctx.save();
+      const redshift = Math.max(0, Math.min(1, 1 - distance / 14));
+      ctx.shadowBlur = visualRs * 0.35;
+      ctx.shadowColor = redshift > 0.45 ? 'rgba(255, 157, 157, 0.8)' : 'rgba(44, 126, 255, 0.8)';
+      ctx.fillStyle = color;
+
+      if (state.objectType === 'photon') {
+        ctx.strokeStyle = '#dceaff';
+        ctx.lineWidth = Math.max(2, visualRs * 0.03);
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (state.objectType === 'spacecraft') {
+        ctx.translate(x, y);
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 1.2);
+        ctx.lineTo(size * 0.72, size * 0.9);
+        ctx.lineTo(0, size * 0.45);
+        ctx.lineTo(-size * 0.72, size * 0.9);
+        ctx.closePath();
+        ctx.fill();
+      } else if (state.objectType === 'star') {
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + i * Math.PI / 5;
+          const rr = i % 2 === 0 ? size * 1.25 : size * 0.58;
+          ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else if (state.objectType === 'gas') {
+        for (let i = 0; i < 8; i++) {
+          ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(i) * size * 0.7, y + Math.sin(i * 1.4) * size * 0.55, size * (0.6 + i * 0.04), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      if (state.labels) {
+        ctx.fillStyle = '#f4f8ff';
+        ctx.font = `${Math.max(12, visualRs * 0.14)}px Arial`;
+        ctx.fillText(state.objectType.replace('-', ' '), x + size + 8, y - size);
+      }
+      ctx.restore();
+    }
+
+    function getObjectSize(visualRs) {
+      const sizes = { photon: 0.09, particle: 0.11, astronaut: 0.12, star: 0.16, gas: 0.18, neutron: 0.12, planet: 0.14, spacecraft: 0.13 };
+      return visualRs * (sizes[state.objectType] || 0.12);
+    }
+
+    function getObjectColor() {
+      const colors = { photon: '#f4f8ff', particle: '#2c7eff', astronaut: '#f4f8ff', star: '#ffe3a0', gas: '#8fbfff', neutron: '#dceaff', planet: '#b8ffd5', spacecraft: '#b8c7e6' };
+      return colors[state.objectType] || '#2c7eff';
+    }
+
+    function drawTidalStream(ctx, cx, cy, visualRs) {
+      const base = visualRs * Math.min(state.distanceRs, 12);
+      const stretch = Math.max(0.5, Math.min(5.2, getCalcs().tidalEarth / 80));
+      const a0 = -0.62 + Math.sin(state.tidalPhase) * 0.08;
+      const x0 = cx + Math.cos(a0) * Math.min(base, visualRs * 8.5);
+      const y0 = cy + Math.sin(a0) * Math.min(base, visualRs * 8.5) * 0.55;
+
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let strand = 0; strand < 8; strand++) {
+        ctx.beginPath();
+        for (let i = 0; i < 70; i++) {
+          const t = i / 69;
+          const curl = a0 + t * (1.4 + stretch * 0.22) + strand * 0.018;
+          const rr = Math.max(visualRs * 1.26, Math.min(base, visualRs * 8.2) * (1 - t * 0.75));
+          const spread = Math.sin(t * Math.PI) * visualRs * 0.18 * (strand - 3.5);
+          const x = cx + Math.cos(curl) * rr + Math.cos(curl + Math.PI / 2) * spread;
+          const y = cy + Math.sin(curl) * rr * 0.55 + Math.sin(curl + Math.PI / 2) * spread * 0.5;
+          if (i === 0) ctx.moveTo(x0, y0);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = strand % 2 ? 'rgba(255, 227, 160, 0.38)' : 'rgba(44, 126, 255, 0.42)';
+        ctx.lineWidth = Math.max(1, visualRs * (0.018 + strand * 0.002));
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = visualRs * 0.3;
+      ctx.shadowColor = 'rgba(255, 227, 160, 0.8)';
+      ctx.fillStyle = '#ffe3a0';
+      ctx.beginPath();
+      ctx.ellipse(x0, y0, visualRs * 0.22, visualRs * 0.12, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBlackHole(ctx, cx, cy, visualRs) {
+      const ring = ctx.createRadialGradient(cx, cy, visualRs * 0.8, cx, cy, visualRs * 1.55);
+      ring.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      ring.addColorStop(0.54, 'rgba(44, 126, 255, 0.18)');
+      ring.addColorStop(0.72, 'rgba(255, 255, 255, 0.28)');
+      ring.addColorStop(1, 'rgba(44, 126, 255, 0)');
+      ctx.fillStyle = ring;
+      ctx.beginPath();
+      ctx.arc(cx, cy, visualRs * 1.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      const horizon = ctx.createRadialGradient(cx - visualRs * 0.25, cy - visualRs * 0.28, visualRs * 0.08, cx, cy, visualRs);
+      horizon.addColorStop(0, '#030712');
+      horizon.addColorStop(0.58, '#000000');
+      horizon.addColorStop(1, '#000000');
+      ctx.fillStyle = horizon;
+      ctx.beginPath();
+      ctx.arc(cx, cy, visualRs, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(244, 248, 255, 0.22)';
+      ctx.lineWidth = Math.max(1, visualRs * 0.018);
+      ctx.beginPath();
+      ctx.arc(cx, cy, visualRs * 1.01, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawLabels(ctx, cx, cy, visualRs, calcs) {
+      ctx.save();
+      ctx.font = `${Math.max(12, visualRs * 0.13)}px Arial`;
+      ctx.fillStyle = 'rgba(244, 248, 255, 0.92)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.78)';
+      ctx.lineWidth = 4;
+
+      const labels = [
+        ['Rs / event horizon', visualRs, -0.92],
+        ['photon sphere 1.5 Rs', visualRs * 1.5, -0.2],
+        [`ISCO ${calcs.iscoRs.toFixed(2)} Rs`, visualRs * calcs.iscoRs, 0.42],
+        ['accretion disk', visualRs * 4.4, 1.02]
+      ];
+
+      for (const [text, radius, angle] of labels) {
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + visualRs * 0.55, y - visualRs * 0.3);
+        ctx.strokeStyle = 'rgba(44, 126, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.78)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(text, x + visualRs * 0.62, y - visualRs * 0.33);
+        ctx.fillText(text, x + visualRs * 0.62, y - visualRs * 0.33);
+      }
+      ctx.restore();
+    }
+
+    function drawAstronautViewVignette(ctx, width, height) {
+      const cx = width * 0.5;
+      const cy = height * 0.5;
+      const grad = ctx.createRadialGradient(cx, cy, Math.min(width, height) * 0.12, cx, cy, Math.max(width, height) * 0.58);
+      grad.addColorStop(0, 'rgba(44, 126, 255, 0.06)');
+      grad.addColorStop(0.58, 'rgba(0, 0, 0, 0.1)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0.64)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = 'rgba(244, 248, 255, 0.86)';
+      ctx.font = `${Math.max(13, width / 95)}px Arial`;
+      ctx.fillText('falling view: outside universe appears warped and blueshifted ahead', width * 0.04, height * 0.08);
+    }
+
+    function drawCompareScene(ctx, width, height) {
+      const left = { x: width * 0.31, y: height * 0.53, preset: { name: getPresetNameFromMass(), mass: state.mass, spin: state.spin } };
+      const rightPreset = PRESETS[compareSelect.value] || PRESETS.sagittariusA;
+      const right = { x: width * 0.70, y: height * 0.53, preset: rightPreset };
+      drawMiniBlackHole(ctx, left.x, left.y, Math.min(width, height) * 0.055, left.preset);
+      drawMiniBlackHole(ctx, right.x, right.y, Math.min(width, height) * 0.055, right.preset);
+      drawCompareLabel(ctx, left.x, left.y, left.preset);
+      drawCompareLabel(ctx, right.x, right.y, right.preset);
+    }
+
+    function drawMiniBlackHole(ctx, x, y, rs, preset) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-0.14 + preset.spin * 0.18);
+      for (let i = 0; i < 24; i++) {
+        const t = i / 23;
+        ctx.strokeStyle = `rgba(${i > 12 ? 255 : 44}, ${i > 12 ? 227 : 126}, ${i > 12 ? 160 : 255}, ${0.12 + (1 - t) * 0.18})`;
+        ctx.lineWidth = Math.max(1, rs * 0.05);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rs * (2.0 + t * 3.2), rs * (0.65 + t), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      drawBlackHole(ctx, x, y, rs);
+    }
+
+    function drawCompareLabel(ctx, x, y, preset) {
+      const c = getCalcs(preset.mass, state.distanceRs, preset.spin || 0.3);
+      ctx.fillStyle = 'rgba(244, 248, 255, 0.92)';
+      ctx.font = `${Math.max(13, ctx.canvas.width / 105)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(preset.name, x, y + Math.min(ctx.canvas.width, ctx.canvas.height) * 0.22);
+      ctx.fillStyle = 'rgba(184, 199, 230, 0.94)';
+      ctx.font = `${Math.max(11, ctx.canvas.width / 125)}px Arial`;
+      ctx.fillText(`Rs ${formatDistance(c.rs)} • ${fmtMass(preset.mass)}`, x, y + Math.min(ctx.canvas.width, ctx.canvas.height) * 0.255);
+      ctx.textAlign = 'left';
+    }
+
+    // graph drawing
+    function drawGraphs() {
+      if (!state.graphs) return;
+      drawGraph(timeGraph, x => 1 / Math.sqrt(Math.max(1e-6, 1 - 1 / x)), 'factor', 1, 20, state.distanceRs, false);
+      drawGraph(escapeGraph, x => Math.sqrt(1 / x), 'c', 1, 20, state.distanceRs, true);
+      drawGraph(tidalGraph, x => 1 / Math.pow(x, 3), 'relative', 1, 20, state.distanceRs, true);
+      drawOrbitZones();
+    }
+
+    function drawGraph(canvas, fn, unit, minX, maxX, markX, invertScale) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(44, 126, 255, 0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const y = (h * i) / 5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      const values = [];
+      for (let i = 0; i <= 120; i++) {
+        const x = minX + (i / 120) * (maxX - minX);
+        values.push(fn(x));
+      }
+      const maxY = Math.max(...values.filter(Number.isFinite));
+      const minY = Math.min(...values.filter(Number.isFinite));
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        const gx = (i / 120) * w;
+        const v = values[i];
+        const norm = invertScale ? v / maxY : (v - minY) / Math.max(1e-9, maxY - minY);
+        const gy = h - norm * (h * 0.72) - h * 0.14;
+        if (i === 0) ctx.moveTo(gx, gy);
+        else ctx.lineTo(gx, gy);
+      }
+      ctx.strokeStyle = 'rgba(44, 126, 255, 0.88)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      const mx = ((Math.min(maxX, Math.max(minX, markX)) - minX) / (maxX - minX)) * w;
+      ctx.strokeStyle = 'rgba(255, 227, 160, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mx, 0);
+      ctx.lineTo(mx, h);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(244, 248, 255, 0.9)';
+      ctx.font = '12px Arial';
+      ctx.fillText(`selected: ${markX.toFixed(2)} Rs`, 10, 18);
+      ctx.fillText(unit, w - 70, h - 12);
+    }
+
+    function drawOrbitZones() {
+      const canvas = orbitGraph;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      const calcs = getCalcs();
+      ctx.clearRect(0, 0, w, h);
+      const zones = [
+        { start: 0, end: 1, label: 'horizon', color: 'rgba(255, 157, 157, 0.34)' },
+        { start: 1, end: 1.5, label: 'photon region', color: 'rgba(255, 227, 160, 0.26)' },
+        { start: 1.5, end: calcs.iscoRs, label: 'unstable', color: 'rgba(255, 227, 160, 0.18)' },
+        { start: calcs.iscoRs, end: 20, label: 'stable', color: 'rgba(184, 255, 213, 0.15)' }
+      ];
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.fillRect(0, 0, w, h);
+      for (const z of zones) {
+        const x1 = (z.start / 20) * w;
+        const x2 = (Math.min(20, z.end) / 20) * w;
+        ctx.fillStyle = z.color;
+        ctx.fillRect(x1, 0, x2 - x1, h);
+        ctx.fillStyle = 'rgba(244, 248, 255, 0.88)';
+        ctx.font = '12px Arial';
+        ctx.fillText(z.label, x1 + 8, 22 + zones.indexOf(z) * 18);
+      }
+      const mark = (Math.min(20, state.distanceRs) / 20) * w;
+      ctx.strokeStyle = 'rgba(44, 126, 255, 0.95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mark, 0);
+      ctx.lineTo(mark, h);
+      ctx.stroke();
+    }
+
+    // compare cards
+    function renderCompare() {
+      if (state.mode !== 'compare') return;
+      const target = PRESETS[compareSelect.value] || PRESETS.sagittariusA;
+      const a = { name: getPresetNameFromMass(), mass: state.mass, spin: state.spin };
+      const b = { name: target.name, mass: target.mass, spin: target.spin };
+      compareWrap.innerHTML = [a, b].map(item => {
+        const c = getCalcs(item.mass, state.distanceRs, item.spin);
+        return `
+          <div class="mini-card">
+            <h4>${escapeHtml(item.name)}</h4>
+            <p>Mass: ${escapeHtml(fmtMass(item.mass))}</p>
+            <p>Rs: ${escapeHtml(formatDistance(c.rs))}</p>
+            <p>Time dilation at selected distance: ${escapeHtml(fmt(c.timeFactor, 3))}×</p>
+            <p>Density impression: ${escapeHtml(fmt(c.densityImpression, 2, ' kg/m³'))}</p>
+            <p>Tidal scale: ${escapeHtml(fmt(c.tidalEarth, 2))} lab units</p>
+          </div>`;
+      }).join('');
+    }
+
+    // glossary
+    function renderGlossary() {
+      glossaryBox.innerHTML = GLOSSARY.map(([term, definition]) => `
+        <details>
+          <summary>${escapeHtml(term)}</summary>
+          <p>${escapeHtml(definition)}</p>
+        </details>
+      `).join('');
+    }
+
+    // simulation update
+    function tick() {
+      const motion = state.reduceMotion ? 0.18 : 1;
+      if (state.playing) {
+        state.phase += 0.016 * state.speed * motion;
+        state.tidalPhase += 0.012 * state.speed * motion;
+
+        if (state.mode === 'fall') {
+          const slowFactor = Math.max(0.012, Math.sqrt(Math.max(0.0001, 1 - 1 / Math.max(1.001, state.fallDistance))));
+          state.fallDistance -= 0.012 * state.speed * slowFactor;
+          if (state.fallDistance <= 1.01) state.fallDistance = 1.01;
+        }
+      }
+
+      drawScene();
+      if (Math.floor(state.phase * 20) % 3 === 0) updatePanels();
+      requestAnimationFrame(tick);
+    }
+
+    function resetSimulation() {
+      state.phase = 0;
+      state.fallDistance = state.distanceRs;
+      state.tidalPhase = 0;
+      state.orbitTrail = [];
+      updatePanels();
+      drawScene();
+      showToast('Simulation reset.');
+    }
+
+    function applyPreset(key) {
+      const preset = PRESETS[key];
+      if (!preset) return;
+      state.mass = preset.mass;
+      state.spin = preset.spin;
+      state.distanceRs = preset.distance;
+      state.objectType = preset.object;
+      state.fallDistance = preset.distance;
+      state.orbitTrail = [];
+      syncInputs();
+      updatePanels();
+      drawScene();
+      showToast(`${preset.name} loaded.`);
+    }
+
+    // events
+    massSlider.addEventListener('input', () => {
+      state.mass = sliderToMass(massSlider.value);
+      syncInputs();
+      updatePanels();
+    });
+
+    spinSlider.addEventListener('input', () => {
+      state.spin = Number(spinSlider.value);
+      syncInputs();
+      updatePanels();
+    });
+
+    distanceSlider.addEventListener('input', () => {
+      state.distanceRs = Number(distanceSlider.value);
+      state.fallDistance = state.distanceRs;
+      state.orbitTrail = [];
+      syncInputs();
+      updatePanels();
+    });
+
+    speedSlider.addEventListener('input', () => {
+      state.speed = Number(speedSlider.value);
+      syncInputs();
+    });
+
+    objectSelect.addEventListener('change', () => {
+      state.objectType = objectSelect.value;
+      updatePanels();
+    });
+
+    compareSelect.addEventListener('change', () => {
+      updatePanels();
+      drawScene();
+    });
+
+    modeGrid.addEventListener('click', event => {
+      const btn = event.target.closest('button[data-mode]');
+      if (!btn) return;
+      state.mode = btn.dataset.mode;
+      resetSimulation();
+      syncInputs();
+      updatePanels();
+    });
+
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    });
+
+    playBtn.addEventListener('click', () => {
+      state.playing = !state.playing;
+      syncInputs();
+    });
+
+    resetBtn.addEventListener('click', resetSimulation);
+
+    labelsBtn.addEventListener('click', () => {
+      state.labels = !state.labels;
+      syncInputs();
+      updatePanels();
+    });
+
+    graphsBtn.addEventListener('click', () => {
+      state.graphs = !state.graphs;
+      syncInputs();
+      updatePanels();
+    });
+
+    equationsBtn.addEventListener('click', () => {
+      state.equations = !state.equations;
+      syncInputs();
+      updatePanels();
+    });
+
+    reduceMotionBtn.addEventListener('click', () => {
+      state.reduceMotion = !state.reduceMotion;
+      syncInputs();
+    });
+
+    observerBtn.addEventListener('click', () => {
+      state.observerView = !state.observerView;
+      if (state.observerView) state.astronautView = false;
+      syncInputs();
+      updatePanels();
+    });
+
+    astronautViewBtn.addEventListener('click', () => {
+      state.astronautView = !state.astronautView;
+      if (state.astronautView) state.observerView = false;
+      syncInputs();
+      updatePanels();
+    });
+
+    window.addEventListener('resize', () => {
+      drawScene();
+      drawGraphs();
+    });
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add('show');
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 1700);
+    }
+
+    // startup
+    loadSettings();
+    makeStars();
+    renderGlossary();
+    syncInputs();
+    resetSimulation();
+    tick();
+  </script>
+</body>
+</html>
