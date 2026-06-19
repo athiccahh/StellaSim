@@ -1036,7 +1036,6 @@
     <div class="main-inner">
       <section class="hero-card">
         <div class="top-line">
-          <div class="eyebrow">✦ Live Solar & Viewing Conditions</div>
           <div class="btn-row">
             <span class="source-badge loading" id="liveBadge">Loading live data</span>
             <span class="badge" id="lastUpdatedText">Last updated: --</span>
@@ -1555,7 +1554,7 @@
         } else {
           state.live = true;
           state.lastUpdated = new Date();
-          setLiveBadge("live", liveParts < 8 ? "Partial live data" : "Live data active");
+          setLiveBadge("live", liveParts < 8 ? "Live data" : "Live data active");
           renderEverything();
         }
       } catch (error) {

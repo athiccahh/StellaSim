@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StellaSim ★ Cosmic Events Calendar</title>
+  <link rel="icon" type="image/png" href="/assets/stellasim-mascot.png" />
+  <link rel="apple-touch-icon" href="/assets/stellasim-mascot.png" />
+  <style>
+    /* nasa blue theme */
+    :root {
+      --panel-bg: rgba(3, 8, 20, 0.96);
+      --panel-border: rgba(11, 61, 145, 0.95);
+      --field-bg: #061a40;
+      --field-border: rgba(44, 126, 255, 0.38);
+      --field-text: #f4f8ff;
+      --muted: #b8c7e6;
+      --accent: #0b3d91;
+      --accent-light: #2c7eff;
+      --accent-2: #2c7eff;
+      --text: #f4f8ff;
+      --page-bg: #000000;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.56);
+      --button-gradient: linear-gradient(180deg, rgba(11, 61, 145, 0.58), rgba(3, 17, 44, 0.82));
+      --button-hover: linear-gradient(180deg, rgba(44, 126, 255, 0.34), rgba(11, 61, 145, 0.72));
+      --danger: #ff9d9d;
+      --good: #b8ffd5;
+      --warn: #ffe3a0;
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body {
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 16% 12%, rgba(11, 61, 145, 0.14), transparent 0 18%),
+        radial-gradient(circle at 85% 18%, rgba(44, 126, 255, 0.10), transparent 0 17%),
+        radial-gradient(circle at 52% 92%, rgba(11, 61, 145, 0.10), transparent 0 20%),
+        linear-gradient(180deg, #000000 0%, #02040a 44%, #000000 100%);
+    }
+    body.field-mode { --accent-light: #ff6d6d; --accent-2: #ff7b7b; --panel-border: rgba(145, 11, 11, 0.78); --field-border: rgba(255, 120, 120, 0.34); --button-gradient: linear-gradient(180deg, rgba(95, 9, 9, 0.62), rgba(18, 3, 3, 0.86)); --button-hover: linear-gradient(180deg, rgba(255, 100, 100, 0.26), rgba(95, 9, 9, 0.72)); }
+    body.field-mode * { animation-duration: 0.01ms !important; }
+    button, input, select, textarea { font: inherit; }
+    button { user-select: none; }
+    a { color: inherit; text-decoration: none; }
+
+    #starfield { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.95; }
+    .space-glow { position: fixed; border-radius: 50%; filter: blur(95px); z-index: 0; pointer-events: none; opacity: 0.24; animation: glowFloat 18s ease-in-out infinite; }
+    .glow-1 { width: 360px; height: 360px; left: 8%; top: 5%; background: radial-gradient(circle, rgba(11, 61, 145, 0.22), transparent 70%); }
+    .glow-2 { width: 460px; height: 460px; right: 2%; top: 12%; background: radial-gradient(circle, rgba(44, 126, 255, 0.16), transparent 72%); animation-delay: -7s; }
+    .glow-3 { width: 420px; height: 420px; left: 42%; bottom: 0; background: radial-gradient(circle, rgba(11, 61, 145, 0.15), transparent 72%); animation-delay: -11s; }
+
+
+    /* moon accent */
+    .moon-wrap {
+      position: fixed;
+      top: 72px;
+      right: 94px;
+      width: 138px;
+      height: 138px;
+      border-radius: 50%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.88;
+    }
+
+    .moon-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle at 35% 35%,
+          rgba(255, 255, 255, 0.96),
+          rgba(211, 228, 255, 0.93) 36%,
+          rgba(44, 126, 255, 0.20) 62%,
+          rgba(11, 61, 145, 0) 76%
+        );
+      box-shadow:
+        0 0 40px rgba(44, 126, 255, 0.18),
+        0 0 95px rgba(11, 61, 145, 0.12);
+    }
+
+    .moon-wrap::after {
+      content: "";
+      position: absolute;
+      width: 108px;
+      height: 108px;
+      top: 12px;
+      left: 40px;
+      border-radius: 50%;
+      background: #02040a;
+      box-shadow: -10px 0 18px rgba(3, 16, 28, 0.65);
+    }
+
+    .loading-screen { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, rgba(11, 61, 145, 0.25), transparent 32%), #000; transition: opacity 260ms ease, visibility 260ms ease; }
+    .loading-screen.hidden { opacity: 0; visibility: hidden; }
+    .loader-card { width: min(520px, calc(100vw - 34px)); padding: 24px; border: 1px solid rgba(44, 126, 255, 0.34); background: var(--panel-bg); border-radius: 24px; box-shadow: var(--shadow); }
+    .loader-title { margin: 0; font-size: 1.35rem; }
+    .loader-line { height: 8px; margin: 18px 0 12px; border-radius: 999px; background: rgba(44, 126, 255, 0.14); overflow: hidden; }
+    .loader-line span { display: block; height: 100%; width: 38%; border-radius: inherit; background: var(--accent-light); animation: loadingSlide 1.2s ease-in-out infinite; }
+    .loader-status { margin: 0; color: var(--muted); }
+
+    .app-shell { position: relative; z-index: 1; min-height: 100vh; padding: 28px; }
+    .main-inner { max-width: 1540px; margin: 0 auto; display: grid; gap: 20px; }
+    .hero-card, .panel, .event-card, .modal-card, .status-bar {
+      position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(3, 8, 20, 0.93));
+      border: 1px solid rgba(44, 126, 255, 0.20); border-radius: var(--radius); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.055); backdrop-filter: blur(18px);
+    }
+    .hero-card::after, .panel::after, .event-card::after, .modal-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 0%, transparent 32%, rgba(255, 255, 255, 0.05) 40%, transparent 49%, transparent 100%); transform: translateX(-120%); animation: panelSheen 13s linear infinite; opacity: 0.44; }
+    .content { position: relative; z-index: 1; }
+
+    .hero-card { padding: 26px 28px 24px; animation: panelFloatIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(11, 61, 145, 0.10); border: 1px solid rgba(44, 126, 255, 0.22); color: var(--accent-light); font-size: 0.84rem; margin-bottom: 14px; }
+    .hero-title { margin: 0; font-size: clamp(2rem, 4vw, 3.35rem); line-height: 1.02; letter-spacing: -0.035em; }
+    .hero-title .glow { color: var(--accent-light); text-shadow: 0 0 30px rgba(44, 126, 255, 0.28); }
+    .hero-subtitle { margin: 14px 0 0; max-width: 82ch; color: var(--muted); line-height: 1.65; }
+    .hero-actions, .btn-row, .pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .hero-actions { margin-top: 18px; }
+
+    .app-layout { display: grid; grid-template-columns: 330px minmax(0, 1.35fr) 365px; gap: 18px; align-items: start; }
+    .left-column, .center-column, .right-column { display: grid; gap: 18px; min-width: 0; }
+    .panel { padding: 19px; animation: panelFloatIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .section-title-wrap h2 { margin: 0; font-size: 1.15rem; }
+    .section-title-wrap p { margin: 6px 0 0; color: var(--muted); line-height: 1.5; font-size: 0.9rem; }
+
+    .control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
+    .field { display: grid; gap: 7px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label, .mini-title, .slider-top { color: var(--accent-light); font-size: 0.78rem; font-weight: 750; letter-spacing: 0.02em; }
+    .input, .select, .textarea { width: 100%; border: 1px solid var(--field-border); background: linear-gradient(180deg, rgba(6, 26, 64, 0.96), rgba(3, 12, 30, 0.96)); color: var(--field-text); border-radius: 15px; padding: 11px 12px; outline: none; transition: 160ms ease; color-scheme: dark; }
+    .textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
+    .input:focus, .select:focus, .textarea:focus { border-color: rgba(44, 126, 255, 0.66); box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.12); }
+
+    .btn { appearance: none; border: 1px solid rgba(44, 126, 255, 0.24); border-radius: 14px; padding: 10px 14px; cursor: pointer; color: var(--field-text); background: rgba(255, 255, 255, 0.04); display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: 180ms ease; }
+    .btn:hover { transform: translateY(-2px); border-color: rgba(44, 126, 255, 0.58); background: rgba(11, 61, 145, 0.12); box-shadow: 0 8px 20px rgba(0,0,0,0.26), 0 0 18px rgba(11,61,145,0.16); }
+    .btn.primary { background: var(--button-gradient); border-color: rgba(44, 126, 255, 0.72); }
+    .btn.small { padding: 8px 10px; border-radius: 12px; font-size: 0.82rem; }
+    .btn.danger { color: #ffd8d8; border-color: rgba(255, 157, 157, 0.28); background: rgba(255, 120, 120, 0.055); }
+    .btn.ghost { background: rgba(255,255,255,0.025); }
+
+    .chip-wrap { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 10px; }
+    .chip-check { display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(44, 126, 255, 0.18); background: rgba(44, 126, 255, 0.055); border-radius: 999px; padding: 9px 11px; color: var(--field-text); cursor: pointer; font-size: 0.83rem; transition: 180ms ease; }
+    .chip-check input { display: none; }
+    .chip-check:has(input:checked) { background: linear-gradient(180deg, rgba(11, 61, 145, 0.24), rgba(11, 61, 145, 0.10)); border-color: rgba(44, 126, 255, 0.58); box-shadow: 0 0 16px rgba(11, 61, 145, 0.12); }
+
+    .top-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .month-title { margin: 0; font-size: 1.35rem; }
+    .view-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .view-tab { border: 1px solid rgba(44, 126, 255, 0.18); background: rgba(44, 126, 255, 0.055); color: var(--text); border-radius: 999px; padding: 9px 12px; cursor: pointer; }
+    .view-tab.active { border-color: rgba(44, 126, 255, 0.68); background: var(--button-gradient); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .stat-card, .saved-item, .tip-card, .glossary details, .sky-window, .upcoming-item { border: 1px solid rgba(44, 126, 255, 0.14); background: rgba(3, 8, 20, 0.48); border-radius: 16px; padding: 12px; }
+    .stat-card span { display: block; color: var(--muted); font-size: 0.72rem; margin-bottom: 5px; }
+    .stat-card strong { font-size: 0.95rem; }
+
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .weekday { color: var(--accent-light); font-size: 0.72rem; font-weight: 800; text-align: center; padding: 5px 0; }
+    .day-cell { min-height: 118px; border: 1px solid rgba(44, 126, 255, 0.13); background: rgba(255, 255, 255, 0.025); border-radius: 16px; padding: 9px; color: var(--muted); display: flex; flex-direction: column; gap: 7px; text-align: left; cursor: pointer; transition: 160ms ease; }
+    .day-cell:hover, .day-cell.selected { transform: translateY(-2px); border-color: rgba(44, 126, 255, 0.58); background: rgba(11, 61, 145, 0.10); }
+    .day-cell.today { border-color: rgba(44, 126, 255, 0.80); box-shadow: 0 0 0 1px rgba(44, 126, 255, 0.12), 0 0 20px rgba(44, 126, 255, 0.16); }
+    .day-cell.major { box-shadow: 0 0 24px rgba(44, 126, 255, 0.14); }
+    .day-cell.muted { opacity: 0.42; }
+    .day-num { display: flex; justify-content: space-between; align-items: center; color: var(--field-text); font-weight: 800; font-size: 0.85rem; }
+    .day-moon { color: var(--muted); font-weight: 600; font-size: 0.72rem; }
+    .event-pill { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid rgba(44, 126, 255, 0.2); border-radius: 999px; padding: 5px 7px; background: rgba(11, 61, 145, 0.16); color: var(--field-text); font-size: 0.72rem; }
+    .event-pill.major { border-color: rgba(44, 126, 255, 0.66); color: white; background: rgba(44, 126, 255, 0.18); }
+    .more-pill { color: var(--accent-light); font-size: 0.72rem; padding-left: 4px; }
+
+    .agenda-list { display: grid; gap: 12px; margin-top: 14px; }
+    .group-heading { color: var(--accent-light); font-size: 0.78rem; font-weight: 800; margin: 10px 0 0; }
+    .event-card { padding: 15px; transition: 180ms ease; }
+    .event-card:hover, .event-card.active { transform: translateY(-2px); border-color: rgba(44, 126, 255, 0.56); background: rgba(11, 61, 145, 0.08); }
+    .event-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .event-title { margin: 0; font-size: 1.05rem; line-height: 1.25; }
+    .event-meta { margin: 5px 0 0; color: var(--muted); font-size: 0.83rem; line-height: 1.45; }
+    .event-desc { margin: 12px 0 0; color: var(--muted); line-height: 1.55; font-size: 0.9rem; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; border: 1px solid rgba(44, 126, 255, 0.18); background: rgba(11, 61, 145, 0.09); color: var(--accent-light); font-size: 0.75rem; white-space: nowrap; }
+    .badge.warn { color: var(--warn); border-color: rgba(255, 227, 160, 0.24); background: rgba(255, 227, 160, 0.055); }
+    .badge.good { color: var(--good); border-color: rgba(184, 255, 213, 0.24); background: rgba(184, 255, 213, 0.055); }
+    .badge.danger { color: var(--danger); border-color: rgba(255, 157, 157, 0.24); background: rgba(255, 157, 157, 0.055); }
+    .card-data { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .data-pill { border: 1px solid rgba(44, 126, 255, 0.13); background: rgba(255,255,255,0.025); border-radius: 13px; padding: 9px; min-width: 0; }
+    .data-pill span { display: block; color: var(--muted); font-size: 0.7rem; margin-bottom: 4px; }
+    .data-pill strong { display: block; font-size: 0.82rem; overflow-wrap: anywhere; }
+
+    .timeline { position: relative; display: grid; gap: 14px; margin-top: 16px; padding-left: 18px; }
+    .timeline::before { content: ""; position: absolute; left: 4px; top: 3px; bottom: 3px; width: 2px; background: linear-gradient(180deg, rgba(44,126,255,0.75), rgba(44,126,255,0.08)); }
+    .timeline-item { position: relative; }
+    .timeline-item::before { content: ""; position: absolute; left: -19px; top: 18px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent-light); box-shadow: 0 0 16px rgba(44,126,255,0.65); }
+
+    .sky-window-list { display: grid; gap: 12px; margin-top: 14px; }
+    .sky-window h3, .upcoming-item h3, .saved-item h3 { margin: 0; font-size: 0.96rem; }
+    .sky-window p, .upcoming-item p, .saved-item p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; font-size: 0.84rem; }
+
+    .featured-title { font-size: 1.22rem; margin: 0; }
+    .countdown { margin: 12px 0; padding: 12px; border: 1px solid rgba(44,126,255,0.18); border-radius: 16px; background: rgba(44,126,255,0.06); }
+    .countdown strong { display: block; font-size: 1.15rem; color: var(--accent-light); }
+    .upcoming-list, .saved-list { display: grid; gap: 10px; margin-top: 13px; }
+    .detail-grid { display: grid; gap: 10px; margin-top: 12px; }
+    .detail-grid .data-pill { border-radius: 14px; }
+    .detail-section { margin-top: 13px; }
+    .detail-section h3 { margin: 0 0 6px; font-size: 0.94rem; color: var(--accent-light); }
+    .detail-section p, .detail-section li { color: var(--muted); line-height: 1.55; font-size: 0.9rem; }
+    .detail-section ul { margin: 8px 0 0; padding-left: 20px; }
+
+    .glossary { display: grid; gap: 8px; margin-top: 12px; }
+    .glossary details { padding: 0; overflow: hidden; }
+    .glossary summary { cursor: pointer; padding: 12px; color: var(--field-text); font-weight: 700; }
+    .glossary p { margin: 0; padding: 0 12px 12px; color: var(--muted); line-height: 1.5; font-size: 0.86rem; }
+
+    .status-bar { position: sticky; bottom: 12px; z-index: 5; padding: 12px 15px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 0.86rem; }
+    .empty-state { border: 1px dashed rgba(44,126,255,0.24); border-radius: 18px; padding: 16px; color: var(--muted); background: rgba(255,255,255,0.025); line-height: 1.55; }
+
+    .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,0.66); backdrop-filter: blur(10px); }
+    .modal-backdrop.open { display: flex; }
+    .modal-card { width: min(850px, 100%); max-height: min(86vh, 920px); overflow: auto; padding: 22px; }
+    .modal-close { position: sticky; top: 0; margin-left: auto; z-index: 1; }
+
+    .mobile-tabs { display: none; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .mobile-tabs button { white-space: nowrap; }
+
+    @keyframes glowFloat { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(14px, -12px, 0) scale(1.05); } }
+    @keyframes panelSheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(140%); } }
+    @keyframes panelFloatIn { from { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+    @keyframes loadingSlide { 0% { transform: translateX(-110%); } 100% { transform: translateX(270%); } }
+
+    @media (max-width: 1320px) {
+      .app-layout { grid-template-columns: 315px minmax(0, 1fr); }
+      .right-column { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .detail-panel { grid-column: 1 / -1; }
+    }
+    @media (max-width: 980px) {
+      .moon-wrap { width: 98px; height: 98px; top: 72px; right: 24px; opacity: 0.42; }
+      .moon-wrap::after { width: 78px; height: 78px; top: 9px; left: 31px; }
+      .app-shell { padding: 18px 15px 24px; }
+      .app-layout, .right-column { grid-template-columns: 1fr; }
+      .summary-grid, .card-data { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .calendar-grid { gap: 6px; }
+      .day-cell { min-height: 92px; padding: 7px; border-radius: 13px; }
+      .event-pill { font-size: 0.68rem; }
+      .mobile-tabs { display: flex; }
+      body.mobile-calendar .left-column, body.mobile-calendar .right-column { display: none; }
+      body.mobile-agenda .left-column, body.mobile-agenda .right-column { display: none; }
+      body.mobile-planned .center-column, body.mobile-planned .detail-panel, body.mobile-planned .featured-panel, body.mobile-planned .upcoming-panel { display: none; }
+      body.mobile-details .left-column, body.mobile-details .center-column { display: none; }
+    }
+    @media (max-width: 680px) {
+      .hero-card, .panel, .event-card, .modal-card { border-radius: 18px; padding-left: 15px; padding-right: 15px; }
+      .control-grid, .summary-grid, .card-data { grid-template-columns: 1fr; }
+      .calendar-grid { display: none; }
+      .month-calendar-help { display: block !important; }
+      .hero-actions .btn, .btn-row .btn { flex: 1 1 auto; }
+    }
+  </style>
+</head>
+<body class="mobile-calendar">
+  <canvas id="starfield"></canvas>
+  <div class="space-glow glow-1"></div>
+  <div class="space-glow glow-2"></div>
+  <div class="space-glow glow-3"></div>
+  <div class="moon-wrap"></div>
+
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loader-card">
+      <h2 class="loader-title">Loading Cosmic Events Calendar…</h2>
+      <div class="loader-line"><span></span></div>
+      <p class="loader-status" id="loaderStatus">building moon phases</p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="eventModal" aria-hidden="true">
+    <article class="modal-card">
+      <button class="btn small modal-close" id="closeModalBtn" type="button">Close</button>
+      <div id="modalContent"></div>
+    </article>
+  </div>
+
+  <div class="app-shell">
+    <main class="main-inner">
+      <section class="hero-card">
+        <div class="content hero-top">
+          <div>
+            <h1 class="hero-title">Cosmic Events <span class="glow">Calendar</span></h1>
+            <p class="hero-subtitle">Track eclipses, meteor showers, conjunctions, oppositions, moon phases, launch windows, Milky Way windows, and the best nights to go outside. Built-in data works offline, with clear approximate labels where precision depends on official sources.</p>
+            <div class="hero-actions">
+              <button class="btn primary" id="todayBtn" type="button">Today</button>
+              <button class="btn" id="copyPlanHeroBtn" type="button">Copy Planned Events</button>
+              <button class="btn" id="fieldModeBtn" type="button">Field Mode</button>
+            </div>
+          </div>
+          <div class="summary-grid" style="min-width:min(100%,520px);max-width:560px;">
+            <div class="stat-card"><span>Next 7 days</span><strong id="stat7">0 events</strong></div>
+            <div class="stat-card"><span>Next 30 days</span><strong id="stat30">0 events</strong></div>
+            <div class="stat-card"><span>Next new moon</span><strong id="statNewMoon">—</strong></div>
+            <div class="stat-card"><span>Data mode</span><strong id="dataMode">offline/static</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mobile-tabs">
+        <button class="view-tab active" data-mobile="mobile-calendar" type="button">Calendar</button>
+        <button class="view-tab" data-mobile="mobile-agenda" type="button">Agenda</button>
+        <button class="view-tab" data-mobile="mobile-planned" type="button">Planned</button>
+        <button class="view-tab" data-mobile="mobile-details" type="button">Details</button>
+      </div>
+
+      <section class="app-layout">
+        <aside class="left-column">
+          <section class="panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Location &amp; Sky</h2><p>Scores update with hemisphere, cloud cover, moonlight, and Bortle class.</p></div>
+              <div class="control-grid">
+                <div class="field full"><label for="locationName">Location name</label><input class="input" id="locationName" value="Los Angeles, CA" /></div>
+                <div class="field"><label for="latInput">Latitude</label><input class="input" id="latInput" type="number" step="0.01" value="34.05" /></div>
+                <div class="field"><label for="lonInput">Longitude</label><input class="input" id="lonInput" type="number" step="0.01" value="-118.24" /></div>
+                <div class="field"><label for="bortleInput">Bortle</label><select class="select" id="bortleInput"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div>
+                <div class="field"><label for="cloudInput">Cloud %</label><input class="input" id="cloudInput" type="number" min="0" max="100" value="25" /></div>
+              </div>
+              <div class="btn-row" style="margin-top:14px;"><button class="btn primary" id="useLocationBtn" type="button">Use My Location</button><button class="btn" id="saveSettingsBtn" type="button">Save Settings</button></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Filters</h2><p>Search events, equipment, objects, radiant constellations, agencies, and notes.</p></div>
+              <div class="control-grid">
+                <div class="field full"><label for="searchInput">Search</label><input class="input" id="searchInput" placeholder="perseids, eclipse, venus, rocket..." /></div>
+                <div class="field"><label for="visibilityFilter">Visibility</label><select class="select" id="visibilityFilter"><option value="all">All</option><option value="mine">Visible from my location</option><option value="global">Global</option><option value="north">Northern hemisphere</option><option value="south">Southern hemisphere</option><option value="online">Online/launch</option></select></div>
+                <div class="field"><label for="difficultyFilter">Difficulty</label><select class="select" id="difficultyFilter"><option value="all">All</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+                <div class="field"><label for="sortSelect">Sort</label><select class="select" id="sortSelect"><option value="soonest">Soonest</option><option value="score">Highest score</option><option value="type">Event type</option><option value="difficulty">Difficulty</option><option value="favorites">Favorites first</option><option value="planned">Planned first</option></select></div>
+                <div class="field"><label for="equipmentFilter">Equipment</label><select class="select" id="equipmentFilter"><option value="all">All</option><option value="naked eye">Naked eye</option><option value="binoculars">Binoculars</option><option value="telescope">Telescope</option><option value="camera">Camera</option><option value="solar filter">Solar filter</option></select></div>
+              </div>
+
+              <div class="mini-title" style="margin-top:14px;">Event types</div>
+              <div class="chip-wrap" id="typeFilterBox"></div>
+              <div class="mini-title" style="margin-top:14px;">Quick filters</div>
+              <div class="chip-wrap">
+                <label class="chip-check"><input id="favoritesOnly" type="checkbox" />Favorites</label>
+                <label class="chip-check"><input id="plannedOnly" type="checkbox" />Planned</label>
+                <label class="chip-check"><input id="majorOnly" type="checkbox" />Major only</label>
+              </div>
+              <div class="btn-row" style="margin-top:14px;"><button class="btn" id="resetFiltersBtn" type="button">Reset Filters</button></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Saved Events</h2><p>Favorites, planned events, observed notes, and missed events stay in this browser.</p></div>
+              <div class="saved-list" id="savedList"></div>
+              <div class="btn-row" style="margin-top:14px;"><button class="btn primary small" id="downloadJsonBtn" type="button">Export JSON</button><button class="btn small" id="downloadIcsBtn" type="button">Export .ics</button><button class="btn small" id="printPlanBtn" type="button">Printable HTML</button></div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="center-column">
+          <section class="panel">
+            <div class="content">
+              <div class="top-controls">
+                <div>
+                  <h2 class="month-title" id="monthTitle">Month</h2>
+                  <p class="event-meta" id="monthSubline">Event times and visibility are simplified for planning.</p>
+                </div>
+                <div class="btn-row">
+                  <button class="btn small" id="prevMonthBtn" type="button">‹</button>
+                  <input class="input" id="monthInput" type="month" style="width:150px;" />
+                  <button class="btn small" id="nextMonthBtn" type="button">›</button>
+                </div>
+              </div>
+              <div class="view-tabs" style="margin-top:14px;">
+                <button class="view-tab active" data-view="month" type="button">Month</button>
+                <button class="view-tab" data-view="agenda" type="button">Agenda</button>
+                <button class="view-tab" data-view="timeline" type="button">Timeline</button>
+                <button class="view-tab" data-view="windows" type="button">Sky Window</button>
+              </div>
+              <div id="viewContainer"></div>
+              <div class="empty-state month-calendar-help" style="display:none;margin-top:14px;">Small screens use the agenda-style cards below instead of a tiny cramped month grid.</div>
+            </div>
+          </section>
+        </section>
+
+        <aside class="right-column">
+          <section class="panel featured-panel">
+            <div class="content" id="featuredPanel"></div>
+          </section>
+          <section class="panel upcoming-panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Upcoming Soon</h2><p>Fast summary of what is worth watching next.</p></div>
+              <div class="upcoming-list" id="upcomingPanel"></div>
+            </div>
+          </section>
+          <section class="panel detail-panel">
+            <div class="content" id="detailPanel"></div>
+          </section>
+          <section class="panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Field Tips</h2><p>Safety and observing reminders for real nights outside.</p></div>
+              <div class="tip-card" style="margin-top:12px;">Check weather, park rules, access hours, and location safety before driving out.</div>
+              <div class="tip-card" style="margin-top:10px;">Use red light, warm clothes, battery packs, and avoid white phone screens during meteor showers.</div>
+              <div class="tip-card" style="margin-top:10px;color:var(--warn);">Solar events require certified eclipse glasses. Telescopes and binoculars need a proper front-mounted solar filter.</div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="content">
+              <div class="section-title-wrap"><h2>Glossary</h2><p>Tap to expand astronomy words used in the calendar.</p></div>
+              <div class="glossary" id="glossaryBox"></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <div class="status-bar">
+        <span id="statusText">Event times and visibility are simplified for planning. Check official sources for exact eclipse paths, launch schedules, and occultation predictions.</span>
+        <span id="selectionText">No event selected</span>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // data
+    const STORAGE_KEY = "stellasimCosmicEventsCalendar";
+    const EVENT_TYPES = ["solar eclipse", "lunar eclipse", "meteor shower", "planetary conjunction", "planetary opposition", "lunar conjunction", "occultation", "supermoon", "new moon", "full moon", "first quarter moon", "last quarter moon", "comet event", "asteroid close approach", "planet at greatest elongation", "planet at conjunction", "launch window", "spacecraft milestone", "astronomy awareness event", "deep-sky observing window", "milky way season", "aurora/space weather"];
+    const EQUIP_RANK = { "naked eye": 1, "binoculars": 2, "telescope": 3, "camera": 3, "solar filter": 4 };
+    const DIFF_RANK = { beginner: 1, intermediate: 2, advanced: 3 };
+    const TYPE_LABELS = { "solar eclipse": "Solar Eclipse", "lunar eclipse": "Lunar Eclipse", "meteor shower": "Meteor", "planetary conjunction": "Conjunction", "planetary opposition": "Opposition", "lunar conjunction": "Moon + Planet", "occultation": "Occultation", "supermoon": "Supermoon", "new moon": "New Moon", "full moon": "Full Moon", "first quarter moon": "First Quarter", "last quarter moon": "Last Quarter", "comet event": "Comet", "asteroid close approach": "Asteroid", "planet at greatest elongation": "Elongation", "planet at conjunction": "Solar Conjunction", "launch window": "Launch", "spacecraft milestone": "Spacecraft", "astronomy awareness event": "Awareness", "deep-sky observing window": "Deep-Sky", "milky way season": "Milky Way", "aurora/space weather": "Aurora" };
+    const METEOR_SHOWERS = [
+      ["Quadrantids", "01-03", "Dec 26 - Jan 16", "Boötes", 110, "Northern Hemisphere", "after midnight to dawn"],
+      ["Lyrids", "04-22", "Apr 16 - Apr 25", "Lyra", 18, "Northern Hemisphere", "after midnight"],
+      ["Eta Aquariids", "05-06", "Apr 19 - May 28", "Aquarius", 50, "Southern Hemisphere favored", "pre-dawn"],
+      ["Delta Aquariids", "07-30", "Jul 12 - Aug 23", "Aquarius", 25, "Southern Hemisphere favored", "after midnight"],
+      ["Perseids", "08-12", "Jul 17 - Aug 24", "Perseus", 100, "Northern Hemisphere", "late night to dawn"],
+      ["Draconids", "10-08", "Oct 6 - Oct 10", "Draco", 10, "Northern Hemisphere", "evening"],
+      ["Orionids", "10-21", "Oct 2 - Nov 7", "Orion", 20, "Both hemispheres", "after midnight"],
+      ["Southern Taurids", "11-05", "Sep 10 - Nov 20", "Taurus", 5, "Both hemispheres", "late evening"],
+      ["Northern Taurids", "11-12", "Oct 20 - Dec 10", "Taurus", 5, "Both hemispheres", "late evening"],
+      ["Leonids", "11-17", "Nov 6 - Nov 30", "Leo", 15, "Both hemispheres", "after midnight"],
+      ["Geminids", "12-14", "Dec 4 - Dec 20", "Gemini", 120, "Both hemispheres", "all night, best after 10 PM"],
+      ["Ursids", "12-22", "Dec 17 - Dec 26", "Ursa Minor", 10, "Northern Hemisphere", "pre-dawn"]
+    ];
+    const STATIC_EVENTS = [
+      { id:"eclipse-solar-2026-08-12", title:"Total Solar Eclipse", type:"solar eclipse", startDate:"2026-08-12", timeUTC:"16:45", allDay:false, importance:100, visibility:"regional", hemisphere:"northern", equipment:["solar filter", "camera"], difficulty:"advanced", description:"A major total solar eclipse with a path crossing regions including Greenland, Iceland, and Spain. This app does not draw an exact path.", observingTips:"Check official eclipse maps for the path, local circumstances, weather, and legal viewing locations.", safetyNotes:"Never look directly at the Sun without proper certified eclipse glasses or a certified front-mounted solar filter. Do not use regular sunglasses. Telescopes and binoculars need a proper front-mounted solar filter.", relatedObjects:["Sun", "Moon"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["total", "solar", "eclipse", "safety"] },
+      { id:"eclipse-lunar-2026-08-28", title:"Partial Lunar Eclipse", type:"lunar eclipse", startDate:"2026-08-28", timeUTC:"04:12", allDay:false, importance:82, visibility:"regional", hemisphere:"global", equipment:["naked eye", "binoculars", "telescope", "camera"], difficulty:"beginner", description:"A lunar eclipse can be watched safely with the naked eye. Exact local timing depends on your location.", observingTips:"Look for the Moon darkening and changing color as it moves through Earth’s shadow.", safetyNotes:"Lunar eclipses are safe to view directly. Still check weather, local access, and horizon clearance.", relatedObjects:["Moon", "Earth shadow"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["partial", "lunar", "eclipse"] },
+      { id:"eclipse-solar-2027-02-06", title:"Annular Solar Eclipse", type:"solar eclipse", startDate:"2027-02-06", timeUTC:"15:00", allDay:false, importance:92, visibility:"regional", hemisphere:"southern", equipment:["solar filter", "camera"], difficulty:"advanced", description:"Approximate placeholder for an annular solar eclipse. The exact path is not included in this offline demo.", observingTips:"Use official eclipse path data before traveling or planning photography.", safetyNotes:"Never look directly at the Sun without certified eclipse glasses or a proper front-mounted solar filter. Regular sunglasses are not safe.", relatedObjects:["Sun", "Moon"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["annular", "solar", "eclipse"] },
+      { id:"jupiter-opposition-2026", title:"Jupiter at Opposition", type:"planetary opposition", startDate:"2026-01-10", timeUTC:"06:00", allDay:false, importance:86, visibility:"global", hemisphere:"global", equipment:["telescope", "camera"], difficulty:"beginner", description:"Jupiter is opposite the Sun in the sky and is well placed for evening observing around this date.", observingTips:"Use a telescope after it climbs high. Watch for the Galilean moons and cloud belts when seeing is steady.", safetyNotes:"No special eye safety issue. Avoid unsafe observing locations and bright white lights.", relatedObjects:["Jupiter", "Galilean moons"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["jupiter", "planet", "opposition"] },
+      { id:"saturn-opposition-2026", title:"Saturn at Opposition", type:"planetary opposition", startDate:"2026-09-20", timeUTC:"08:00", allDay:false, importance:82, visibility:"global", hemisphere:"global", equipment:["telescope", "camera"], difficulty:"beginner", description:"Saturn is near its best placement of the year for telescope viewing.", observingTips:"Let the telescope cool and use moderate magnification. Video capture can help for imaging.", safetyNotes:"No special eye safety issue. Check seeing conditions and location safety.", relatedObjects:["Saturn", "rings", "Titan"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["saturn", "planet", "opposition"] },
+      { id:"mars-opposition-2027", title:"Mars Opposition Window", type:"planetary opposition", startDate:"2027-02-19", timeUTC:"07:00", allDay:false, importance:84, visibility:"global", hemisphere:"global", equipment:["telescope", "camera"], difficulty:"intermediate", description:"Mars is best around opposition windows, when it is closest and brightest for that cycle.", observingTips:"Use high magnification only if the image stays steady. For photos, use short video capture and stacking.", safetyNotes:"No special eye safety issue.", relatedObjects:["Mars"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["mars", "opposition"] },
+      { id:"venus-elongation-2026-10", title:"Venus Greatest Elongation", type:"planet at greatest elongation", startDate:"2026-10-25", timeUTC:"02:00", allDay:false, importance:72, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "telescope", "camera"], difficulty:"beginner", description:"Venus is far from the Sun in the sky, making it easier to observe safely after sunset or before sunrise depending on the elongation.", observingTips:"Observe when the Sun is below the horizon. In a telescope, look for the phase, not surface detail.", safetyNotes:"Never sweep binoculars or a telescope near the Sun. Wait until the Sun is safely below the horizon.", relatedObjects:["Venus"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["venus", "elongation"] },
+      { id:"mercury-elongation-2026-07", title:"Mercury Greatest Elongation", type:"planet at greatest elongation", startDate:"2026-07-04", timeUTC:"03:00", allDay:false, importance:68, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars"], difficulty:"intermediate", description:"Mercury is best seen when it appears farthest from the Sun in the twilight sky.", observingTips:"Find a flat horizon and observe only when the Sun is below the horizon.", safetyNotes:"Do not scan near the Sun with binoculars or a telescope.", relatedObjects:["Mercury"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["mercury", "elongation"] },
+      { id:"moon-venus-2026-07", title:"Moon near Venus", type:"lunar conjunction", startDate:"2026-07-16", timeUTC:"03:30", allDay:false, importance:70, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "camera"], difficulty:"beginner", description:"A crescent Moon and Venus appear near each other in the sky. Exact separation is approximate in this offline dataset.", observingTips:"Good for wide-field photos with foreground scenery.", safetyNotes:"If this is near sunrise or sunset, avoid looking near the Sun with optical equipment.", relatedObjects:["Moon", "Venus"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["moon", "venus", "conjunction"] },
+      { id:"moon-jupiter-2026-11", title:"Moon near Jupiter", type:"lunar conjunction", startDate:"2026-11-25", timeUTC:"05:00", allDay:false, importance:70, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "camera"], difficulty:"beginner", description:"The Moon passes near Jupiter in the sky, making a bright easy target.", observingTips:"Use binoculars for the Moon and then switch to a telescope for Jupiter’s moons.", safetyNotes:"No special eye safety issue.", relatedObjects:["Moon", "Jupiter"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["moon", "jupiter", "conjunction"] },
+      { id:"comet-sample-2026", title:"Comet Watch Placeholder", type:"comet event", startDate:"2026-10-10", timeUTC:"08:00", allDay:false, importance:58, visibility:"regional", hemisphere:"global", equipment:["binoculars", "telescope", "camera"], difficulty:"intermediate", description:"Comet brightness changes quickly. This placeholder shows how comet events are structured for future updates.", observingTips:"Use binoculars first and compare the comet against nearby star fields over several nights.", safetyNotes:"Check current finder charts before traveling.", relatedObjects:["Comet", "star field"], moonSensitive:true, source:"static placeholder", isApproximate:true, tags:["comet", "placeholder"] },
+      { id:"asteroid-sample-2026", title:"Asteroid Close Approach Placeholder", type:"asteroid close approach", startDate:"2026-12-04", timeUTC:"09:00", allDay:false, importance:52, visibility:"regional", hemisphere:"global", equipment:["telescope", "camera"], difficulty:"advanced", description:"Asteroid close approaches need exact ephemerides. This placeholder is ready for updated data.", observingTips:"Use a telescope, star chart, and repeated images to spot motion against background stars.", safetyNotes:"Use official ephemeris predictions for exact timing and coordinates.", relatedObjects:["Asteroid"], moonSensitive:true, source:"static placeholder", isApproximate:true, tags:["asteroid", "close approach"] },
+      { id:"aurora-placeholder", title:"Aurora / Space Weather Watch", type:"aurora/space weather", startDate:"2026-06-22", timeUTC:"06:00", allDay:true, importance:50, visibility:"regional", hemisphere:"northern", equipment:["naked eye", "camera"], difficulty:"intermediate", description:"Placeholder for future space weather alerts. Real aurora visibility depends on solar activity and geomagnetic forecasts.", observingTips:"If alerts are strong, look north from a dark location and use a camera for faint color.", safetyNotes:"Do not drive to unsafe roads or trespass for aurora viewing.", relatedObjects:["Sun", "Earth magnetosphere"], moonSensitive:true, source:"static placeholder", isApproximate:true, tags:["aurora", "space weather", "kp"] },
+      { id:"launch-fallback-2026", title:"Launch Window Placeholder", type:"launch window", startDate:"2026-06-25", timeUTC:"18:00", allDay:false, importance:54, visibility:"online", hemisphere:"global", equipment:["naked eye", "camera"], difficulty:"beginner", description:"Fallback launch event shown when live launch data is unavailable. Launch schedules change often.", observingTips:"Use official mission pages for live countdowns, webcast links, and scrubs.", safetyNotes:"Do not treat fallback launch data as official.", relatedObjects:["Rocket", "spacecraft"], moonSensitive:false, source:"fallback sample", isApproximate:true, tags:["launch", "rocket", "fallback"] },
+      { id:"spacecraft-milestone-sample", title:"Spacecraft Milestone Placeholder", type:"spacecraft milestone", startDate:"2026-09-05", timeUTC:"12:00", allDay:true, importance:52, visibility:"online", hemisphere:"global", equipment:["naked eye"], difficulty:"beginner", description:"Placeholder for mission flybys, arrivals, sample returns, and orbital insertions.", observingTips:"Follow official mission channels for timing and live coverage.", safetyNotes:"Online event. No field safety issue.", relatedObjects:["Spacecraft"], moonSensitive:false, source:"static placeholder", isApproximate:true, tags:["spacecraft", "mission"] },
+      { id:"astronomy-day-2026", title:"Astronomy Day", type:"astronomy awareness event", startDate:"2026-05-02", timeUTC:"12:00", allDay:true, importance:48, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "telescope"], difficulty:"beginner", description:"A good excuse to host a public star party, run telescope demos, or invite friends outside.", observingTips:"Choose bright, easy targets and explain what people should expect visually.", safetyNotes:"Use safe setup, clear cables, and supervised solar filters if observing the Sun.", relatedObjects:["Public observing"], moonSensitive:false, source:"static sample", isApproximate:true, tags:["awareness", "star party"] }
+    ];
+
+    const GLOSSARY = {
+      "conjunction":"Two objects appear close together in the sky from our point of view, even if they are far apart in space.",
+      "opposition":"A planet appears opposite the Sun in the sky. Outer planets are usually bright, high, and well placed near opposition.",
+      "occultation":"One object passes in front of another and hides it, such as the Moon covering a star or planet.",
+      "eclipse":"A shadow alignment involving the Sun, Earth, and Moon. Solar eclipses need strict eye safety. Lunar eclipses are safe to view.",
+      "meteor shower":"Earth passes through dust left by a comet or asteroid. The dust burns up as meteors in the atmosphere.",
+      "radiant":"The point in the sky where meteor shower meteors seem to come from.",
+      "ZHR":"Zenithal hourly rate. It estimates meteor shower strength under ideal dark-sky conditions.",
+      "supermoon":"A full Moon that occurs near perigee, when the Moon is closer to Earth than usual.",
+      "perigee":"The Moon’s closest point to Earth in its orbit.",
+      "apogee":"The Moon’s farthest point from Earth in its orbit.",
+      "elongation":"The angular distance between a planet and the Sun in the sky. Mercury and Venus are easiest near greatest elongation.",
+      "astronomical twilight":"The Sun is 18 degrees below the horizon. After this, the sky is as dark as it naturally gets.",
+      "new moon window":"Several nights around new moon when moonlight is low, making faint galaxies and nebulae easier.",
+      "Bortle class":"A 1 to 9 scale for light pollution. 1 is very dark. 9 is inner-city bright."
+    };
+
+    const now = new Date();
+    let userState = loadState();
+    let allEvents = [];
+    let filteredEvents = [];
+    let selectedEventId = null;
+    let launchDataLive = false;
+    let selectedMonth = new Date(userState.selectedYear, userState.selectedMonth, 1);
+
+    const $ = (id) => document.getElementById(id);
+
+    // boot
+    document.addEventListener("DOMContentLoaded", startApp);
+
+    async function startApp() {
+      hydrateControls();
+      wireEvents();
+      initStarfield();
+      setLoader("building moon phases");
+      await delay(80);
+      buildEvents();
+      setLoader("adding meteor showers");
+      await delay(80);
+      setLoader("checking launch feed");
+      await fetchLaunchFeed();
+      setLoader("preparing calendar");
+      await delay(80);
+      renderAll();
+      setLoader("ready");
+      setTimeout(() => $("loadingScreen").classList.add("hidden"), 260);
+    }
+
+    function setLoader(text) { $("loaderStatus").textContent = text; }
+    function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+    function hydrateControls() {
+      $("locationName").value = userState.locationName;
+      $("latInput").value = userState.lat;
+      $("lonInput").value = userState.lon;
+      $("bortleInput").value = String(userState.bortle);
+      $("cloudInput").value = userState.cloudCover;
+      $("searchInput").value = userState.filters.search;
+      $("visibilityFilter").value = userState.filters.visibility;
+      $("difficultyFilter").value = userState.filters.difficulty;
+      $("equipmentFilter").value = userState.filters.equipment;
+      $("sortSelect").value = userState.filters.sort;
+      $("favoritesOnly").checked = userState.filters.favoritesOnly;
+      $("plannedOnly").checked = userState.filters.plannedOnly;
+      $("majorOnly").checked = userState.filters.majorOnly;
+      $("fieldModeBtn").textContent = userState.fieldMode ? "Exit Field Mode" : "Field Mode";
+      document.body.classList.toggle("field-mode", userState.fieldMode);
+      buildTypeFilters();
+      updateMonthInput();
+      setActiveView(userState.selectedView || "month");
+    }
+
+    function buildTypeFilters() {
+      const box = $("typeFilterBox");
+      box.innerHTML = "";
+      EVENT_TYPES.forEach((type) => {
+        const label = document.createElement("label");
+        label.className = "chip-check";
+        label.innerHTML = `<input type="checkbox" value="${type}" ${userState.filters.types.includes(type) ? "checked" : ""} />${TYPE_LABELS[type] || type}`;
+        box.appendChild(label);
+      });
+    }
+
+    function wireEvents() {
+      ["locationName", "latInput", "lonInput", "bortleInput", "cloudInput", "visibilityFilter", "difficultyFilter", "equipmentFilter", "sortSelect", "favoritesOnly", "plannedOnly", "majorOnly"].forEach((id) => {
+        $(id).addEventListener("input", readControlsAndRender);
+        $(id).addEventListener("change", readControlsAndRender);
+      });
+      $("searchInput").addEventListener("input", debounce(readControlsAndRender, 220));
+      $("typeFilterBox").addEventListener("change", readControlsAndRender);
+      $("prevMonthBtn").addEventListener("click", () => changeMonth(-1));
+      $("nextMonthBtn").addEventListener("click", () => changeMonth(1));
+      $("monthInput").addEventListener("change", () => { const [y, m] = $("monthInput").value.split("-").map(Number); selectedMonth = new Date(y, m - 1, 1); userState.selectedYear = y; userState.selectedMonth = m - 1; buildEvents(); renderAll(); saveEventState(); });
+      $("todayBtn").addEventListener("click", () => { selectedMonth = new Date(now.getFullYear(), now.getMonth(), 1); userState.selectedYear = selectedMonth.getFullYear(); userState.selectedMonth = selectedMonth.getMonth(); selectedEventId = null; buildEvents(); renderAll(); saveEventState(); });
+      $("useLocationBtn").addEventListener("click", useMyLocation);
+      $("saveSettingsBtn").addEventListener("click", () => { readControls(); saveEventState(); setStatus("Settings saved."); });
+      $("resetFiltersBtn").addEventListener("click", resetFilters);
+      $("copyPlanHeroBtn").addEventListener("click", copyAllPlannedEvents);
+      $("downloadJsonBtn").addEventListener("click", exportPlannedJSON);
+      $("downloadIcsBtn").addEventListener("click", exportICS);
+      $("printPlanBtn").addEventListener("click", buildPrintablePlan);
+      $("fieldModeBtn").addEventListener("click", toggleFieldMode);
+      $("closeModalBtn").addEventListener("click", closeModal);
+      $("eventModal").addEventListener("click", (event) => { if (event.target.id === "eventModal") closeModal(); });
+      document.querySelectorAll("[data-view]").forEach((btn) => btn.addEventListener("click", () => { setActiveView(btn.dataset.view); renderMainView(); saveEventState(); }));
+      document.querySelectorAll("[data-mobile]").forEach((btn) => btn.addEventListener("click", () => setMobileMode(btn.dataset.mobile)));
+    }
+
+    function readControlsAndRender() { readControls(); renderAll(); saveEventState(); }
+    function readControls() {
+      userState.locationName = $("locationName").value || "My location";
+      userState.lat = Number($("latInput").value || 0);
+      userState.lon = Number($("lonInput").value || 0);
+      userState.bortle = Number($("bortleInput").value || 5);
+      userState.cloudCover = Number($("cloudInput").value || 0);
+      userState.filters.search = $("searchInput").value.trim();
+      userState.filters.visibility = $("visibilityFilter").value;
+      userState.filters.difficulty = $("difficultyFilter").value;
+      userState.filters.equipment = $("equipmentFilter").value;
+      userState.filters.sort = $("sortSelect").value;
+      userState.filters.favoritesOnly = $("favoritesOnly").checked;
+      userState.filters.plannedOnly = $("plannedOnly").checked;
+      userState.filters.majorOnly = $("majorOnly").checked;
+      userState.filters.types = Array.from($("typeFilterBox").querySelectorAll("input:checked")).map((input) => input.value);
+    }
+
+    function loadState() {
+      const defaults = { locationName:"Los Angeles, CA", lat:34.05, lon:-118.24, bortle:5, cloudCover:25, selectedMonth:now.getMonth(), selectedYear:now.getFullYear(), selectedView:"month", fieldMode:false, filters:{ search:"", visibility:"all", difficulty:"all", equipment:"all", sort:"soonest", favoritesOnly:false, plannedOnly:false, majorOnly:false, types:[...EVENT_TYPES] }, favorites:[], planned:[], observed:[], missed:[], notes:{} };
+      try { return { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"), filters:{ ...defaults.filters, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").filters || {}) } }; } catch (error) { return defaults; }
+    }
+
+    function saveEventState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(userState)); }
+
+    function buildEvents() {
+      const years = [selectedMonth.getFullYear() - 1, selectedMonth.getFullYear(), selectedMonth.getFullYear() + 1];
+      const generated = [];
+      years.forEach((year) => {
+        generated.push(...generateMoonPhaseEvents(year));
+        generated.push(...generateMeteorShowerEvents(year));
+        generated.push(...generateDeepSkyWindows(year));
+        generated.push(...generateSeasonalEvents(year, userState.lat));
+        generated.push(...generatePlanetNotes(year));
+      });
+      allEvents = dedupeEvents([...STATIC_EVENTS, ...generated, ...allEvents.filter((event) => event.source === "live launch")]);
+    }
+
+    function dedupeEvents(events) { const seen = new Set(); return events.filter((event) => { if (seen.has(event.id)) return false; seen.add(event.id); return true; }); }
+
+    function getMoonPhase(date) {
+      const synodic = 29.53058867;
+      const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+      const days = (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12) - knownNewMoon) / 86400000;
+      const age = ((days % synodic) + synodic) % synodic;
+      const phase = age / synodic;
+      const illumination = Math.round((1 - Math.cos(2 * Math.PI * phase)) / 2 * 100);
+      const waxing = age < synodic / 2;
+      let name = "new moon";
+      if (age < 1.85 || age > 27.68) name = "new moon";
+      else if (age < 6.38) name = "waxing crescent";
+      else if (age < 8.38) name = "first quarter";
+      else if (age < 13.77) name = "waxing gibbous";
+      else if (age < 15.77) name = "full moon";
+      else if (age < 21.15) name = "waning gibbous";
+      else if (age < 23.15) name = "last quarter";
+      else name = "waning crescent";
+      return { name, illumination, age: Number(age.toFixed(1)), waxing, phase };
+    }
+
+    function generateMoonPhaseEvents(year) {
+      const events = [];
+      let previous = "";
+      for (let day = 1; day <= 366; day++) {
+        const date = new Date(Date.UTC(year, 0, day));
+        if (date.getUTCFullYear() !== year) continue;
+        const phase = getMoonPhase(date);
+        let type = "";
+        if (phase.name === "new moon" && previous !== "new moon") type = "new moon";
+        if (phase.name === "first quarter" && previous !== "first quarter") type = "first quarter moon";
+        if (phase.name === "full moon" && previous !== "full moon") type = "full moon";
+        if (phase.name === "last quarter" && previous !== "last quarter") type = "last quarter moon";
+        if (type) {
+          const isFull = type === "full moon";
+          const isNew = type === "new moon";
+          events.push({ id:`moon-${type}-${dateKey(date)}`, title:toTitle(TYPE_LABELS[type] || type), type, startDate:dateKey(date), timeUTC:"12:00", allDay:true, importance:isNew ? 72 : isFull ? 62 : 48, visibility:"global", hemisphere:"global", equipment:isFull ? ["naked eye", "binoculars", "telescope", "camera"] : ["naked eye", "camera"], difficulty:"beginner", description:isNew ? "The Moon is close to the Sun in the sky, so moonlight is low. This creates a strong deep-sky observing window." : isFull ? "The Moon is bright and dominates the sky. Excellent for lunar observing, weaker for faint galaxies and nebulae." : "A lunar quarter phase gives strong shadows along the terminator, making lunar terrain easier to see.", observingTips:isNew ? "Use the nights around new moon for galaxies, nebulae, Milky Way views, and faint clusters from dark skies." : isFull ? "Observe craters, rays, maria, and bright lunar features. Save faint deep-sky work for darker nights." : "Trace the terminator line with binoculars or a telescope.", safetyNotes:"Check weather and safe access. The Moon is safe to view directly.", relatedObjects:["Moon"], moonSensitive:false, source:"generated moon phase", isApproximate:true, tags:["moon", phase.name, "lunar", String(phase.illumination)] });
+          if (isFull && phase.illumination > 98 && (date.getUTCMonth() === 0 || date.getUTCMonth() === 11)) {
+            events.push({ id:`supermoon-placeholder-${dateKey(date)}`, title:"Supermoon Watch", type:"supermoon", startDate:dateKey(date), timeUTC:"12:00", allDay:true, importance:58, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "telescope", "camera"], difficulty:"beginner", description:"Approximate supermoon-style placeholder. A real supermoon needs lunar distance/perigee data, so this event is marked approximate.", observingTips:"Photograph the Moon near the horizon with foreground objects for scale.", safetyNotes:"Safe to view directly.", relatedObjects:["Moon", "perigee"], moonSensitive:false, source:"generated placeholder", isApproximate:true, tags:["supermoon", "perigee", "moon"] });
+          }
+        }
+        previous = phase.name;
+      }
+      return events;
+    }
+
+    function generateMeteorShowerEvents(year) {
+      return METEOR_SHOWERS.map(([name, md, range, radiant, zhr, hemisphere, best]) => {
+        const date = `${year}-${md}`;
+        const phase = getMoonPhase(new Date(`${date}T12:00:00Z`));
+        const moonInterference = phase.illumination > 70 ? "high moon interference" : phase.illumination > 35 ? "moderate moon interference" : "low moon interference";
+        return { id:`meteor-${name.toLowerCase().replaceAll(" ", "-")}-${year}`, title:`${name} Meteor Shower Peak`, type:"meteor shower", startDate:date, timeUTC:"08:00", allDay:false, importance:zhr >= 90 ? 88 : zhr >= 40 ? 76 : 62, visibility:"global", hemisphere:hemisphere.toLowerCase().includes("southern") ? "southern" : hemisphere.toLowerCase().includes("northern") ? "northern" : "global", equipment:["naked eye", "camera"], difficulty:"beginner", description:`Peak night for the ${name}. Active range: ${range}. Radiant: ${radiant}. Approximate ideal ZHR: ${zhr}.`, observingTips:`Best ${best}. Use naked eyes, a dark open sky, patience, and no telescope. Avoid phone light and let your eyes adapt. Moon: ${moonInterference}.`, safetyNotes:"Choose a safe location, dress warmly, avoid trespassing, and keep your phone dim/red.", relatedObjects:[radiant, "Earth", "meteor stream"], moonSensitive:true, source:"generated annual meteor shower", isApproximate:true, tags:[name, radiant, "zhr", String(zhr), range, moonInterference] };
+      });
+    }
+
+    function generateDeepSkyWindows(year) {
+      return generateMoonPhaseEvents(year).filter((event) => event.type === "new moon").map((event) => {
+        const start = addDays(event.startDate, -3);
+        const end = addDays(event.startDate, 3);
+        const month = new Date(event.startDate + "T12:00:00Z").getUTCMonth();
+        const suggestions = month >= 2 && month <= 4 ? "galaxies near spring, globular clusters, faint galaxy fields" : month >= 5 && month <= 8 ? "Milky Way objects, nebulae, open clusters, Sagittarius region" : month >= 10 || month <= 1 ? "Orion region, winter clusters, bright nebulae" : "clusters year-round, planetary nebulae, darker Milky Way fields";
+        return { id:`deep-sky-window-${event.startDate}`, title:"Best Deep-Sky Window", type:"deep-sky observing window", startDate:start, endDate:end, timeUTC:"22:00", allDay:false, importance:74, visibility:"global", hemisphere:"global", equipment:["naked eye", "binoculars", "telescope", "camera"], difficulty:"beginner", description:`Low moonlight window around new moon. Suggested targets: ${suggestions}.`, observingTips:"Pick dark skies, let your eyes adapt, use low magnification first, and save faint galaxies and nebulae for the darkest part of the night.", safetyNotes:"Check weather, access hours, and road safety before driving to dark sites.", relatedObjects:["galaxies", "nebulae", "Milky Way", "clusters"], moonSensitive:true, source:"generated deep-sky window", isApproximate:true, tags:["new moon window", "deep sky", suggestions] };
+      });
+    }
+
+    function generateSeasonalEvents(year, latitude) {
+      const north = latitude >= 0;
+      return [
+        { id:`milky-way-${year}`, title:north ? "Milky Way Core Season Begins" : "Milky Way Season Window", type:"milky way season", startDate:`${year}-05-15`, endDate:`${year}-09-10`, timeUTC:"03:00", allDay:false, importance:70, visibility:"regional", hemisphere:north ? "northern" : "southern", equipment:["naked eye", "binoculars", "camera"], difficulty:"intermediate", description:north ? "Approximate Northern Hemisphere Milky Way core season. Best views are late spring through summer from dark locations." : "Southern Hemisphere locations can get strong Milky Way views too, depending on season, latitude, and darkness.", observingTips:"Use dark skies, no bright Moon, and check when the core rises for your exact latitude.", safetyNotes:"Do not trespass. Check park access, wildlife, and weather.", relatedObjects:["Milky Way core", "Sagittarius", "Scorpius"], moonSensitive:true, source:"generated seasonal note", isApproximate:true, tags:["milky way", "core", "season"] },
+        { id:`equinox-march-${year}`, title:"March Equinox", type:"astronomy awareness event", startDate:`${year}-03-20`, timeUTC:"12:00", allDay:true, importance:42, visibility:"global", hemisphere:"global", equipment:["naked eye"], difficulty:"beginner", description:"Season marker when the Sun crosses the celestial equator.", observingTips:"Compare winter and spring constellations during the seasonal handoff.", safetyNotes:"General observing safety applies.", relatedObjects:["Sun", "celestial equator"], moonSensitive:false, source:"generated seasonal note", isApproximate:true, tags:["equinox", "season"] },
+        { id:`solstice-june-${year}`, title:"June Solstice", type:"astronomy awareness event", startDate:`${year}-06-21`, timeUTC:"12:00", allDay:true, importance:42, visibility:"global", hemisphere:"global", equipment:["naked eye"], difficulty:"beginner", description:"Season marker for the longest Northern Hemisphere day and shortest Southern Hemisphere day.", observingTips:"Plan around shorter summer nights in the north.", safetyNotes:"General observing safety applies.", relatedObjects:["Sun"], moonSensitive:false, source:"generated seasonal note", isApproximate:true, tags:["solstice", "season"] },
+        { id:`equinox-september-${year}`, title:"September Equinox", type:"astronomy awareness event", startDate:`${year}-09-22`, timeUTC:"12:00", allDay:true, importance:42, visibility:"global", hemisphere:"global", equipment:["naked eye"], difficulty:"beginner", description:"Season marker when day and night are roughly balanced.", observingTips:"Watch autumn constellations replace summer sky patterns.", safetyNotes:"General observing safety applies.", relatedObjects:["Sun", "celestial equator"], moonSensitive:false, source:"generated seasonal note", isApproximate:true, tags:["equinox", "season"] },
+        { id:`solstice-december-${year}`, title:"December Solstice", type:"astronomy awareness event", startDate:`${year}-12-21`, timeUTC:"12:00", allDay:true, importance:42, visibility:"global", hemisphere:"global", equipment:["naked eye"], difficulty:"beginner", description:"Season marker for the longest Northern Hemisphere night and longest Southern Hemisphere day.", observingTips:"Northern observers get long winter observing sessions if weather cooperates.", safetyNotes:"Dress warmly and check road safety.", relatedObjects:["Sun"], moonSensitive:false, source:"generated seasonal note", isApproximate:true, tags:["solstice", "season"] }
+      ];
+    }
+
+    function generatePlanetNotes(year) {
+      return [
+        ["Uranus Opposition Window", "planetary opposition", "11-15", "Uranus is best around opposition, but it is still dim and needs binoculars or a telescope."],
+        ["Neptune Opposition Window", "planetary opposition", "09-01", "Neptune is best around opposition, but it looks like a tiny blue disk in a telescope."],
+        ["Mercury Solar Conjunction", "planet at conjunction", "09-13", "Mercury is near the Sun in the sky and is not a safe/easy observing target."],
+        ["Venus Solar Conjunction", "planet at conjunction", "06-06", "Venus is near the Sun in the sky and should not be searched for with optics."],
+        ["Moon Occultation Placeholder", "occultation", "04-18", "Occultations require precise local predictions. This placeholder is ready for future exact data."],
+        ["Close Planetary Conjunction Placeholder", "planetary conjunction", "12-08", "Two bright planets appear close together in the sky. Exact separation is approximate in this offline dataset."]
+      ].map(([title, type, md, desc]) => ({ id:`${type}-${md}-${year}`.replaceAll(" ", "-"), title, type, startDate:`${year}-${md}`, timeUTC:"04:00", allDay:false, importance:type === "planet at conjunction" ? 38 : 58, visibility:type === "planet at conjunction" ? "global" : "regional", hemisphere:"global", equipment:type === "planet at conjunction" ? ["naked eye"] : ["naked eye", "binoculars", "telescope", "camera"], difficulty:type === "occultation" ? "advanced" : "intermediate", description:desc, observingTips:getDefaultTip(type), safetyNotes:type === "planet at conjunction" ? "Do not search near the Sun with binoculars or a telescope." : "Check exact local timing and horizon clearance.", relatedObjects:["planet", "Moon"], moonSensitive:false, source:"generated planet note", isApproximate:true, tags:[title, type, "planet"] }));
+    }
+
+    async function fetchLaunchFeed() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4500);
+      try {
+        const response = await fetch("https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8", { signal: controller.signal });
+        clearTimeout(timer);
+        if (!response.ok) throw new Error("launch feed failed");
+        const data = await response.json();
+        const launches = (data.results || []).slice(0, 8).map((item, index) => ({ id:`live-launch-${item.id || index}`, title:item.name || "Upcoming Launch", type:"launch window", startDate:(item.net || new Date().toISOString()).slice(0,10), timeUTC:(item.net || "T00:00").slice(11,16), allDay:false, importance:55, visibility:"online", hemisphere:"global", equipment:["naked eye", "camera"], difficulty:"beginner", description:`${item.launch_service_provider?.name || "Provider"} launch. Rocket: ${item.rocket?.configuration?.full_name || "unknown"}. Launch site: ${item.pad?.location?.name || "unknown"}. Status: ${item.status?.name || "scheduled"}.`, observingTips:"Launch schedules change often. Confirm the live countdown, webcast, and launch visibility with official mission sources.", safetyNotes:"Do not treat launch schedules as final. Respect launch-site closures and public safety zones.", relatedObjects:["rocket", item.mission?.name || "mission"], moonSensitive:false, source:"live launch", isApproximate:false, tags:[item.name, item.launch_service_provider?.name, item.rocket?.configuration?.full_name, item.pad?.location?.name, item.status?.name].filter(Boolean) }));
+        allEvents = dedupeEvents([...allEvents, ...launches]);
+        launchDataLive = launches.length > 0;
+      } catch (error) {
+        clearTimeout(timer);
+        launchDataLive = false;
+      }
+    }
+
+    function filterEvents() {
+      const q = userState.filters.search.toLowerCase();
+      filteredEvents = allEvents.filter((event) => {
+        if (!userState.filters.types.includes(event.type)) return false;
+        if (userState.filters.favoritesOnly && !userState.favorites.includes(event.id)) return false;
+        if (userState.filters.plannedOnly && !userState.planned.includes(event.id)) return false;
+        if (userState.filters.majorOnly && event.importance < 75) return false;
+        if (userState.filters.difficulty !== "all" && event.difficulty !== userState.filters.difficulty) return false;
+        if (userState.filters.equipment !== "all" && !(event.equipment || []).includes(userState.filters.equipment)) return false;
+        if (!visibilityMatches(event)) return false;
+        if (q) {
+          const hay = [event.title, event.type, event.visibility, event.hemisphere, event.difficulty, event.description, event.observingTips, event.safetyNotes, ...(event.relatedObjects || []), ...(event.equipment || []), ...(event.tags || [])].join(" ").toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      filteredEvents.sort(sortEvents);
+      return filteredEvents;
+    }
+
+    function visibilityMatches(event) {
+      const filter = userState.filters.visibility;
+      if (filter === "all") return true;
+      if (filter === "global") return event.hemisphere === "global" || event.visibility === "global";
+      if (filter === "online") return event.visibility === "online" || event.type === "launch window" || event.type === "spacecraft milestone";
+      if (filter === "north") return event.hemisphere === "northern" || event.hemisphere === "global";
+      if (filter === "south") return event.hemisphere === "southern" || event.hemisphere === "global";
+      if (filter === "mine") return getEventVisibility(event, userState).visible;
+      return true;
+    }
+
+    function sortEvents(a, b) {
+      const mode = userState.filters.sort;
+      if (mode === "score") return estimateEventScore(b, userState) - estimateEventScore(a, userState);
+      if (mode === "type") return a.type.localeCompare(b.type) || new Date(a.startDate) - new Date(b.startDate);
+      if (mode === "difficulty") return (DIFF_RANK[a.difficulty] || 1) - (DIFF_RANK[b.difficulty] || 1);
+      if (mode === "favorites") return Number(userState.favorites.includes(b.id)) - Number(userState.favorites.includes(a.id)) || new Date(a.startDate) - new Date(b.startDate);
+      if (mode === "planned") return Number(userState.planned.includes(b.id)) - Number(userState.planned.includes(a.id)) || new Date(a.startDate) - new Date(b.startDate);
+      return new Date(a.startDate) - new Date(b.startDate);
+    }
+
+    function estimateEventScore(event, settings) {
+      const phase = getMoonPhase(new Date(`${event.startDate}T12:00:00Z`));
+      let score = event.importance || 50;
+      if (event.moonSensitive) score -= Math.round(phase.illumination * 0.22);
+      if (event.type === "full moon") score += Math.round(phase.illumination * 0.08);
+      const visibility = getEventVisibility(event, settings);
+      score += visibility.visible ? 8 : -22;
+      score -= Math.max(0, (settings.bortle - 4) * 3);
+      score -= Math.round((settings.cloudCover || 0) * 0.23);
+      score -= ((DIFF_RANK[event.difficulty] || 1) - 1) * 5;
+      const neededRank = Math.max(...(event.equipment || ["naked eye"]).map((item) => EQUIP_RANK[item] || 1));
+      if (neededRank >= 4) score -= 4;
+      if (event.type === "solar eclipse") score -= 3;
+      if (event.visibility === "online") score += 5;
+      return Math.max(0, Math.min(100, Math.round(score)));
+    }
+
+    function getEventVisibility(event, settings) {
+      const north = settings.lat >= 0;
+      if (event.visibility === "online") return { visible:true, label:"online / webcast" };
+      if (event.hemisphere === "global") return { visible:true, label:"global event" };
+      if (event.hemisphere === "northern") return { visible:north, label:north ? "northern hemisphere match" : "mostly northern hemisphere" };
+      if (event.hemisphere === "southern") return { visible:!north, label:!north ? "southern hemisphere match" : "mostly southern hemisphere" };
+      return { visible:true, label:event.visibility || "regional / check local" };
+    }
+
+    function scoreLabel(score) { if (score >= 90) return "excellent"; if (score >= 75) return "good"; if (score >= 55) return "okay"; if (score >= 35) return "difficult"; return "poor/not recommended"; }
+
+    function renderAll() {
+      filterEvents();
+      updateMonthInput();
+      renderStats();
+      renderMainView();
+      renderFeatured();
+      renderUpcoming();
+      renderSavedList();
+      renderEventDetail();
+      renderGlossary();
+      $("dataMode").textContent = launchDataLive ? "live + offline" : "offline/static";
+      $("monthSubline").textContent = `${filteredEvents.length} matching event${filteredEvents.length === 1 ? "" : "s"}. Event times and visibility are simplified for planning.`;
+    }
+
+    function renderMainView() {
+      const view = userState.selectedView || "month";
+      if (view === "agenda") return renderAgenda();
+      if (view === "timeline") return renderTimeline();
+      if (view === "windows") return renderSkyWindows();
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const box = $("viewContainer");
+      const y = selectedMonth.getFullYear();
+      const m = selectedMonth.getMonth();
+      $("monthTitle").textContent = selectedMonth.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+      const first = new Date(y, m, 1);
+      const startOffset = first.getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const prevDays = new Date(y, m, 0).getDate();
+      const monthEvents = filteredEvents.filter((event) => isInMonth(event, y, m));
+      let html = `<div class="calendar-grid">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => `<div class="weekday">${d}</div>`).join("")}`;
+      for (let i = 0; i < 42; i++) {
+        const n = i - startOffset + 1;
+        let dayNum = n, muted = false, cellDate = new Date(y, m, n);
+        if (n < 1) { dayNum = prevDays + n; muted = true; cellDate = new Date(y, m - 1, dayNum); }
+        if (n > daysInMonth) { dayNum = n - daysInMonth; muted = true; cellDate = new Date(y, m + 1, dayNum); }
+        const key = localDateKey(cellDate);
+        const events = filteredEvents.filter((event) => event.startDate === key || (event.endDate && key >= event.startDate && key <= event.endDate));
+        const phase = getMoonPhase(new Date(`${key}T12:00:00Z`));
+        const today = key === localDateKey(now);
+        const selected = events.some((event) => event.id === selectedEventId);
+        const major = events.some((event) => event.importance >= 75);
+        html += `<button class="day-cell ${muted ? "muted" : ""} ${today ? "today" : ""} ${selected ? "selected" : ""} ${major ? "major" : ""}" data-date="${key}" type="button"><div class="day-num"><span>${dayNum}</span><span class="day-moon">${phase.illumination}%</span></div>${events.slice(0,3).map((event) => `<span class="event-pill ${event.importance >= 75 ? "major" : ""}" data-event="${event.id}">${escapeHTML(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-pill">+${events.length - 3} more</span>` : ""}</button>`;
+      }
+      html += `</div>`;
+      html += `<div class="agenda-list">${monthEvents.length ? monthEvents.map(createEventCard).join("") : `<div class="empty-state">No matching events in this month. Try clearing filters or changing months.</div>`}</div>`;
+      box.innerHTML = html;
+      bindEventCards(box);
+    }
+
+    function renderAgenda() {
+      const box = $("viewContainer");
+      $("monthTitle").textContent = `Agenda · ${selectedMonth.toLocaleDateString(undefined, { month:"long", year:"numeric" })}`;
+      const monthEvents = filteredEvents.filter((event) => isInMonth(event, selectedMonth.getFullYear(), selectedMonth.getMonth()));
+      let currentGroup = "";
+      let html = `<div class="agenda-list">`;
+      monthEvents.forEach((event) => {
+        const group = new Date(`${event.startDate}T12:00:00`).toLocaleDateString(undefined, { weekday:"long", month:"short", day:"numeric" });
+        if (group !== currentGroup) { html += `<div class="group-heading">${group}</div>`; currentGroup = group; }
+        html += createEventCard(event);
+      });
+      html += monthEvents.length ? `</div>` : `<div class="empty-state" style="margin-top:14px;">No matching agenda events in this month.</div>`;
+      box.innerHTML = html;
+      bindEventCards(box);
+    }
+
+    function renderTimeline() {
+      const box = $("viewContainer");
+      $("monthTitle").textContent = `Timeline · Upcoming Events`;
+      const upcoming = filteredEvents.filter((event) => new Date(event.startDate + "T23:59:00") >= startOfToday()).slice(0, 40);
+      box.innerHTML = `<div class="timeline">${upcoming.length ? upcoming.map((event) => `<div class="timeline-item">${createEventCard(event)}</div>`).join("") : `<div class="empty-state">No upcoming matching events.</div>`}</div>`;
+      bindEventCards(box);
+    }
+
+    function renderSkyWindows() {
+      const box = $("viewContainer");
+      $("monthTitle").textContent = `Sky Window · Best Nights`;
+      const windows = filteredEvents.filter((event) => ["deep-sky observing window", "new moon", "meteor shower", "planetary opposition", "milky way season"].includes(event.type)).slice(0, 50);
+      box.innerHTML = `<div class="sky-window-list">${windows.length ? windows.map((event) => {
+        const score = estimateEventScore(event, userState);
+        return `<article class="sky-window" data-open="${event.id}"><h3>${escapeHTML(event.title)}</h3><p>${formatDateRange(event)} • ${TYPE_LABELS[event.type] || event.type} • Score ${score}/100 ${scoreLabel(score)}</p><p>${escapeHTML(event.observingTips || event.description)}</p><div class="btn-row" style="margin-top:10px;"><button class="btn primary small" data-plan="${event.id}" type="button">Plan</button><button class="btn small" data-open="${event.id}" type="button">Details</button></div></article>`;
+      }).join("") : `<div class="empty-state">No sky windows match the current filters.</div>`}</div>`;
+      bindEventCards(box);
+    }
+
+    function createEventCard(event) {
+      const score = estimateEventScore(event, userState);
+      const phase = getMoonPhase(new Date(`${event.startDate}T12:00:00Z`));
+      const visibility = getEventVisibility(event, userState);
+      const isFav = userState.favorites.includes(event.id);
+      const isPlanned = userState.planned.includes(event.id);
+      const status = userState.observed.includes(event.id) ? "observed" : userState.missed.includes(event.id) ? "missed" : isPlanned ? "planned" : "";
+      return `<article class="event-card ${event.id === selectedEventId ? "active" : ""}" data-open="${event.id}">
+        <div class="content">
+          <div class="event-top">
+            <div><h3 class="event-title">${escapeHTML(event.title)}</h3><p class="event-meta">${formatDateRange(event)} ${event.timeUTC && !event.allDay ? `• ${event.timeUTC} UTC` : ""} • ${TYPE_LABELS[event.type] || event.type}</p></div>
+            <span class="badge ${score >= 75 ? "good" : score < 35 ? "danger" : ""}">${score}/100 ${scoreLabel(score)}</span>
+          </div>
+          <p class="event-desc">${escapeHTML(event.description)}</p>
+          <div class="card-data">
+            <div class="data-pill"><span>Visibility</span><strong>${visibility.label}</strong></div>
+            <div class="data-pill"><span>Difficulty</span><strong>${toTitle(event.difficulty)}</strong></div>
+            <div class="data-pill"><span>Equipment</span><strong>${event.equipment.join(", ")}</strong></div>
+            <div class="data-pill"><span>Moon</span><strong>${phase.name}, ${phase.illumination}%</strong></div>
+          </div>
+          <div class="pill-row" style="margin-top:12px;">
+            <span class="badge">${TYPE_LABELS[event.type] || event.type}</span>
+            ${event.isApproximate ? `<span class="badge warn">approx/static</span>` : `<span class="badge good">live data</span>`}
+            ${event.safetyNotes && event.safetyNotes.toLowerCase().includes("sun") ? `<span class="badge danger">solar safety</span>` : ""}
+            ${status ? `<span class="badge">${status}</span>` : ""}
+          </div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn primary small" data-plan="${event.id}" type="button">${isPlanned ? "Planned" : "Plan"}</button>
+            <button class="btn small" data-fav="${event.id}" type="button">${isFav ? "★ Saved" : "☆ Favorite"}</button>
+            <button class="btn small" data-copy="${event.id}" type="button">Copy</button>
+            <button class="btn small" data-modal="${event.id}" type="button">Open</button>
+          </div>
+        </div>
+      </article>`;
+    }
+
+    function bindEventCards(root) {
+      root.querySelectorAll("[data-open]").forEach((node) => node.addEventListener("click", (event) => { const id = event.target.dataset.open || node.dataset.open; if (id) selectEvent(id); }));
+      root.querySelectorAll("[data-plan]").forEach((node) => node.addEventListener("click", (event) => { event.stopPropagation(); togglePlanned(node.dataset.plan); }));
+      root.querySelectorAll("[data-fav]").forEach((node) => node.addEventListener("click", (event) => { event.stopPropagation(); toggleFavorite(node.dataset.fav); }));
+      root.querySelectorAll("[data-copy]").forEach((node) => node.addEventListener("click", (event) => { event.stopPropagation(); copyEventSummary(node.dataset.copy); }));
+      root.querySelectorAll("[data-modal]").forEach((node) => node.addEventListener("click", (event) => { event.stopPropagation(); openModal(node.dataset.modal); }));
+    }
+
+    function renderFeatured() {
+      const upcoming = allEvents.filter((event) => new Date(event.startDate + "T23:59:00") >= startOfToday()).sort((a, b) => (b.importance - a.importance) || (new Date(a.startDate) - new Date(b.startDate)));
+      const event = upcoming[0] || allEvents[0];
+      if (!event) return;
+      const score = estimateEventScore(event, userState);
+      $("featuredPanel").innerHTML = `<div class="section-title-wrap"><h2>Featured Event</h2><p>The highest-priority upcoming sky event in this app.</p></div><h3 class="featured-title" style="margin-top:14px;">${escapeHTML(event.title)}</h3><p class="event-meta">${formatDateRange(event)} • ${TYPE_LABELS[event.type] || event.type}</p><div class="countdown"><span>Countdown</span><strong id="countdownText">${countdownTo(event)}</strong></div><p class="event-desc">${escapeHTML(event.observingTips || event.description)}</p><div class="pill-row" style="margin-top:12px;"><span class="badge ${score >= 75 ? "good" : ""}">${score}/100 ${scoreLabel(score)}</span><span class="badge">${event.source}</span></div><div class="btn-row" style="margin-top:14px;"><button class="btn primary small" data-plan="${event.id}" type="button">Plan This</button><button class="btn small" data-modal="${event.id}" type="button">Details</button></div>`;
+      bindEventCards($("featuredPanel"));
+    }
+
+    function renderUpcoming() {
+      const upcoming = allEvents.filter((event) => new Date(event.startDate + "T23:59:00") >= startOfToday()).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+      const nextMajor = upcoming.find((event) => event.importance >= 75);
+      const nextNewMoon = upcoming.find((event) => event.type === "new moon");
+      const nextMeteor = upcoming.find((event) => event.type === "meteor shower");
+      const nextOpp = upcoming.find((event) => event.type === "planetary opposition");
+      const nextLaunch = upcoming.find((event) => event.type === "launch window");
+      const items = [
+        ["Next major event", nextMajor], ["Next new moon", nextNewMoon], ["Next meteor shower", nextMeteor], ["Next planet opposition", nextOpp], ["Next launch", nextLaunch]
+      ];
+      $("upcomingPanel").innerHTML = items.map(([label, event]) => event ? `<article class="upcoming-item" data-open="${event.id}"><h3>${label}</h3><p>${escapeHTML(event.title)} • ${formatDateRange(event)}</p></article>` : `<article class="upcoming-item"><h3>${label}</h3><p>No matching event found in generated range.</p></article>`).join("");
+      bindEventCards($("upcomingPanel"));
+    }
+
+    function renderEventDetail() {
+      const event = allEvents.find((item) => item.id === selectedEventId) || filteredEvents[0] || allEvents[0];
+      if (!event) { $("detailPanel").innerHTML = `<div class="empty-state">No event selected.</div>`; return; }
+      selectedEventId = event.id;
+      $("selectionText").textContent = `Selected: ${event.title}`;
+      $("detailPanel").innerHTML = detailHTML(event, false);
+      bindDetailButtons($("detailPanel"), event);
+    }
+
+    function detailHTML(event, inModal) {
+      const phase = getMoonPhase(new Date(`${event.startDate}T12:00:00Z`));
+      const score = estimateEventScore(event, userState);
+      const visibility = getEventVisibility(event, userState);
+      const note = userState.notes[event.id] || "";
+      const local = event.timeUTC && !event.allDay ? utcToLocal(event.startDate, event.timeUTC) : "all day / date based";
+      return `<div class="section-title-wrap"><h2>${escapeHTML(event.title)}</h2><p>${TYPE_LABELS[event.type] || event.type} • ${formatDateRange(event)}</p></div>
+        <div class="detail-grid">
+          <div class="data-pill"><span>Observing score</span><strong>${score}/100 · ${scoreLabel(score)}</strong></div>
+          <div class="data-pill"><span>Local time</span><strong>${local}</strong></div>
+          <div class="data-pill"><span>UTC</span><strong>${event.timeUTC || "not specified"}</strong></div>
+          <div class="data-pill"><span>Visibility region</span><strong>${visibility.label}</strong></div>
+          <div class="data-pill"><span>Best viewing time</span><strong>${bestViewingTime(event)}</strong></div>
+          <div class="data-pill"><span>Equipment</span><strong>${event.equipment.join(", ")}</strong></div>
+          <div class="data-pill"><span>Moon phase</span><strong>${phase.name}, ${phase.illumination}% lit, age ${phase.age}d, ${phase.waxing ? "waxing" : "waning"}</strong></div>
+          <div class="data-pill"><span>Source</span><strong>${event.source}${event.isApproximate ? " · approximate" : ""}</strong></div>
+        </div>
+        <div class="detail-section"><h3>What to expect</h3><p>${escapeHTML(event.description)}</p></div>
+        <div class="detail-section"><h3>Observing instructions</h3><p>${escapeHTML(event.observingTips || getDefaultTip(event.type))}</p></div>
+        <div class="detail-section"><h3>Astrophotography tips</h3><p>${escapeHTML(photoTip(event))}</p></div>
+        <div class="detail-section"><h3>Science explanation</h3><p>${escapeHTML(scienceExplanation(event.type))}</p></div>
+        <div class="detail-section"><h3>Safety</h3><p>${escapeHTML(event.safetyNotes || "Check weather, local safety, park rules, access hours, and do not trespass.")}</p></div>
+        <div class="detail-section"><h3>Related objects</h3><p>${escapeHTML((event.relatedObjects || []).join(", ") || "—")}</p></div>
+        <div class="detail-section"><h3>Notes</h3><textarea class="textarea" data-note="${event.id}" placeholder="Add observing notes for this event...">${escapeHTML(note)}</textarea></div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn primary small" data-plan-detail="${event.id}" type="button">${userState.planned.includes(event.id) ? "Remove Plan" : "Add to Planned"}</button>
+          <button class="btn small" data-fav-detail="${event.id}" type="button">${userState.favorites.includes(event.id) ? "Unfavorite" : "Favorite"}</button>
+          <button class="btn small" data-observed="${event.id}" type="button">Mark Observed</button>
+          <button class="btn small" data-missed="${event.id}" type="button">Mark Missed</button>
+          <button class="btn small" data-copy-detail="${event.id}" type="button">Copy Summary</button>
+          ${inModal ? "" : `<button class="btn small" data-modal="${event.id}" type="button">Open Full Panel</button>`}
+        </div>`;
+    }
+
+    function bindDetailButtons(root, event) {
+      const note = root.querySelector("[data-note]");
+      if (note) note.addEventListener("input", () => { userState.notes[event.id] = note.value; saveEventState(); renderSavedList(); });
+      root.querySelectorAll("[data-plan-detail]").forEach((btn) => btn.addEventListener("click", () => togglePlanned(event.id)));
+      root.querySelectorAll("[data-fav-detail]").forEach((btn) => btn.addEventListener("click", () => toggleFavorite(event.id)));
+      root.querySelectorAll("[data-observed]").forEach((btn) => btn.addEventListener("click", () => markEvent(event.id, "observed")));
+      root.querySelectorAll("[data-missed]").forEach((btn) => btn.addEventListener("click", () => markEvent(event.id, "missed")));
+      root.querySelectorAll("[data-copy-detail]").forEach((btn) => btn.addEventListener("click", () => copyEventSummary(event.id)));
+      root.querySelectorAll("[data-modal]").forEach((btn) => btn.addEventListener("click", () => openModal(event.id)));
+    }
+
+    function renderSavedList() {
+      const ids = [...new Set([...userState.planned, ...userState.favorites, ...userState.observed, ...userState.missed])];
+      if (!ids.length) { $("savedList").innerHTML = `<div class="empty-state">No saved events yet. Favorite an event or add one to your plan.</div>`; return; }
+      $("savedList").innerHTML = ids.map((id) => {
+        const event = allEvents.find((item) => item.id === id);
+        if (!event) return "";
+        const labels = [userState.planned.includes(id) ? "planned" : "", userState.favorites.includes(id) ? "favorite" : "", userState.observed.includes(id) ? "observed" : "", userState.missed.includes(id) ? "missed" : ""].filter(Boolean).join(" · ");
+        return `<article class="saved-item" data-open="${id}"><h3>${escapeHTML(event.title)}</h3><p>${formatDateRange(event)} • ${labels || "saved"}</p></article>`;
+      }).join("");
+      bindEventCards($("savedList"));
+    }
+
+    function renderStats() {
+      const today = startOfToday();
+      const seven = addDate(today, 7);
+      const thirty = addDate(today, 30);
+      const upcoming = allEvents.filter((event) => new Date(event.startDate + "T23:59:00") >= today);
+      $("stat7").textContent = `${upcoming.filter((event) => new Date(event.startDate) <= seven).length} events`;
+      $("stat30").textContent = `${upcoming.filter((event) => new Date(event.startDate) <= thirty).length} events`;
+      const nextNew = upcoming.sort((a, b) => new Date(a.startDate) - new Date(b.startDate)).find((event) => event.type === "new moon");
+      $("statNewMoon").textContent = nextNew ? formatShortDate(nextNew.startDate) : "—";
+    }
+
+    function renderGlossary() {
+      $("glossaryBox").innerHTML = Object.entries(GLOSSARY).map(([term, text]) => `<details><summary>${toTitle(term)}</summary><p>${escapeHTML(text)}</p></details>`).join("");
+    }
+
+    function selectEvent(id) { selectedEventId = id; renderMainView(); renderEventDetail(); saveEventState(); }
+    function openModal(id) { const event = allEvents.find((item) => item.id === id); if (!event) return; selectedEventId = id; $("modalContent").innerHTML = detailHTML(event, true); bindDetailButtons($("modalContent"), event); $("eventModal").classList.add("open"); $("eventModal").setAttribute("aria-hidden", "false"); renderEventDetail(); }
+    function closeModal() { $("eventModal").classList.remove("open"); $("eventModal").setAttribute("aria-hidden", "true"); }
+
+    function toggleFavorite(id) { toggleList(userState.favorites, id); setStatus(userState.favorites.includes(id) ? "Event saved as favorite." : "Event removed from favorites."); renderAll(); saveEventState(); }
+    function togglePlanned(id) { toggleList(userState.planned, id); if (userState.planned.includes(id)) { userState.missed = userState.missed.filter((item) => item !== id); } setStatus(userState.planned.includes(id) ? "Event added to planned list." : "Event removed from planned list."); renderAll(); saveEventState(); }
+    function markEvent(id, mode) { if (mode === "observed") { if (!userState.observed.includes(id)) userState.observed.push(id); userState.missed = userState.missed.filter((item) => item !== id); } else { if (!userState.missed.includes(id)) userState.missed.push(id); userState.observed = userState.observed.filter((item) => item !== id); } renderAll(); saveEventState(); setStatus(`Event marked ${mode}.`); }
+    function toggleList(list, id) { const index = list.indexOf(id); if (index >= 0) list.splice(index, 1); else list.push(id); }
+
+    function copyEventSummary(id) { const event = allEvents.find((item) => item.id === id); if (!event) return; copyText(formatEventSummary(event), "Event summary copied."); }
+    function copyAllPlannedEvents() { const text = formatPlannedText(); copyText(text, "Planned events copied."); }
+    function copyText(text, success) { navigator.clipboard?.writeText(text).then(() => setStatus(success)).catch(() => { setStatus("Copy failed. Browser clipboard permission may be blocked."); }); }
+
+    function formatEventSummary(event) {
+      const score = estimateEventScore(event, userState);
+      return `StellaSim Cosmic Event\n${event.title}\nType: ${TYPE_LABELS[event.type] || event.type}\nDate: ${formatDateRange(event)}\nUTC: ${event.timeUTC || "not specified"}\nLocation: ${userState.locationName} (${userState.lat}, ${userState.lon})\nScore: ${score}/100 ${scoreLabel(score)}\nVisibility: ${getEventVisibility(event, userState).label}\nEquipment: ${event.equipment.join(", ")}\nTip: ${event.observingTips}\nSafety: ${event.safetyNotes}\nData note: ${event.source}${event.isApproximate ? " · approximate/static" : " · live"}`;
+    }
+
+    function formatPlannedText() {
+      const planned = userState.planned.map((id) => allEvents.find((event) => event.id === id)).filter(Boolean).sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
+      const lines = ["StellaSim Cosmic Events Plan", `Location: ${userState.locationName}`, `Coordinates: ${userState.lat}, ${userState.lon}`, `Bortle: ${userState.bortle}`, `Cloud estimate: ${userState.cloudCover}%`, "Data note: Event times and visibility are simplified for planning. Check official sources for exact eclipse paths, launch schedules, and occultation predictions.", ""]; 
+      if (!planned.length) lines.push("No planned events yet.");
+      planned.forEach((event, index) => { lines.push(`${index + 1}. ${event.title}`); lines.push(`   Date: ${formatDateRange(event)} ${event.timeUTC ? `${event.timeUTC} UTC` : ""}`); lines.push(`   Type: ${TYPE_LABELS[event.type] || event.type}`); lines.push(`   Score: ${estimateEventScore(event, userState)}/100 ${scoreLabel(estimateEventScore(event, userState))}`); lines.push(`   Equipment: ${event.equipment.join(", ")}`); lines.push(`   Tip: ${event.observingTips}`); if (userState.notes[event.id]) lines.push(`   Notes: ${userState.notes[event.id]}`); lines.push(""); });
+      return lines.join("\n");
+    }
+
+    function exportPlannedJSON() {
+      const data = userState.planned.map((id) => allEvents.find((event) => event.id === id)).filter(Boolean).map((event) => ({ ...event, notes:userState.notes[event.id] || "", score:estimateEventScore(event, userState) }));
+      downloadFile("stellasim-cosmic-events-plan.json", JSON.stringify(data, null, 2), "application/json");
+    }
+
+    function exportICS() {
+      const planned = userState.planned.map((id) => allEvents.find((event) => event.id === id)).filter(Boolean);
+      const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StellaSim//Cosmic Events Calendar//EN"];
+      planned.forEach((event) => {
+        const start = eventDateToICS(event);
+        lines.push("BEGIN:VEVENT", `UID:${event.id}@stellasim`, `DTSTAMP:${icsStamp(new Date())}`, `DTSTART:${start}`, `SUMMARY:${icsEscape(event.title)}`, `DESCRIPTION:${icsEscape(formatEventSummary(event))}`, `LOCATION:${icsEscape(userState.locationName)}`, "END:VEVENT");
+      });
+      lines.push("END:VCALENDAR");
+      downloadFile("stellasim-cosmic-events.ics", lines.join("\r\n"), "text/calendar");
+    }
+
+    function buildPrintablePlan() {
+      const body = formatPlannedText().split("\n").map((line) => `<p>${escapeHTML(line) || "&nbsp;"}</p>`).join("");
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>StellaSim Cosmic Events Plan</title><style>body{font-family:Arial,sans-serif;background:#fff;color:#111;padding:28px;line-height:1.45}h1{color:#0b3d91}p{margin:4px 0}</style></head><body><h1>StellaSim Cosmic Events Plan</h1>${body}</body></html>`;
+      downloadFile("stellasim-cosmic-events-printable.html", html, "text/html");
+    }
+
+    function downloadFile(name, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 500); setStatus(`${name} downloaded.`); }
+
+    function resetFilters() { userState.filters = { search:"", visibility:"all", difficulty:"all", equipment:"all", sort:"soonest", favoritesOnly:false, plannedOnly:false, majorOnly:false, types:[...EVENT_TYPES] }; hydrateControls(); renderAll(); saveEventState(); setStatus("Filters reset."); }
+    function toggleFieldMode() { userState.fieldMode = !userState.fieldMode; document.body.classList.toggle("field-mode", userState.fieldMode); $("fieldModeBtn").textContent = userState.fieldMode ? "Exit Field Mode" : "Field Mode"; saveEventState(); }
+
+    function useMyLocation() {
+      if (!navigator.geolocation) { setStatus("Geolocation is not supported by this browser."); return; }
+      navigator.geolocation.getCurrentPosition((pos) => { userState.lat = Number(pos.coords.latitude.toFixed(4)); userState.lon = Number(pos.coords.longitude.toFixed(4)); userState.locationName = "My current location"; hydrateControls(); buildEvents(); renderAll(); saveEventState(); setStatus("Location updated from browser geolocation."); }, () => setStatus("Could not access location. Check browser permission."));
+    }
+
+    function setActiveView(view) { userState.selectedView = view; document.querySelectorAll("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view)); }
+    function setMobileMode(mode) { document.body.classList.remove("mobile-calendar", "mobile-agenda", "mobile-planned", "mobile-details"); document.body.classList.add(mode); document.querySelectorAll("[data-mobile]").forEach((btn) => btn.classList.toggle("active", btn.dataset.mobile === mode)); if (mode === "mobile-agenda") { setActiveView("agenda"); renderMainView(); } }
+    function changeMonth(offset) { selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + offset, 1); userState.selectedYear = selectedMonth.getFullYear(); userState.selectedMonth = selectedMonth.getMonth(); buildEvents(); renderAll(); saveEventState(); }
+    function updateMonthInput() { $("monthInput").value = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth()+1).padStart(2,"0")}`; }
+    function setStatus(text) { $("statusText").textContent = text; }
+
+    function isInMonth(event, y, m) { const d = new Date(event.startDate + "T12:00:00"); const e = event.endDate ? new Date(event.endDate + "T12:00:00") : d; const start = new Date(y, m, 1); const end = new Date(y, m + 1, 0, 23, 59); return d <= end && e >= start; }
+    function localDateKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
+    function dateKey(date) { return `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,"0")}-${String(date.getUTCDate()).padStart(2,"0")}`; }
+    function addDays(key, days) { const d = new Date(`${key}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return dateKey(d); }
+    function addDate(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+    function startOfToday() { return new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
+    function formatShortDate(key) { return new Date(`${key}T12:00:00`).toLocaleDateString(undefined, { month:"short", day:"numeric" }); }
+    function formatDateRange(event) { const start = new Date(`${event.startDate}T12:00:00`); const s = start.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" }); if (!event.endDate || event.endDate === event.startDate) return s; const end = new Date(`${event.endDate}T12:00:00`); return `${s} - ${end.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" })}`; }
+    function countdownTo(event) { const target = new Date(`${event.startDate}T${event.timeUTC || "12:00"}:00Z`); const diff = target - new Date(); if (diff <= 0) return "happening now or already passed"; const days = Math.floor(diff / 86400000); const hours = Math.floor((diff % 86400000) / 3600000); return `${days}d ${hours}h`; }
+    function utcToLocal(date, time) { const d = new Date(`${date}T${time}:00Z`); return d.toLocaleString(undefined, { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }); }
+    function bestViewingTime(event) { if (event.type === "meteor shower") return "after midnight to dawn, unless noted"; if (event.type.includes("moon") || event.type === "supermoon") return "evening when the Moon is high"; if (event.type === "planetary opposition") return "around local midnight when highest"; if (event.type === "deep-sky observing window") return "after astronomical twilight, away from moonlight"; if (event.type === "solar eclipse") return "only during local eclipse circumstances"; return "check local altitude and horizon"; }
+    function getDefaultTip(type) { if (type === "meteor shower") return "Use naked eyes, a reclining chair, a dark open sky, and no telescope."; if (type === "planetary opposition") return "Use a telescope, let optics cool, and wait for steady seeing."; if (type === "new moon") return "Use dark skies for galaxies, nebulae, Milky Way objects, and faint clusters."; if (type === "full moon") return "Good for lunar observing, bad for faint deep-sky objects."; if (type.includes("eclipse")) return "Check exact visibility and timing before observing."; if (type.includes("conjunction")) return "Good for naked-eye, binocular, or wide-field camera views depending on separation."; return "Check weather, moonlight, horizon, and exact local timing."; }
+    function photoTip(event) { if (event.type === "meteor shower") return "Use a wide lens, tripod, long exposures, high ISO, and avoid bright moonlight."; if (event.type === "planetary opposition") return "Use telescope video capture, short exposures, and stacking for sharper planetary detail."; if (event.type === "solar eclipse") return "Use a certified solar filter before and after totality. Practice settings before eclipse day."; if (event.type === "lunar eclipse") return "Bracket exposures because brightness changes during the eclipse."; if (event.type === "deep-sky observing window" || event.type === "new moon") return "Use tracking, calibration frames, and shoot during low moonlight."; if (event.type.includes("conjunction")) return "Use a wide lens and foreground composition if the objects are far apart."; return "Use a tripod, manual focus, and test exposures before the event peak."; }
+    function scienceExplanation(type) { const map = { "planetary conjunction":"A conjunction is an apparent close pairing in the sky caused by our changing line of sight from Earth.", "lunar conjunction":"The Moon moves quickly against the background sky, so it often passes near bright planets and stars.", "planetary opposition":"Opposition places an outer planet opposite the Sun, so it rises near sunset and is often bright and well placed.", "occultation":"An occultation happens when a nearer object blocks a farther object from view.", "meteor shower":"Meteor showers happen when Earth crosses dusty debris streams left by comets or asteroids.", "lunar eclipse":"A lunar eclipse happens when the Moon passes into Earth’s shadow.", "solar eclipse":"A solar eclipse happens when the Moon passes between Earth and the Sun and casts a shadow on Earth.", "new moon":"New moon helps deep-sky observing because the Moon adds little to no skyglow at night.", "full moon":"Full moon brightens the sky, washing out faint galaxies and nebulae but making lunar detail easy to explore.", "deep-sky observing window":"Low moonlight and darker skies improve contrast for faint objects like galaxies and nebulae." }; return map[type] || "This event is useful because it changes what is visible, bright, high, or worth planning for in the sky."; }
+    function toTitle(text) { return String(text).replace(/\b\w/g, (m) => m.toUpperCase()); }
+    function escapeHTML(text) { return String(text ?? "").replace(/[&<>'"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[c])); }
+    function debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
+    function icsStamp(date) { return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"; }
+    function eventDateToICS(event) { if (event.allDay) return event.startDate.replaceAll("-", ""); return `${event.startDate.replaceAll("-", "")}T${(event.timeUTC || "12:00").replace(":", "")}00Z`; }
+    function icsEscape(text) { return String(text || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
+
+    // stars
+    function initStarfield() {
+      const canvas = $("starfield");
+      const ctx = canvas.getContext("2d");
+      let width = 0, height = 0, stars = [], meteors = [], lastMeteor = 0;
+      function resize() { width = innerWidth; height = innerHeight; canvas.width = width * devicePixelRatio; canvas.height = height * devicePixelRatio; canvas.style.width = width + "px"; canvas.style.height = height + "px"; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); stars = Array.from({ length: Math.min(330, Math.floor(width * height / 6200)) }, () => ({ x:Math.random()*width, y:Math.random()*height, r:0.45+Math.random()*1.45, a:0.18+Math.random()*0.7, s:0.002+Math.random()*0.015, o:Math.random()*Math.PI*2, c:Math.random()<0.76 ? "255,255,255" : "44,126,255" })); }
+      function spawn(time) { if (time - lastMeteor < 2600 || Math.random() > 0.01) return; lastMeteor = time; meteors.push({ x:Math.random()*width*.8, y:Math.random()*height*.3, vx:10+Math.random()*5, vy:6+Math.random()*4, life:0, max:32+Math.random()*20 }); }
+      function draw(time) { ctx.clearRect(0,0,width,height); const g = ctx.createRadialGradient(width*.5,height*.3,0,width*.5,height*.3,width*.7); g.addColorStop(0,"rgba(11,61,145,0.07)"); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0,0,width,height); stars.forEach((star) => { const a = star.a * (0.55 + 0.45 * Math.sin(time*star.s + star.o)); ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, Math.PI*2); ctx.fillStyle = `rgba(${star.c},${a})`; ctx.shadowBlur = star.r * 6; ctx.shadowColor = `rgba(${star.c},${a*.45})`; ctx.fill(); }); ctx.shadowBlur = 0; spawn(time); for (let i=meteors.length-1;i>=0;i--) { const m=meteors[i]; const grad=ctx.createLinearGradient(m.x,m.y,m.x-m.vx*9,m.y-m.vy*9); grad.addColorStop(0,"rgba(255,255,255,.92)"); grad.addColorStop(.25,"rgba(44,126,255,.72)"); grad.addColorStop(1,"rgba(44,126,255,0)"); ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(m.x,m.y); ctx.lineTo(m.x-m.vx*9,m.y-m.vy*9); ctx.stroke(); m.x+=m.vx; m.y+=m.vy; m.life++; if (m.life>m.max) meteors.splice(i,1); } requestAnimationFrame(draw); }
+      addEventListener("resize", resize); resize(); requestAnimationFrame(draw);
+    }
+  </script>
+</body>
+</html>
